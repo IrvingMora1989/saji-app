@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
-import { loadTable, saveTable, subscribeTable } from "./supabase.js";
+import { useState, useCallback, useMemo } from "react";
 
 // ─── iOS zoom fix ─────────────────────────────────────────────────────────────
 if (typeof document !== "undefined") {
@@ -20,40 +19,6 @@ const fmt       = n => Number(n||0).toLocaleString("es-MX",{style:"currency",cur
 const fmtDate   = d => { if(!d) return ""; const [y,mo,dy]=d.split("-"); return `${dy}/${mo}/${y.slice(2)}`; };
 const daysDiff  = d => { if(!d) return 0; const diff=new Date()-new Date(d+"T12:00:00"); return Math.max(0,Math.floor(diff/86400000)); };
 
-// ─── useSupabase — reemplaza usePersist con sync en tiempo real ───────────────
-const useSupabase = (tabla, init) => {
-  const [val, setVal] = useState(init);
-  const [loaded, setLoaded] = useState(false);
-
-  // Cargar datos iniciales
-  useEffect(() => {
-    loadTable(tabla).then(data => {
-      if (data) setVal(data);
-      setLoaded(true);
-    });
-  }, [tabla]);
-
-  // Escuchar cambios en tiempo real (cuando tu socio modifica algo)
-  useEffect(() => {
-    const sub = subscribeTable(tabla, (newData) => {
-      setVal(newData);
-    });
-    return () => sub.unsubscribe();
-  }, [tabla]);
-
-  // Guardar en Supabase cada vez que cambia el valor
-  const set = useCallback(v => {
-    setVal(prev => {
-      const next = typeof v === "function" ? v(prev) : v;
-      saveTable(tabla, next);
-      return next;
-    });
-  }, [tabla]);
-
-  return [val, set, loaded];
-};
-
-// usePersist queda como fallback local (usado solo en ImportModal internamente)
 const usePersist = (key, init) => {
   const [val, setS] = useState(() => { try { const s=localStorage.getItem(key); return s?JSON.parse(s):init; } catch { return init; }});
   const set = useCallback(v => setS(prev => { const n=typeof v==="function"?v(prev):v; try{localStorage.setItem(key,JSON.stringify(n));}catch{} return n; }),[key]);
@@ -179,10 +144,7 @@ function applyFilter(rows, filter, dateKey="fecha") {
   if(filter.tipo==="fecha") return filter.valor ? rows.filter(r=>r[dateKey]===filter.valor) : rows;
   if(filter.tipo==="semana") {
     const w = filter.valor ? parseInt(filter.valor) : weekOf(t);
-    return rows.filter(r=>{
-      const sem = r.semana ? parseInt(r.semana) : (r[dateKey] ? weekOf(r[dateKey]) : null);
-      return sem===w;
-    });
+    return rows.filter(r=>r[dateKey]&&weekOf(r[dateKey])===w);
   }
   if(filter.tipo==="mes") {
     const mo = filter.valor ? parseInt(filter.valor) : (new Date().getMonth()+1);
@@ -209,27 +171,29 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
   const totalFruta  = frF.reduce((s,f)=>s+f.total,0);
   const utilidad    = totalVentas - totalGastos - totalFruta;
 
-  // "Por cobrar" = ventas del período MENOS pagos de esos pedidos (de cualquier fecha)
-  const pedidosEnPeriodo = new Set(vF.map(v=>v.pedidoId));
-  const totalAbonado = pagos
-    .filter(p=>pedidosEnPeriodo.has(p.pedidoId))
-    .reduce((s,p)=>s+p.monto, 0);
+  // "Por cobrar" = suma de ventas del período MENOS abonos registrados para esos pedidos
+  // Esto refleja correctamente los pagos parciales
+  const pedidosEnPeriodo = [...new Set(vF.map(v=>v.pedidoId))];
+  const totalAbonado = pagos // todos los abonos (sin filtro de período para no perder abonos de otra fecha)
+    .filter(p=>pedidosEnPeriodo.includes(p.pedidoId))
+    .reduce((s,p)=>s+p.monto,0);
   const porCobrar = Math.max(0, totalVentas - totalAbonado);
 
   // Caja efectivo — entradas = abonos en efectivo del período
-  const entradasEfectivo = pagF.filter(p=>p.tipoPago==="efectivo"||p.tipoPago==="Efectivo").reduce((s,p)=>s+p.monto,0);
+  const entradasEfectivo = pagF.filter(p=>p.tipoPago==="efectivo").reduce((s,p)=>s+p.monto,0);
   const salidasEfectivo  = gF.filter(g=>g.metodoPago==="Efectivo" && g.estatusPago==="pagado").reduce((s,g)=>s+g.monto,0) +
                            frF.filter(f=>f.metodoPago==="Efectivo" && f.estatusPago==="pagado").reduce((s,f)=>s+f.total,0);
   const saldoCaja = entradasEfectivo - salidasEfectivo;
 
-  // Saldo por cliente — SIEMPRE acumulado total, nunca filtrado por período
+  // Saldo por cliente — siempre acumulado total, usando abonos reales
   const clientesUnicos = [...new Set(ventas.map(v=>v.cliente))];
   const saldoCliente = cli => {
-    const totalVendido   = ventas.filter(v=>v.cliente===cli).reduce((s,v)=>s+v.total, 0);
-    // Usar un Set de pedidoIds del cliente para búsqueda eficiente
-    const pedidosCli     = new Set(ventas.filter(v=>v.cliente===cli).map(v=>v.pedidoId));
-    const totalCobrado   = pagos.filter(p=>pedidosCli.has(p.pedidoId)).reduce((s,p)=>s+p.monto, 0);
-    return { totalVendido, totalCobrado, pendiente: Math.max(0, totalVendido - totalCobrado) };
+    const totalVendido = ventas.filter(v=>v.cliente===cli).reduce((s,v)=>s+v.total,0);
+    const totalAbonCli = pagos.filter(p=>{
+      const vent = ventas.find(v=>v.pedidoId===p.pedidoId);
+      return vent?.cliente===cli;
+    }).reduce((s,p)=>s+p.monto,0);
+    return { totalVendido, totalCobrado:totalAbonCli, pendiente: Math.max(0, totalVendido - totalAbonCli) };
   };
 
   // Label for current filter
@@ -242,15 +206,13 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     return "";
   };
 
-  const totalKgVendidos = vF.reduce((s,v)=>s+(parseFloat(v.cantidad)||0), 0);
-
   const cards = [
     { label:"Ventas totales",    v:fmt(totalVentas),  icon:"📈", c:C.green },
     { label:"Por cobrar",        v:fmt(porCobrar),    icon:"⏳", c:C.amber },
     { label:"Gastos operativos", v:fmt(totalGastos),  icon:"💸", c:C.red   },
     { label:"Compra de fruta",   v:fmt(totalFruta),   icon:"🥑", c:C.teal  },
     { label:"Utilidad bruta",    v:fmt(utilidad),     icon:"💡", c:utilidad>=0?C.green:C.red },
-    { label:"KG vendidos",       v:totalKgVendidos.toLocaleString("es-MX")+" kg", icon:"⚖️", c:C.blue },
+    { label:"Pedidos pendientes",v:pedF.length,       icon:"📦", c:C.blue  },
   ];
 
   return (
@@ -328,50 +290,48 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         <div style={{color:C.muted,fontSize:10,marginTop:7}}>* Entradas: ventas cobradas en efectivo · Salidas: gastos + fruta en efectivo</div>
       </div>
 
-      {/* Saldo por cliente — solo los que deben */}
+      {/* Saldo por cliente — siempre acumulado total */}
       <div style={card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div style={{fontWeight:800,fontSize:13}}>🔴 ¿Quién me debe?</div>
-          <span style={{fontSize:10,color:C.muted}}>Acumulado total · solo pendientes</span>
+          <div style={{fontWeight:800,fontSize:13}}>👤 Saldo por Cliente — ¿Cuánto me deben?</div>
+          <span style={{fontSize:10,color:C.muted}}>Acumulado total</span>
         </div>
         {clientesUnicos.length===0
           ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:16}}>Sin ventas registradas aún</p>
-          : (()=>{
-              const conDeuda = clientesUnicos
-                .map(cli=>({ cli, ...saldoCliente(cli) }))
-                .filter(x=>x.pendiente>0)
-                .sort((a,b)=>b.pendiente-a.pendiente);
-              const totalPend = conDeuda.reduce((s,x)=>s+x.pendiente,0);
-              return conDeuda.length===0
-                ? <p style={{color:C.green,fontSize:13,textAlign:"center",padding:16,fontWeight:700}}>🎉 Todos los clientes están al corriente</p>
-                : (
-                  <div>
-                    {conDeuda.map(({cli,totalVendido,totalCobrado,pendiente})=>(
-                      <div key={cli} style={{background:"#fff8f8",borderRadius:9,padding:"10px 13px",marginBottom:6,border:`1px solid ${C.red}22`}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                          <span style={{fontWeight:700,fontSize:13}}>{cli}</span>
-                          <span style={{color:C.red,fontWeight:800,fontSize:16}}>{fmt(pendiente)}</span>
-                        </div>
-                        <div style={{display:"flex",gap:16,fontSize:11,color:C.muted}}>
-                          <span>Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong></span>
-                          <span>Cobrado: <strong style={{color:C.green}}>{fmt(totalCobrado)}</strong></span>
-                        </div>
-                        {/* Barra de progreso */}
-                        <div style={{marginTop:7,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
-                          <div style={{width:`${totalVendido>0?Math.min(100,Math.round(totalCobrado/totalVendido*100)):0}%`,height:"100%",background:C.green,borderRadius:3}}/>
-                        </div>
-                        <div style={{fontSize:10,color:C.muted,marginTop:3,textAlign:"right"}}>
-                          {totalVendido>0?Math.round(totalCobrado/totalVendido*100):0}% cobrado
-                        </div>
-                      </div>
+          : (
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr>
+                    {["Cliente","Vendido","Cobrado","Pendiente","Estado"].map(h=>(
+                      <th key={h} style={th}>{h}</th>
                     ))}
-                    <div style={{...totRow,background:C.redL,border:`1px solid ${C.red}33`,marginTop:4}}>
-                      <span style={{fontWeight:800,fontSize:13,color:C.red}}>TOTAL POR COBRAR</span>
-                      <span style={{fontWeight:800,fontSize:18,color:C.red}}>{fmt(totalPend)}</span>
-                    </div>
-                  </div>
-                );
-            })()
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientesUnicos.map(cli=>{
+                    const s = saldoCliente(cli);
+                    return (
+                      <tr key={cli}>
+                        <td style={{...td,fontWeight:700}}>{cli}</td>
+                        <td style={td}>{fmt(s.totalVendido)}</td>
+                        <td style={td}><span style={{color:C.green,fontWeight:600}}>{fmt(s.totalCobrado)}</span></td>
+                        <td style={td}><strong style={{color:s.pendiente>0?C.red:C.green,fontSize:14}}>{fmt(s.pendiente)}</strong></td>
+                        <td style={td}><span style={badge(s.pendiente>0?C.red:C.green)}>{s.pendiente>0?"🔴 Pendiente":"✅ Al corriente"}</span></td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{background:C.greenL,fontWeight:800}}>
+                    <td style={{...td,fontWeight:800}}>TOTAL</td>
+                    <td style={td}>{fmt(clientesUnicos.reduce((s,c)=>s+saldoCliente(c).totalVendido,0))}</td>
+                    <td style={{...td,color:C.green,fontWeight:800}}>{fmt(clientesUnicos.reduce((s,c)=>s+saldoCliente(c).totalCobrado,0))}</td>
+                    <td style={{...td,color:C.red,fontWeight:800,fontSize:15}}>{fmt(clientesUnicos.reduce((s,c)=>s+saldoCliente(c).pendiente,0))}</td>
+                    <td style={td}></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )
         }
       </div>
     </div>
@@ -610,18 +570,13 @@ function Ventas({ ventas, setVentas }) {
 
   const lista = applyFilter(ventas, filt);
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
-  const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
         <div>
           <h2 style={{...h2s,margin:0}}>💰 Ventas</h2>
-          <div style={{color:C.muted,fontSize:12,marginTop:2}}>
-            {lista.length} registros · 
-            <strong style={{color:C.green}}> {fmt(totalLista)}</strong> · 
-            <strong style={{color:C.blue}}> {totalKg.toLocaleString("es-MX")} kg</strong>
-          </div>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>{lista.length} registros · Total: <strong style={{color:C.green}}>{fmt(totalLista)}</strong></div>
         </div>
         <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
       </div>
@@ -1485,17 +1440,15 @@ const INIT_PROD = [
 function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setPagos }) {
   const [status, setStatus] = useState("");
   const [error,  setError]  = useState("");
-  const [modo,   setModo]   = useState("reemplazar");
 
-  // Load JSON — recibe modo como argumento para evitar problemas de closure
-  const loadJSON = (data, modoActual) => {
+  // Load JSON base (base_saji.json exported from Excel)
+  const loadJSON = (data) => {
     const d = typeof data === "string" ? JSON.parse(data) : data;
-    const rep = modoActual === "reemplazar";
     let count = 0;
-    if(d.ventas?.length)  { setVentas(rep ? d.ventas  : v=>[...d.ventas,...v]);   count += d.ventas.length; }
-    if(d.pagos?.length)   { setPagos(rep  ? d.pagos   : p=>[...d.pagos,...p]);    count += d.pagos.length; }
-    if(d.gastos?.length)  { setGastos(rep ? d.gastos  : g=>[...d.gastos,...g]);   count += d.gastos.length; }
-    if(d.fruta?.length)   { setFruta(rep  ? d.fruta   : f=>[...d.fruta,...f]);    count += d.fruta.length; }
+    if(d.ventas?.length)  { setVentas(v=>[...d.ventas,...v]);   count+=d.ventas.length; }
+    if(d.pagos?.length)   { setPagos(p=>[...d.pagos,...p]);     count+=d.pagos.length; }
+    if(d.gastos?.length)  { setGastos(g=>[...d.gastos,...g]);   count+=d.gastos.length; }
+    if(d.fruta?.length)   { setFruta(f=>[...d.fruta,...f]);     count+=d.fruta.length; }
     return count;
   };
 
@@ -1582,22 +1535,21 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
       // JSON base file
       if(file.name?.endsWith(".json")) {
         const text = await file.text();
-        const count = loadJSON(text, modo);
-        setStatus(`✅ Base cargada: ${count} registros importados · modo: ${modo}`);
+        const count = loadJSON(text);
+        setStatus(`✅ Base cargada: ${count} registros importados correctamente`);
         return;
       }
       // Excel file
       const SheetJS = await import("https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs");
       const wb = SheetJS.read(await file.arrayBuffer(), {cellDates:true});
       let count = 0;
-      const rep = modo==="reemplazar";
       wb.SheetNames.forEach(name => {
         const rows = SheetJS.utils.sheet_to_json(wb.Sheets[name], {defval:""});
         const s = name.toLowerCase();
-        if(s.includes("venta"))  { const m=mapVentas(rows);  setVentas(v=>rep?m:[...m,...v]);  count+=m.length; }
-        if(s.includes("pago"))   { const m=mapPagos(rows);   setPagos(p=>rep?m:[...m,...p]);   count+=m.length; }
-        if(s.includes("gasto"))  { const m=mapGastos(rows);  setGastos(g=>rep?m:[...m,...g]);  count+=m.length; }
-        if(s.includes("fruta")||s.includes("compra")) { const m=mapFruta(rows); setFruta(f=>rep?m:[...m,...f]); count+=m.length; }
+        if(s.includes("venta"))  { const m=mapVentas(rows);  setVentas(v=>[...m,...v]);  count+=m.length; }
+        if(s.includes("pago"))   { const m=mapPagos(rows);   setPagos(p=>[...m,...p]);   count+=m.length; }
+        if(s.includes("gasto"))  { const m=mapGastos(rows);  setGastos(g=>[...m,...g]);  count+=m.length; }
+        if(s.includes("fruta")||s.includes("compra")) { const m=mapFruta(rows); setFruta(f=>[...m,...f]); count+=m.length; }
       });
       count > 0
         ? setStatus(`✅ ${count} registros importados de: ${wb.SheetNames.join(", ")}`)
@@ -1615,39 +1567,11 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
           <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={onClose}>×</button>
         </div>
 
-        {/* Modo: reemplazar o agregar */}
-        <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:12}}>
-          <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>⚙️ Modo de importación</div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setModo("reemplazar")} style={{
-              flex:1, padding:"9px 0", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:700,
-              background: modo==="reemplazar" ? C.green : "transparent",
-              color:      modo==="reemplazar" ? "#fff" : C.muted,
-              border:     modo==="reemplazar" ? "none" : `1.5px solid ${C.border}`,
-            }}>
-              🔄 Reemplazar todo
-            </button>
-            <button onClick={()=>setModo("agregar")} style={{
-              flex:1, padding:"9px 0", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:700,
-              background: modo==="agregar" ? C.blue : "transparent",
-              color:      modo==="agregar" ? "#fff" : C.muted,
-              border:     modo==="agregar" ? "none" : `1.5px solid ${C.border}`,
-            }}>
-              ➕ Agregar a existentes
-            </button>
-          </div>
-          <div style={{fontSize:11,color:C.muted,marginTop:7}}>
-            {modo==="reemplazar"
-              ? "⚠️ Borra todos los datos actuales y carga los del archivo. Usa esto si la base está duplicada."
-              : "ℹ️ Agrega los datos del archivo sin borrar lo que ya tienes capturado."}
-          </div>
-        </div>
-
         {/* Option A — JSON base */}
         <div style={{background:C.greenL,border:`1px solid ${C.greenM}`,borderRadius:10,padding:14,marginBottom:12}}>
           <div style={{fontWeight:700,fontSize:13,color:C.green,marginBottom:6}}>⭐ Opción 1 — Cargar base SAJI (recomendado)</div>
           <div style={{fontSize:12,color:C.muted,marginBottom:10,lineHeight:1.6}}>
-            Carga el archivo <strong style={{color:C.text}}>base_saji.json</strong> generado de tu Excel.<br/>
+            Descarga el archivo <strong style={{color:C.text}}>base_saji.json</strong> que se generó con tu Excel.<br/>
             Contiene 162 ventas · 125 pagos · 195 gastos · 24 compras de fruta.
           </div>
           <div style={{position:"relative",display:"inline-block"}}>
@@ -1688,88 +1612,17 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
   );
 }
 
-// ─── Usuarios autorizados ─────────────────────────────────────────────────────
-const USUARIOS = [
-  { user:"Irving", pass:"1111$" },
-  { user:"Jasso",  pass:"1956$" },
-];
-
-// ─── Login Screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }) {
-  const [user, setUser]   = useState("");
-  const [pass, setPass]   = useState("");
-  const [error, setError] = useState("");
-  const [show, setShow]   = useState(false);
-
-  const login = () => {
-    const found = USUARIOS.find(u => u.user.toLowerCase()===user.trim().toLowerCase() && u.pass===pass);
-    if(found) { onLogin(found.user); }
-    else { setError("Usuario o contraseña incorrectos"); }
-  };
-
-  return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:C.shadowMd}}>
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <SAJILogo s={64}/>
-          <div style={{fontWeight:800,fontSize:20,color:C.green,marginTop:12}}>SAJI Group</div>
-          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Sistema de Gestión Comercial</div>
-        </div>
-        <div style={{marginBottom:14}}>
-          <label style={lbl}>Usuario</label>
-          <input style={inp} placeholder="Tu nombre de usuario" value={user}
-            onChange={e=>{setUser(e.target.value);setError("");}}
-            onKeyDown={e=>e.key==="Enter"&&login()}/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={lbl}>Contraseña</label>
-          <div style={{position:"relative"}}>
-            <input style={{...inp,paddingRight:40}} type={show?"text":"password"}
-              placeholder="Tu contraseña" value={pass}
-              onChange={e=>{setPass(e.target.value);setError("");}}
-              onKeyDown={e=>e.key==="Enter"&&login()}/>
-            <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:16}}>
-              {show?"🙈":"👁️"}
-            </button>
-          </div>
-        </div>
-        {error&&<div style={{background:C.redL,border:`1px solid ${C.red}33`,borderRadius:8,padding:"8px 12px",color:C.red,fontSize:12,marginBottom:14,textAlign:"center"}}>{error}</div>}
-        <button style={{...btn(),width:"100%",padding:"11px 0",fontSize:15}} onClick={login}>
-          Entrar →
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  const [tab,        setTab]        = useState("dashboard");
-  const [showImport, setShowImport] = useState(false);
-  const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
-
-  const [pedidos,    setPedidos,    loadedPed]  = useSupabase("pedidos",    []);
-  const [ventas,     setVentas,     loadedVen]  = useSupabase("ventas",     []);
-  const [gastos,     setGastos,     loadedGas]  = useSupabase("gastos",     []);
-  const [pagos,      setPagos,      loadedPag]  = useSupabase("pagos",      []);
-  const [fruta,      setFruta,      loadedFru]  = useSupabase("fruta",      []);
-  const [clientes,   setClientes,   loadedCli]  = useSupabase("catalogos_clientes",   INIT_CLI);
-  const [productos,  setProductos,  loadedPro]  = useSupabase("catalogos_productos",  INIT_PROD);
-  const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
-
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv;
-
-  const handleLogin = (nombre) => {
-    sessionStorage.setItem("saji_user", nombre);
-    setUsuario(nombre);
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("saji_user");
-    setUsuario("");
-  };
-
-  // Mostrar login si no hay sesión
-  if(!usuario) return <LoginScreen onLogin={handleLogin}/>;
+  const [tab,       setTab]       = useState("dashboard");
+  const [showImport,setShowImport]= useState(false);
+  const [pedidos,   setPedidos]   = usePersist("saji_pedidos",   []);
+  const [ventas,    setVentas]    = usePersist("saji_ventas",    []);
+  const [gastos,    setGastos]    = usePersist("saji_gastos",    []);
+  const [pagos,     setPagos]     = usePersist("saji_pagos",     []);
+  const [fruta,     setFruta]     = usePersist("saji_fruta",     []);
+  const [clientes,  setClientes]  = usePersist("saji_clientes",  INIT_CLI);
+  const [productos, setProductos] = usePersist("saji_productos", INIT_PROD);
+  const [proveedores, setProveedores] = usePersist("saji_proveedores", ["Frasavo","Mosco"]);
 
   const TABS = [
     { id:"dashboard", label:"🏠 Inicio"    },
@@ -1780,19 +1633,6 @@ export default function App() {
     { id:"fruta",     label:"🥑 Fruta"     },
     { id:"catalogos", label:"🗂️ Catálogos" },
   ];
-
-  // Pantalla de carga mientras conecta con Supabase
-  if(!todoCargado) return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
-      <SAJILogo s={64}/>
-      <div style={{fontWeight:800,fontSize:18,color:C.green}}>SAJI Group</div>
-      <div style={{color:C.muted,fontSize:13}}>Conectando con la base de datos…</div>
-      <div style={{width:180,height:4,background:C.border,borderRadius:2,overflow:"hidden",marginTop:8}}>
-        <div style={{height:"100%",background:C.green,borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
-      </div>
-      <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}`}</style>
-    </div>
-  );
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
@@ -1818,12 +1658,6 @@ export default function App() {
           <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>
             📥 Excel
           </button>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
-            <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
-            <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
-              Salir
-            </button>
-          </div>
         </nav>
       </header>
 
