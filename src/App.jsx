@@ -213,7 +213,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     { label:"Gastos operativos", v:fmt(totalGastos),  icon:"💸", c:C.red   },
     { label:"Compra de fruta",   v:fmt(totalFruta),   icon:"🥑", c:C.teal  },
     { label:"Utilidad bruta",    v:fmt(utilidad),     icon:"💡", c:utilidad>=0?C.green:C.red },
-    { label:"Pedidos pendientes",v:totalKgVendidos.toLocaleString("es-MX")+" kg",       icon:"📦", c:C.blue  },
+    { label:"KG vendidos",v:totalKgVendidos.toLocaleString("es-MX")+" kg",       icon:"📦", c:C.blue  },
   ];
 
   return (
