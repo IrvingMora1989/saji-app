@@ -165,7 +165,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
   const frF  = applyFilter(fruta,  dashFilt);
   const pagF = applyFilter(pagos,  dashFilt);
   const pedF = applyFilter(pedidos.filter(p=>p.estatus==="pendiente"), dashFilt);
-  const totalKgVendidos = vF.reduce((s,v)=>s+(parseFloat(v.cantidad)||0), 0);;
 
   const totalVentas = vF.reduce((s,v)=>s+v.total,0);
   const totalGastos = gF.reduce((s,g)=>s+g.monto,0);
@@ -213,7 +212,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     { label:"Gastos operativos", v:fmt(totalGastos),  icon:"💸", c:C.red   },
     { label:"Compra de fruta",   v:fmt(totalFruta),   icon:"🥑", c:C.teal  },
     { label:"Utilidad bruta",    v:fmt(utilidad),     icon:"💡", c:utilidad>=0?C.green:C.red },
-    { label:"Pedidos pendientes",v:totalKgVendidos.toLocaleString("es-MX")+" kg",       icon:"📦", c:C.blue  },
+    { label:"Pedidos pendientes",v:pedF.length,       icon:"📦", c:C.blue  },
   ];
 
   return (
