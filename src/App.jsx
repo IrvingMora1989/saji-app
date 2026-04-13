@@ -1678,9 +1678,64 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
   );
 }
 
+// ─── Usuarios autorizados ─────────────────────────────────────────────────────
+const USUARIOS = [
+  { user:"Irving", pass:"1111$" },
+  { user:"Jasso",  pass:"1956$" },
+];
+
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [user, setUser]   = useState("");
+  const [pass, setPass]   = useState("");
+  const [error, setError] = useState("");
+  const [show, setShow]   = useState(false);
+
+  const login = () => {
+    const found = USUARIOS.find(u => u.user.toLowerCase()===user.trim().toLowerCase() && u.pass===pass);
+    if(found) { onLogin(found.user); }
+    else { setError("Usuario o contraseña incorrectos"); }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:C.shadowMd}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <SAJILogo s={64}/>
+          <div style={{fontWeight:800,fontSize:20,color:C.green,marginTop:12}}>SAJI Group</div>
+          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Sistema de Gestión Comercial</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={lbl}>Usuario</label>
+          <input style={inp} placeholder="Tu nombre de usuario" value={user}
+            onChange={e=>{setUser(e.target.value);setError("");}}
+            onKeyDown={e=>e.key==="Enter"&&login()}/>
+        </div>
+        <div style={{marginBottom:20}}>
+          <label style={lbl}>Contraseña</label>
+          <div style={{position:"relative"}}>
+            <input style={{...inp,paddingRight:40}} type={show?"text":"password"}
+              placeholder="Tu contraseña" value={pass}
+              onChange={e=>{setPass(e.target.value);setError("");}}
+              onKeyDown={e=>e.key==="Enter"&&login()}/>
+            <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:16}}>
+              {show?"🙈":"👁️"}
+            </button>
+          </div>
+        </div>
+        {error&&<div style={{background:C.redL,border:`1px solid ${C.red}33`,borderRadius:8,padding:"8px 12px",color:C.red,fontSize:12,marginBottom:14,textAlign:"center"}}>{error}</div>}
+        <button style={{...btn(),width:"100%",padding:"11px 0",fontSize:15}} onClick={login}>
+          Entrar →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [tab,        setTab]        = useState("dashboard");
   const [showImport, setShowImport] = useState(false);
+  const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
 
   const [pedidos,    setPedidos,    loadedPed]  = useSupabase("pedidos",    []);
   const [ventas,     setVentas,     loadedVen]  = useSupabase("ventas",     []);
@@ -1692,6 +1747,19 @@ export default function App() {
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
 
   const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv;
+
+  const handleLogin = (nombre) => {
+    sessionStorage.setItem("saji_user", nombre);
+    setUsuario(nombre);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("saji_user");
+    setUsuario("");
+  };
+
+  // Mostrar login si no hay sesión
+  if(!usuario) return <LoginScreen onLogin={handleLogin}/>;
 
   const TABS = [
     { id:"dashboard", label:"🏠 Inicio"    },
@@ -1740,6 +1808,12 @@ export default function App() {
           <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>
             📥 Excel
           </button>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
+            <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
+            <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
+              Salir
+            </button>
+          </div>
         </nav>
       </header>
 
