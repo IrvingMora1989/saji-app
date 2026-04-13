@@ -1,0 +1,53 @@
+# SAJI App — Guía para subir en línea
+# Sigue estos pasos EN ORDEN en VS Code / Terminal
+
+## PASO 1 — Crear tablas en Supabase
+1. Ve a supabase.com → tu proyecto saji-app
+2. En el menú izquierdo: SQL Editor → New query
+3. Copia TODO el contenido del archivo "supabase_tablas.sql"
+4. Pégalo en el editor y haz clic en "Run"
+5. Debe decir "Success. No rows returned"
+
+## PASO 2 — Abrir la carpeta en VS Code
+1. Abre VS Code
+2. Archivo → Abrir carpeta → selecciona la carpeta "saji-online"
+
+## PASO 3 — Instalar dependencias
+En la Terminal de VS Code (Ctrl+` o Cmd+`):
+    npm install
+
+## PASO 4 — Probar en local
+    npm run dev
+Abre http://localhost:5173 en el navegador
+Si carga la pantalla de SAJI Group, está funcionando ✅
+
+## PASO 5 — Subir a GitHub
+En la Terminal:
+    git init
+    git add .
+    git commit -m "SAJI App v1"
+
+Luego:
+1. Ve a github.com → New repository
+2. Nombre: saji-app
+3. Público o Privado (cualquiera)
+4. Create repository
+5. Copia los comandos que te da GitHub (git remote add origin...) y pégalos en la terminal
+
+## PASO 6 — Publicar en Vercel
+1. Ve a vercel.com → Log in with GitHub
+2. New Project → importa el repo "saji-app"
+3. Haz clic en Deploy
+4. En ~2 minutos tendrás un link como: https://saji-app.vercel.app
+
+## PASO 7 — Cargar la base de datos
+1. Abre tu link de Vercel
+2. Haz clic en 📥 Excel
+3. Selecciona "Reemplazar todo"
+4. Carga el archivo base_saji.json
+5. Los datos quedan guardados en Supabase para siempre
+
+## LISTO 🎉
+Comparte el link de Vercel con tu socio.
+Ambos verán los mismos datos en tiempo real.
+Cuando uno registre un pedido, el otro lo verá al instante.
