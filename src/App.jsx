@@ -179,7 +179,10 @@ function applyFilter(rows, filter, dateKey="fecha") {
   if(filter.tipo==="fecha") return filter.valor ? rows.filter(r=>r[dateKey]===filter.valor) : rows;
   if(filter.tipo==="semana") {
     const w = filter.valor ? parseInt(filter.valor) : weekOf(t);
-    return rows.filter(r=>r[dateKey]&&weekOf(r[dateKey])===w);
+    return rows.filter(r=>{
+      const sem = r.semana ? parseInt(r.semana) : (r[dateKey] ? weekOf(r[dateKey]) : null);
+      return sem===w;
+    });
   }
   if(filter.tipo==="mes") {
     const mo = filter.valor ? parseInt(filter.valor) : (new Date().getMonth()+1);
@@ -239,13 +242,15 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     return "";
   };
 
+  const totalKgVendidos = vF.reduce((s,v)=>s+(parseFloat(v.cantidad)||0), 0);
+
   const cards = [
     { label:"Ventas totales",    v:fmt(totalVentas),  icon:"📈", c:C.green },
     { label:"Por cobrar",        v:fmt(porCobrar),    icon:"⏳", c:C.amber },
     { label:"Gastos operativos", v:fmt(totalGastos),  icon:"💸", c:C.red   },
     { label:"Compra de fruta",   v:fmt(totalFruta),   icon:"🥑", c:C.teal  },
     { label:"Utilidad bruta",    v:fmt(utilidad),     icon:"💡", c:utilidad>=0?C.green:C.red },
-    { label:"Pedidos pendientes",v:pedF.length,       icon:"📦", c:C.blue  },
+    { label:"KG vendidos",       v:totalKgVendidos.toLocaleString("es-MX")+" kg", icon:"⚖️", c:C.blue },
   ];
 
   return (
@@ -605,13 +610,18 @@ function Ventas({ ventas, setVentas }) {
 
   const lista = applyFilter(ventas, filt);
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
+  const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
         <div>
           <h2 style={{...h2s,margin:0}}>💰 Ventas</h2>
-          <div style={{color:C.muted,fontSize:12,marginTop:2}}>{lista.length} registros · Total: <strong style={{color:C.green}}>{fmt(totalLista)}</strong></div>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>
+            {lista.length} registros · 
+            <strong style={{color:C.green}}> {fmt(totalLista)}</strong> · 
+            <strong style={{color:C.blue}}> {totalKg.toLocaleString("es-MX")} kg</strong>
+          </div>
         </div>
         <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
       </div>
