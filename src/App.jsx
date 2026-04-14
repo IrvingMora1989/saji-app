@@ -100,23 +100,9 @@ const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
-  <svg width={s} height={s} viewBox="0 0 200 200" fill="none">
-    <circle cx="100" cy="100" r="96" stroke="#1a2b1e" strokeWidth="3.5" fill="#f7f9f7"/>
-    <path d="M32 68 A75 75 0 0 1 168 68" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <path d="M32 132 A75 75 0 0 0 168 132" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <text x="100" y="58" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="28" fontWeight="600" letterSpacing="4">SAJI</text>
-    <text x="100" y="160" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="14" letterSpacing="6">GROUP</text>
-    <ellipse cx="108" cy="105" rx="22" ry="28" fill="#5a7a4a" opacity=".85"/>
-    <ellipse cx="108" cy="108" rx="14" ry="18" fill="#2d7a47" opacity=".7"/>
-    <ellipse cx="82" cy="108" rx="16" ry="22" fill="#7ab05a" opacity=".9"/>
-    <ellipse cx="82" cy="109" rx="9" ry="13" fill="#c8e89a" opacity=".9"/>
-    <ellipse cx="82" cy="111" rx="5" ry="7" fill="#8B5E3C" opacity=".8"/>
-    <line x1="108" y1="78" x2="110" y2="70" stroke="#5a7a4a" strokeWidth="2.5" strokeLinecap="round"/>
-    <ellipse cx="130" cy="115" rx="9" ry="10" fill="#d4c9b0" opacity=".8"/>
-    <ellipse cx="124" cy="119" rx="7" ry="8" fill="#c8bc9e" opacity=".75"/>
-    <path d="M62 90 Q58 82 64 78" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-    <path d="M64 88 Q60 80 68 77" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-  </svg>
+  <img src="/saji-logo.png" width={s} height={s} alt="SAJI Group"
+    style={{objectFit:"contain",borderRadius:"50%"}}
+    onError={e=>{e.target.style.display="none";}}/>
 );
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
@@ -188,6 +174,15 @@ function applyFilter(rows, filter, dateKey="fecha") {
     const mo = filter.valor ? parseInt(filter.valor) : (new Date().getMonth()+1);
     return rows.filter(r=>r[dateKey]&&new Date(r[dateKey]+"T12:00:00").getMonth()+1===mo);
   }
+  if(filter.tipo==="rango") {
+    const desde=filter.desde||"", hasta=filter.hasta||"";
+    return rows.filter(r=>{
+      if(!r[dateKey]) return false;
+      if(desde && r[dateKey] < desde) return false;
+      if(hasta && r[dateKey] > hasta) return false;
+      return true;
+    });
+  }
   return rows;
 }
 
@@ -195,7 +190,7 @@ function applyFilter(rows, filter, dateKey="fecha") {
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════════
 function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
-  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:""});
+  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
 
   // Filter all data by selected period
   const vF   = applyFilter(ventas, dashFilt);
@@ -239,6 +234,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     if(dashFilt.tipo==="fecha") return dashFilt.valor ? fmtDate(dashFilt.valor) : "Fecha específica";
     if(dashFilt.tipo==="semana") return `Semana ${dashFilt.valor||weekOf(todayStr())}`;
     if(dashFilt.tipo==="mes") return dashFilt.valor ? MESES[parseInt(dashFilt.valor)-1] : MESES[new Date().getMonth()];
+    if(dashFilt.tipo==="rango") { const d=dashFilt.desde?fmtDate(dashFilt.desde):"..."; const h=dashFilt.hasta?fmtDate(dashFilt.hasta):"..."; return `${d} — ${h}`; }
     return "";
   };
 
@@ -268,8 +264,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{color:C.muted,fontSize:12,fontWeight:700}}>📊 Indicadores —</span>
-          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"}].map(f=>(
-            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:""})}>{f.l}</button>
+          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"},{k:"rango",l:"📅 Rango"}].map(f=>(
+            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:"",desde:"",hasta:""})}>{f.l}</button>
           ))}
           <span style={{marginLeft:"auto",color:C.green,fontWeight:700,fontSize:12}}>{periodoLabel()}</span>
         </div>
@@ -294,22 +290,24 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
               value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/>
           </div>
         )}
-      </div>
-
-      {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
-        {cards.map(c=>(
-          <div key={c.label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow}}>
-            <div style={{fontSize:20,marginBottom:4}}>{c.icon}</div>
-            <div style={{fontSize:15,fontWeight:800,color:c.c,lineHeight:1.2}}>{c.v}</div>
-            <div style={{color:C.muted,fontSize:10,marginTop:3,lineHeight:1.3}}>{c.label}</div>
+        {dashFilt.tipo==="rango"&&(
+          <div style={{marginTop:8,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{...lbl,margin:0}}>Desde</span>
+              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
+                value={dashFilt.desde||""} onChange={e=>setDashFilt(f=>({...f,desde:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{...lbl,margin:0}}>Hasta</span>
+              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
+                value={dashFilt.hasta||""} onChange={e=>setDashFilt(f=>({...f,hasta:e.target.value}))}/>
+            </div>
           </div>
-        ))}
+        )}
       </div>
 
-      {/* ── Estado de Resultados ─────────────────────────────────────────── */}
+      {/* ── Estado de Resultados ─────────────────────────────────────── */}
       {(()=>{
-        // Separar impuestos (ISR / IVA) del resto de gastos operativos
         const gastosOp  = gF.filter(g=>g.gasto!=="ISR"&&g.gasto!=="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
         const totalISR  = gF.filter(g=>g.gasto==="ISR").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
         const totalIVA  = gF.filter(g=>g.gasto==="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
@@ -318,34 +316,29 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         const uOperat   = uBruta - gastosOp;
         const uNeta     = uOperat - totalImp;
         const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
-
         const kpis = [
-          { label:"Ventas totales",    v:fmt(totalVentas), c:C.green,  icon:"📈" },
-          { label:"Utilidad bruta",    v:fmt(uBruta),      c:uBruta>=0?C.amber:C.red, icon:"💡" },
-          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),   c:C.purple, icon:"🏛️" },
-          { label:"Utilidad neta",     v:fmt(uNeta),       c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
+          { label:"Ventas $",           v:fmt(totalVentas),   c:C.green,  icon:"📈" },
+          { label:"Ventas KG",          v:totalKgVendidos.toLocaleString("es-MX")+" kg", c:C.blue, icon:"⚖️" },
+          { label:"Gastos",             v:fmt(gastosOp),      c:C.red,    icon:"💸" },
+          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),      c:C.purple, icon:"🏛️" },
+          { label:"Utilidad neta",      v:fmt(uNeta),         c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
         ];
-
         const filas = [
-          { concepto:"Ventas totales",           monto:totalVentas, c:C.green,  bold:true,  icon:"📈", sep:false },
-          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta, c:C.muted, bold:false, icon:"🥑", sep:false },
-          { concepto:"= Utilidad bruta",         monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true },
-          { concepto:"(-) Gastos operativos",    monto:gastosOp,    c:C.muted,  bold:false, icon:"💸", sep:false },
-          { concepto:"= Utilidad operativa",     monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true },
-          { concepto:"(-) ISR",                  monto:totalISR,    c:C.muted,  bold:false, icon:"🏛️", sep:false },
-          { concepto:"(-) IVA",                  monto:totalIVA,    c:C.muted,  bold:false, icon:"🏛️", sep:false },
+          { concepto:"Ventas totales",              monto:totalVentas, c:C.green,                bold:true,  icon:"📈", sep:false },
+          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta,  c:C.muted,                bold:false, icon:"🥑", sep:false },
+          { concepto:"= Utilidad bruta",            monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true  },
+          { concepto:"(-) Gastos operativos",       monto:gastosOp,    c:C.muted,                bold:false, icon:"💸", sep:false },
+          { concepto:"= Utilidad operativa",        monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true  },
+          { concepto:"(-) ISR",                     monto:totalISR,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
+          { concepto:"(-) IVA",                     monto:totalIVA,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
         ];
-
         return (
           <div style={{...card,padding:"16px 18px",marginBottom:12}}>
-            {/* Encabezado */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <div style={{fontWeight:800,fontSize:13,color:C.text}}>📊 Estado de Resultados</div>
               <span style={{background:C.greenL,color:C.green,fontWeight:700,fontSize:11,padding:"3px 12px",borderRadius:20,border:`1px solid ${C.greenM}`}}>{periodoLabel()}</span>
             </div>
-
-            {/* KPI cards */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:14}}>
               {kpis.map(k=>(
                 <div key={k.label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${k.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow,outline:k.destacado?`1.5px solid ${k.c}44`:"none"}}>
                   <div style={{fontSize:18,marginBottom:3}}>{k.icon}</div>
@@ -354,8 +347,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 </div>
               ))}
             </div>
-
-            {/* Tabla */}
             <div style={{borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead>
@@ -382,9 +373,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                       </tr>
                     </>
                   ))}
-                  {/* Separador doble */}
                   <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
-                  {/* Utilidad Neta — fila final destacada */}
                   <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
                     <td style={{padding:"11px 12px",fontWeight:800,fontSize:13,color:C.text}}>
                       <span style={{marginRight:5}}>{uNeta>=0?"🏆":"⚠️"}</span>= Utilidad neta
