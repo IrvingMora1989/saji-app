@@ -307,6 +307,102 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         ))}
       </div>
 
+      {/* ── Estado de Resultados ─────────────────────────────────────────── */}
+      {(()=>{
+        // Separar impuestos (ISR / IVA) del resto de gastos operativos
+        const gastosOp  = gF.filter(g=>g.gasto!=="ISR"&&g.gasto!=="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalISR  = gF.filter(g=>g.gasto==="ISR").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalIVA  = gF.filter(g=>g.gasto==="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalImp  = totalISR + totalIVA;
+        const uBruta    = totalVentas - totalFruta;
+        const uOperat   = uBruta - gastosOp;
+        const uNeta     = uOperat - totalImp;
+        const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
+
+        const kpis = [
+          { label:"Ventas totales",    v:fmt(totalVentas), c:C.green,  icon:"📈" },
+          { label:"Utilidad bruta",    v:fmt(uBruta),      c:uBruta>=0?C.amber:C.red, icon:"💡" },
+          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),   c:C.purple, icon:"🏛️" },
+          { label:"Utilidad neta",     v:fmt(uNeta),       c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
+        ];
+
+        const filas = [
+          { concepto:"Ventas totales",           monto:totalVentas, c:C.green,  bold:true,  icon:"📈", sep:false },
+          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta, c:C.muted, bold:false, icon:"🥑", sep:false },
+          { concepto:"= Utilidad bruta",         monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true },
+          { concepto:"(-) Gastos operativos",    monto:gastosOp,    c:C.muted,  bold:false, icon:"💸", sep:false },
+          { concepto:"= Utilidad operativa",     monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true },
+          { concepto:"(-) ISR",                  monto:totalISR,    c:C.muted,  bold:false, icon:"🏛️", sep:false },
+          { concepto:"(-) IVA",                  monto:totalIVA,    c:C.muted,  bold:false, icon:"🏛️", sep:false },
+        ];
+
+        return (
+          <div style={{...card,padding:"16px 18px",marginBottom:12}}>
+            {/* Encabezado */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,fontSize:13,color:C.text}}>📊 Estado de Resultados</div>
+              <span style={{background:C.greenL,color:C.green,fontWeight:700,fontSize:11,padding:"3px 12px",borderRadius:20,border:`1px solid ${C.greenM}`}}>{periodoLabel()}</span>
+            </div>
+
+            {/* KPI cards */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+              {kpis.map(k=>(
+                <div key={k.label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${k.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow,outline:k.destacado?`1.5px solid ${k.c}44`:"none"}}>
+                  <div style={{fontSize:18,marginBottom:3}}>{k.icon}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:k.c,lineHeight:1.2,fontFamily:"monospace"}}>{k.v}</div>
+                  <div style={{color:C.muted,fontSize:10,marginTop:3}}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabla */}
+            <div style={{borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:C.bg}}>
+                    {["Concepto","Monto","% Ventas"].map((h,i)=>(
+                      <th key={h} style={{padding:"8px 12px",color:C.muted,fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.4,borderBottom:`2px solid ${C.border}`,textAlign:i===0?"left":"right"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f,i)=>(
+                    <>
+                      {f.sep&&<tr key={`sep-${i}`}><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>}
+                      <tr key={i} style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
+                        <td style={{padding:"9px 12px",fontWeight:f.bold?700:400,color:C.text,borderBottom:`1px solid ${C.border}`}}>
+                          <span style={{marginRight:5}}>{f.icon}</span>{f.concepto}
+                        </td>
+                        <td style={{padding:"9px 12px",textAlign:"right",fontWeight:f.bold?800:500,color:f.c,fontFamily:"monospace",fontSize:13,borderBottom:`1px solid ${C.border}`}}>
+                          {fmt(f.monto)}
+                        </td>
+                        <td style={{padding:"9px 12px",textAlign:"right",color:C.muted,fontSize:11,borderBottom:`1px solid ${C.border}`}}>
+                          {pct(f.monto)}
+                        </td>
+                      </tr>
+                    </>
+                  ))}
+                  {/* Separador doble */}
+                  <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
+                  {/* Utilidad Neta — fila final destacada */}
+                  <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
+                    <td style={{padding:"11px 12px",fontWeight:800,fontSize:13,color:C.text}}>
+                      <span style={{marginRight:5}}>{uNeta>=0?"🏆":"⚠️"}</span>= Utilidad neta
+                    </td>
+                    <td style={{padding:"11px 12px",textAlign:"right",fontWeight:800,color:uNeta>=0?C.green:C.red,fontFamily:"monospace",fontSize:15}}>
+                      {fmt(uNeta)}
+                    </td>
+                    <td style={{padding:"11px 12px",textAlign:"right",color:C.muted,fontSize:11}}>
+                      {pct(uNeta)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Caja */}
       <div style={{...card,borderLeft:`4px solid ${C.green}`,padding:"12px 14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
