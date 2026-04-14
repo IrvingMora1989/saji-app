@@ -882,34 +882,119 @@ function Ventas({ ventas, setVentas }) {
       </div>
       {editing&&(
         <div style={modal}>
-          <div style={{...mbox,maxWidth:540}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{...mbox,maxWidth:560}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
               <h3 style={{margin:0,color:C.green}}>✏️ Editar Venta</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setEditing(null)}>×</button>
             </div>
+            {/* Info de la venta */}
+            <div style={{background:C.bg,borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:C.muted}}>
+              <strong style={{color:C.text}}>{form.cliente}</strong> · {form.producto} {form.calibre} · #{form.pedidoId}
+            </div>
             <div style={g2}>
-              <div><label style={lbl}>KG reales</label><input type="number" inputMode="decimal" style={inp} value={form.cantidad||""} onChange={e=>sf("cantidad",parseFloat(e.target.value)||0)}/></div>
-              <div><label style={lbl}>Precio $/kg</label><input type="number" inputMode="decimal" style={inp} value={form.precio||""} onChange={e=>sf("precio",parseFloat(e.target.value)||0)}/></div>
-              <div><label style={lbl}>Estatus pago</label>
-                <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
-                  <option value="pendiente">⏳ Pendiente</option><option value="pagado">✅ Pagado</option>
+              {/* ── Cantidades ── */}
+              <div>
+                <label style={lbl}>KG reales</label>
+                <input type="number" inputMode="decimal" style={inp}
+                  value={form.cantidad||""}
+                  onChange={e=>sf("cantidad",e.target.value)}/>
+              </div>
+              <div>
+                <label style={lbl}>Precio $/kg</label>
+                <input type="number" inputMode="decimal" style={inp}
+                  value={form.precio||""}
+                  onChange={e=>sf("precio",e.target.value)}/>
+              </div>
+              {/* Total calculado */}
+              <div style={{gridColumn:"1/-1",background:C.greenL,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`}}>
+                <span style={{color:C.muted,fontSize:12}}>Total actualizado</span>
+                <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
+              </div>
+              {/* ── Fecha venta ── */}
+              <div>
+                <label style={lbl}>Fecha de venta</label>
+                <input type="date" style={inp} value={form.fecha||""} onChange={e=>sf("fecha",e.target.value)}/>
+              </div>
+              {/* ── Calibre ── */}
+              <div>
+                <label style={lbl}>Calibre</label>
+                <input style={inp} placeholder="Calibre" value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)}/>
+              </div>
+              {/* ── Pago ── */}
+              <div>
+                <label style={lbl}>Estatus pago</label>
+                <select style={sel} value={form.estatusPago||"pendiente"} onChange={e=>sf("estatusPago",e.target.value)}>
+                  <option value="pendiente">⏳ Pendiente</option>
+                  <option value="pagado">✅ Pagado</option>
                 </select>
               </div>
-              <div><label style={lbl}>Fecha de pago</label><input type="date" style={inp} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/></div>
-              <div><label style={lbl}>Factura #</label><input style={inp} placeholder="Número o dejar vacío" value={form.factura||""} onChange={e=>sf("factura",e.target.value)}/></div>
-              <div><label style={lbl}>Emisor factura</label>
+              <div>
+                <label style={lbl}>Tipo de pago</label>
+                <select style={sel} value={form.tipoPago||""} onChange={e=>sf("tipoPago",e.target.value)}>
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={lbl}>Fecha de pago</label>
+                <div style={{display:"flex",gap:4}}>
+                  <input type="date" style={{...inp,flex:1}} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/>
+                  {form.fechaPago&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaPago","")}>✕</button>}
+                </div>
+              </div>
+              {/* ── Factura ── */}
+              <div>
+                <label style={lbl}>Estatus factura</label>
+                <select style={sel} value={form.estatusFactura||"no_aplica"} onChange={e=>sf("estatusFactura",e.target.value)}>
+                  <option value="no_aplica">— No aplica</option>
+                  <option value="pendiente_factura">⏳ Pendiente de facturar</option>
+                  <option value="factura_realizada">✅ Factura realizada</option>
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Factura #</label>
+                <input style={inp} placeholder="Número de factura"
+                  value={form.factura||""}
+                  onChange={e=>{ sf("factura",e.target.value); sf("estatusFactura", e.target.value.trim() ? "factura_realizada" : "pendiente_factura"); }}/>
+              </div>
+              <div>
+                <label style={lbl}>Emisor factura</label>
                 <select style={sel} value={form.facturaEmisor||""} onChange={e=>sf("facturaEmisor",e.target.value)}>
                   <option value="">— Seleccionar —</option>
                   {["SAJI","FRASAVO","DAVID","OTRO"].map(em=><option key={em}>{em}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Fecha de factura</label><input type="date" style={inp} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/></div>
-              <div><label style={lbl}>Remisión</label><input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/></div>
+              <div>
+                <label style={lbl}>Remisión</label>
+                <input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={lbl}>Fecha de factura</label>
+                <div style={{display:"flex",gap:4}}>
+                  <input type="date" style={{...inp,flex:1}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
+                  {form.fechaFactura&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaFactura","")}>✕</button>}
+                </div>
+              </div>
             </div>
-            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
-              <button style={btnO(C.red)} onClick={()=>{ if(window.confirm("¿Cancelar esta venta? Se marcará como cancelada.")) { setVentas(vs=>vs.map(v=>v.itemId===editing?{...v,estatus:"cancelada"}:v)); setEditing(null); }}}>❌ Cancelar venta</button>
-              <button style={btnO()} onClick={()=>setEditing(null)}>Cerrar</button>
-              <button style={btn()} onClick={()=>{ setVentas(vs=>vs.map(v=>v.itemId===editing?{...form, cantidad:parseFloat(form.cantidad)||v.cantidad, precio:parseFloat(form.precio)||v.precio, total:(parseFloat(form.cantidad)||v.cantidad)*(parseFloat(form.precio)||v.precio), estatusFactura: form.factura ? "factura_realizada" : (form.estatusFactura==="no_aplica"?"no_aplica":"pendiente_factura") }:v)); setEditing(null); }}>💾 Guardar</button>
+            {/* Botones */}
+            <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end",flexWrap:"wrap"}}>
+              <button style={{...btnO(C.red),color:C.red}} onClick={()=>{
+                if(window.confirm("¿Está seguro de eliminar esta venta? Esta acción no se puede deshacer.")) {
+                  setVentas(vs=>vs.filter(v=>v.itemId!==editing));
+                  logBit("Eliminó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}`);
+                  setEditing(null);
+                }
+              }}>🗑️ Eliminar</button>
+              <button style={btnO()} onClick={()=>setEditing(null)}>Cancelar</button>
+              <button style={btn()} onClick={()=>{
+                const cant = parseFloat(form.cantidad)||0;
+                const prec = parseFloat(form.precio)||0;
+                setVentas(vs=>vs.map(v=>v.itemId===editing ? {
+                  ...form,
+                  cantidad:cant, precio:prec, total:cant*prec,
+                } : v));
+                logBit("Editó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt(cant*prec)}`);
+                setEditing(null);
+              }}>💾 Guardar</button>
             </div>
           </div>
         </div>
