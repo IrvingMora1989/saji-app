@@ -114,13 +114,13 @@ const TIPOS_GASTO = {
   "Energías": ["Luz Casa","Luz Trifásica"],
   "Gastos de Viaje": ["Tag","Caseta","Gasolina Caddy","Gasolina Duty","Gasolina Jasso","Gasolina Irving"],
   "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso"],
-  "Servicios Contratados": ["Internet","Agua"],
+  "Servicios Contratados": ["Internet","Agua","GPS Caddy","GPS Duty"],
   "Créditos": ["Santander"],
   "Crédito Automotriz": ["Caddy","Super Dutty"],
   "Facturas": ["Cobro por factura"],
   "Impuestos": ["ISR","IVA"],
 };
-const METODOS_PAGO = ["Efectivo","Tarjeta BBVA Irving","Tarjeta BBVA empresa","Transferencia BBVA Irving","Transferencia BBVA empresa","Otro"];
+const METODOS_PAGO = ["Efectivo","Tarjeta BBVA","Tarjeta Costco","Tarjeta Plata","Tarjeta SAJI"];
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 function FilterBar({ filter, setFilter, count }) {
@@ -468,7 +468,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
+function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }) {
   const [show,   setShow]   = useState(false);
   const [filter, setFilter] = useState("pendiente");
   const [form, setForm] = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
@@ -487,11 +487,13 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
   const guardar = () => {
     if(!form.cliente||!form.fechaEntrega) return alert("Completa cliente y fecha de entrega");
     if(form.items.some(it=>!it.producto||!it.cantidad||!it.precio)) return alert("Completa todos los productos");
-    setPedidos(ps=>[{id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"},...ps]);
+    const np={id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
+    setPedidos(ps=>[np,...ps]);
+    logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
     setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
     setShow(false);
   };
-  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); };
+  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); logBit("Canceló pedido",`#${id}`); };
   const completar = id => {
     const p=pedidos.find(x=>x.id===id); if(!p) return;
     setVentas(vs=>[...(p.items||[]).map(it=>({
@@ -505,6 +507,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
       factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
     })),...vs]);
     setPedidos(ps=>ps.map(x=>x.id===id?{...x,estatus:"completado"}:x));
+    logBit("Completó pedido",`#${id} · ${p.cliente} · ${fmt(p.total)}`);
   };
 
   const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
@@ -614,7 +617,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
               </div>
               <div><label style={lbl}>Tipo de pago</label>
                 <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                  {["efectivo","transferencia","tarjeta"].map(t=><option key={t}>{t}</option>)}
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Requiere factura</label>
@@ -674,9 +677,10 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
 function Ventas({ ventas, setVentas }) {
-  const [editing, setEditing] = useState(null);
-  const [form,    setForm]    = useState({});
-  const [filt,    setFilt]    = useState({tipo:"todo",valor:""});
+  const [editing,    setEditing]    = useState(null);
+  const [form,       setForm]       = useState({});
+  const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
+  const [filtCliente,setFiltCliente]= useState("");
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
@@ -693,7 +697,9 @@ function Ventas({ ventas, setVentas }) {
     {l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
   ];
 
-  const lista = applyFilter(ventas, filt);
+  const listaFecha = applyFilter(ventas, filt);
+  const clientes_unicos = [...new Set(ventas.map(v=>v.cliente))].filter(Boolean).sort();
+  const lista = filtCliente ? listaFecha.filter(v=>v.cliente===filtCliente) : listaFecha;
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
   const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
@@ -711,6 +717,13 @@ function Ventas({ ventas, setVentas }) {
         <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
+        <button style={nb(!filtCliente)} onClick={()=>setFiltCliente("")}>Todos</button>
+        {clientes_unicos.map(c=>(
+          <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -786,15 +799,16 @@ function Ventas({ ventas, setVentas }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
-function Gastos({ gastos, setGastos }) {
-  const [show,   setShow]   = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [form,   setForm]   = useState(gastoEmpty());
-  const [filt,   setFilt]   = useState({tipo:"todo",valor:""});
+function Gastos({ gastos, setGastos, logBit }) {
+  const [show,      setShow]      = useState(false);
+  const [editId,    setEditId]    = useState(null);
+  const [form,      setForm]      = useState(gastoEmpty());
+  const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
+  const [filtTipo,  setFiltTipo]  = useState("");
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
     if(k==="tipoGasto") n.gasto="";
-    if(k==="metodoPago"&&v==="Efectivo") n.estatusPago="pagado";
+    if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
     return n;
   });
 
@@ -803,8 +817,8 @@ function Gastos({ gastos, setGastos }) {
   const guardar  = () => {
     if(!form.gasto||!form.monto) return alert("Completa descripción y monto");
     const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, monto:parseFloat(form.monto) };
-    if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
-    else        setGastos(gs=>[reg,...gs]);
+    if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
+    else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
     setShow(false);
   };
 
@@ -813,7 +827,8 @@ function Gastos({ gastos, setGastos }) {
     {l:"Gasto",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},
     {l:"Estatus",k:"estatusPago"},{l:"Total",k:"monto"}
   ];
-  const lista = applyFilter(gastos, filt);
+  const listaFecha = applyFilter(gastos, filt);
+  const lista = filtTipo ? listaFecha.filter(g=>g.tipoGasto===filtTipo) : listaFecha;
   const total = lista.reduce((s,g)=>s+g.monto,0);
   const porPagar = lista.filter(g=>g.estatusPago==="porpagar").reduce((s,g)=>s+g.monto,0);
   const gastoOpts = TIPOS_GASTO[form.tipoGasto]||[];
@@ -834,6 +849,13 @@ function Gastos({ gastos, setGastos }) {
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🏷️ Tipo:</span>
+        <button style={nb(!filtTipo)} onClick={()=>setFiltTipo("")}>Todos</button>
+        {Object.keys(TIPOS_GASTO).map(t=>(
+          <button key={t} style={nb(filtTipo===t)} onClick={()=>setFiltTipo(t)}>{t}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -910,8 +932,8 @@ function Gastos({ gastos, setGastos }) {
                 const finalGasto = form.gasto==="__otro"?(form.gastoCustom||""):form.gasto;
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
                 const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto) };
-                if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
-                else        setGastos(gs=>[reg,...gs]);
+                if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
+                else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 setShow(false);
               }}>💾 Guardar Gasto</button>
             </div>
@@ -925,11 +947,11 @@ function Gastos({ gastos, setGastos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 // PAGOS RECIBIDOS — con abonos parciales
 // ════════════════════════════════════════════════════════════════════════════════
-function Pagos({ pagos, setPagos, ventas, setVentas }) {
+function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
   const [show,      setShow]      = useState(false);
   const [detalle,   setDetalle]   = useState(null); // pedidoId con detalle abierto
   const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"efectivo", pedidoId:"", monto:"" });
+  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // Todos los pedidos que tienen ventas (completados)
@@ -960,13 +982,14 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
       esAbono: monto < getResumen(form.pedidoId).totalPedido - 0.01,
     };
     setPagos(ps=>[nuevoPago,...ps]);
+    logBit("Registró abono",`#${form.pedidoId} · ${cli} · ${fmt(monto)} · ${form.tipoPago}`);
     // Si el abono liquida el saldo, marcar ventas como pagadas
     const nuevoTotal = pagos.filter(p=>p.pedidoId===form.pedidoId).reduce((s,p)=>s+p.monto,0) + monto;
     const totalPed   = getResumen(form.pedidoId).totalPedido;
     if(nuevoTotal >= totalPed - 0.01) {
       setVentas(vs=>vs.map(v=>v.pedidoId===form.pedidoId?{...v,estatusPago:"pagado",fechaPago:form.fecha,tipoPago:form.tipoPago}:v));
     }
-    setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:"",monto:""});
+    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:"",monto:""});
     setShow(false);
   };
 
@@ -1041,7 +1064,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
                         <div style={{display:"flex",gap:5}}>
                           {p.saldo>0&&(
                             <button style={{...btn(C.green),padding:"4px 10px",fontSize:11}}
-                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
+                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
                               + Abonar
                             </button>
                           )}
@@ -1199,14 +1222,15 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
-function Fruta({ fruta, setFruta, productos, proveedores }) {
+function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
   const [showPago, setShowPago] = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [form,     setForm]     = useState(frutaEmpty());
   const [pagoForm, setPagoForm] = useState({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" });
-  const [filt,     setFilt]     = useState({tipo:"todo",valor:""});
-  const [activeProv, setActiveProv] = useState(null);
+  const [filt,        setFilt]        = useState({tipo:"todo",valor:""});
+  const [filtProv,    setFiltProv]    = useState("");
+  const [activeProv,  setActiveProv]  = useState(null);
 
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
@@ -1225,8 +1249,8 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
       // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
     };
-    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); }
-    else setFruta(fs=>[reg,...fs]);
+    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
+    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad}kg · ${fmt(reg.total)}`); }
     setForm(frutaEmpty()); setShowComp(false);
   };
 
@@ -1234,12 +1258,14 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
     if(!pagoForm.proveedor||!pagoForm.monto) return alert("Completa proveedor y monto");
     const pago = { ...pagoForm, id:Date.now(), monto:parseFloat(pagoForm.monto), tipo:"pago" };
     setFruta(fs=>[pago,...fs]);
+    logBit("Pago a proveedor fruta",`${pagoForm.proveedor} · ${fmt(parseFloat(pagoForm.monto))}`);
     setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(false);
   };
 
   const compras = fruta.filter(f=>!f.tipo);
   const pagosF  = fruta.filter(f=>f.tipo==="pago");
-  const listaComp = applyFilter(compras, filt);
+  const listaFechaFruta = applyFilter(compras, filt);
+  const listaComp = filtProv ? listaFechaFruta.filter(c=>c.proveedor===filtProv) : listaFechaFruta;
 
   // Proveedores que ya tienen compras registradas (para el saldo)
   const existingProveedores = [...new Set(compras.map(c=>c.proveedor))];
@@ -1316,6 +1342,13 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
 
       {/* Compras list */}
       <FilterBar filter={filt} setFilter={setFilt} count={listaComp.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🚛 Proveedor:</span>
+        <button style={nb(!filtProv)} onClick={()=>setFiltProv("")}>Todos</button>
+        {allProveedores.map(p=>(
+          <button key={p} style={nb(filtProv===p)} onClick={()=>setFiltProv(p)}>{p}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
         <div style={{overflowX:"auto"}}>
@@ -1840,8 +1873,40 @@ export default function App() {
   const [clientes,   setClientes,   loadedCli]  = useSupabase("catalogos_clientes",   INIT_CLI);
   const [productos,  setProductos,  loadedPro]  = useSupabase("catalogos_productos",  INIT_PROD);
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
+  const [bitacora,   setBitacora,   loadedBit]  = useSupabase("bitacora", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv;
+  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit;
+
+  const logBit = (accion, detalle="") => {
+    const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
+    setBitacora(b=>[reg,...b.slice(0,499)]);
+  };
+
+  const exportExcel = () => {
+    const toCSV = (rows, cols) => {
+      const h = cols.map(c=>c.l).join(",");
+      const b = rows.map(r=>cols.map(c=>`"${String(r[c.k]||"").replace(/"/g,"'")}"`).join(",")).join("\n");
+      return "\uFEFF"+h+"\n"+b;
+    };
+    const sheets = [
+      { name:"Ventas",  data:toCSV(ventas, [{l:"#Pedido",k:"pedidoId"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"}]) },
+      { name:"Gastos",  data:toCSV(gastos, [{l:"Fecha",k:"fecha"},{l:"Descripcion",k:"gasto"},{l:"Tipo",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"},{l:"Monto",k:"monto"}]) },
+      { name:"Pagos",   data:toCSV(pagos,  [{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"#Pedido",k:"pedidoId"},{l:"Tipo Pago",k:"tipoPago"},{l:"Monto",k:"monto"}]) },
+      { name:"Fruta",   data:toCSV(fruta.filter(f=>!f.tipo), [{l:"Fecha",k:"fecha"},{l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"}]) },
+      { name:"Pedidos", data:toCSV(pedidos,[{l:"#Pedido",k:"id"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Total",k:"total"},{l:"Estatus",k:"estatus"},{l:"Tipo Pago",k:"tipoPago"}]) },
+      { name:"Bitacora",data:toCSV(bitacora,[{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}]) },
+    ];
+    // Crear un ZIP con múltiples CSV dentro de un solo archivo Excel-compatible
+    // Usamos el truco de data URI con múltiples tabs como hojas separadas
+    // Para simplicidad: descargar un CSV consolidado con separadores de hoja
+    let contenido = "";
+    sheets.forEach(s => { contenido += `\n\n===== ${s.name} =====\n${s.data}`; });
+    const blob = new Blob(["\uFEFF"+contenido], {type:"text/csv;charset=utf-8;"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `SAJI-Group-${todayStr()}.csv`;
+    a.click();
+  };
 
   const handleLogin = (nombre) => {
     sessionStorage.setItem("saji_user", nombre);
@@ -1864,6 +1929,7 @@ export default function App() {
     { id:"pagos",     label:"🧾 Pagos"     },
     { id:"fruta",     label:"🥑 Fruta"     },
     { id:"catalogos", label:"🗂️ Catálogos" },
+    { id:"bitacora",  label:"📋 Bitácora"  },
   ];
 
   // Pantalla de carga mientras conecta con Supabase
@@ -1906,9 +1972,8 @@ export default function App() {
               whiteSpace:"nowrap", transition:"all .15s"
             }}>{t.label}</button>
           ))}
-          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>
-            📥 Excel
-          </button>
+          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>
+          <button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>
           <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
             <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
             <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
@@ -1920,11 +1985,12 @@ export default function App() {
 
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos}/>}
-        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas}/>}
-        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos}/>}
-        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas}/>}
-        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores}/>}
+        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+        {tab==="bitacora"  && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
         {tab==="catalogos" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
       </main>
 
