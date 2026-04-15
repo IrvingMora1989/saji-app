@@ -1503,7 +1503,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                           <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
