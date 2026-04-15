@@ -100,23 +100,9 @@ const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
-  <svg width={s} height={s} viewBox="0 0 200 200" fill="none">
-    <circle cx="100" cy="100" r="96" stroke="#1a2b1e" strokeWidth="3.5" fill="#f7f9f7"/>
-    <path d="M32 68 A75 75 0 0 1 168 68" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <path d="M32 132 A75 75 0 0 0 168 132" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <text x="100" y="58" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="28" fontWeight="600" letterSpacing="4">SAJI</text>
-    <text x="100" y="160" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="14" letterSpacing="6">GROUP</text>
-    <ellipse cx="108" cy="105" rx="22" ry="28" fill="#5a7a4a" opacity=".85"/>
-    <ellipse cx="108" cy="108" rx="14" ry="18" fill="#2d7a47" opacity=".7"/>
-    <ellipse cx="82" cy="108" rx="16" ry="22" fill="#7ab05a" opacity=".9"/>
-    <ellipse cx="82" cy="109" rx="9" ry="13" fill="#c8e89a" opacity=".9"/>
-    <ellipse cx="82" cy="111" rx="5" ry="7" fill="#8B5E3C" opacity=".8"/>
-    <line x1="108" y1="78" x2="110" y2="70" stroke="#5a7a4a" strokeWidth="2.5" strokeLinecap="round"/>
-    <ellipse cx="130" cy="115" rx="9" ry="10" fill="#d4c9b0" opacity=".8"/>
-    <ellipse cx="124" cy="119" rx="7" ry="8" fill="#c8bc9e" opacity=".75"/>
-    <path d="M62 90 Q58 82 64 78" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-    <path d="M64 88 Q60 80 68 77" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-  </svg>
+  <img src="/saji-logo.jpeg" width={s} height={s} alt="SAJI Group"
+    style={{objectFit:"contain",borderRadius:"50%"}}
+    onError={e=>{e.target.style.display="none";}}/>
 );
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
@@ -128,13 +114,13 @@ const TIPOS_GASTO = {
   "Energías": ["Luz Casa","Luz Trifásica"],
   "Gastos de Viaje": ["Tag","Caseta","Gasolina Caddy","Gasolina Duty","Gasolina Jasso","Gasolina Irving"],
   "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso"],
-  "Servicios Contratados": ["Internet","Agua"],
+  "Servicios Contratados": ["Internet","Agua","GPS Caddy","GPS Duty"],
   "Créditos": ["Santander"],
   "Crédito Automotriz": ["Caddy","Super Dutty"],
   "Facturas": ["Cobro por factura"],
   "Impuestos": ["ISR","IVA"],
 };
-const METODOS_PAGO = ["Efectivo","Tarjeta BBVA Irving","Tarjeta BBVA empresa","Transferencia BBVA Irving","Transferencia BBVA empresa","Otro"];
+const METODOS_PAGO = ["Efectivo","Tarjeta BBVA","Tarjeta Costco","Tarjeta Plata","Tarjeta SAJI"];
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 function FilterBar({ filter, setFilter, count }) {
@@ -188,6 +174,15 @@ function applyFilter(rows, filter, dateKey="fecha") {
     const mo = filter.valor ? parseInt(filter.valor) : (new Date().getMonth()+1);
     return rows.filter(r=>r[dateKey]&&new Date(r[dateKey]+"T12:00:00").getMonth()+1===mo);
   }
+  if(filter.tipo==="rango") {
+    const desde=filter.desde||"", hasta=filter.hasta||"";
+    return rows.filter(r=>{
+      if(!r[dateKey]) return false;
+      if(desde && r[dateKey] < desde) return false;
+      if(hasta && r[dateKey] > hasta) return false;
+      return true;
+    });
+  }
   return rows;
 }
 
@@ -195,7 +190,7 @@ function applyFilter(rows, filter, dateKey="fecha") {
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════════
 function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
-  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:""});
+  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
 
   // Filter all data by selected period
   const vF   = applyFilter(ventas, dashFilt);
@@ -239,6 +234,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     if(dashFilt.tipo==="fecha") return dashFilt.valor ? fmtDate(dashFilt.valor) : "Fecha específica";
     if(dashFilt.tipo==="semana") return `Semana ${dashFilt.valor||weekOf(todayStr())}`;
     if(dashFilt.tipo==="mes") return dashFilt.valor ? MESES[parseInt(dashFilt.valor)-1] : MESES[new Date().getMonth()];
+    if(dashFilt.tipo==="rango") { const d=dashFilt.desde?fmtDate(dashFilt.desde):"..."; const h=dashFilt.hasta?fmtDate(dashFilt.hasta):"..."; return `${d} — ${h}`; }
     return "";
   };
 
@@ -268,8 +264,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{color:C.muted,fontSize:12,fontWeight:700}}>📊 Indicadores —</span>
-          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"}].map(f=>(
-            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:""})}>{f.l}</button>
+          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"},{k:"rango",l:"📅 Rango"}].map(f=>(
+            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:"",desde:"",hasta:""})}>{f.l}</button>
           ))}
           <span style={{marginLeft:"auto",color:C.green,fontWeight:700,fontSize:12}}>{periodoLabel()}</span>
         </div>
@@ -294,18 +290,105 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
               value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/>
           </div>
         )}
+        {dashFilt.tipo==="rango"&&(
+          <div style={{marginTop:8,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{...lbl,margin:0}}>Desde</span>
+              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
+                value={dashFilt.desde||""} onChange={e=>setDashFilt(f=>({...f,desde:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{...lbl,margin:0}}>Hasta</span>
+              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
+                value={dashFilt.hasta||""} onChange={e=>setDashFilt(f=>({...f,hasta:e.target.value}))}/>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
-        {cards.map(c=>(
-          <div key={c.label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow}}>
-            <div style={{fontSize:20,marginBottom:4}}>{c.icon}</div>
-            <div style={{fontSize:15,fontWeight:800,color:c.c,lineHeight:1.2}}>{c.v}</div>
-            <div style={{color:C.muted,fontSize:10,marginTop:3,lineHeight:1.3}}>{c.label}</div>
+      {/* ── Estado de Resultados ─────────────────────────────────────── */}
+      {(()=>{
+        const gastosOp  = gF.filter(g=>g.gasto!=="ISR"&&g.gasto!=="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalISR  = gF.filter(g=>g.gasto==="ISR").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalIVA  = gF.filter(g=>g.gasto==="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const totalImp  = totalISR + totalIVA;
+        const uBruta    = totalVentas - totalFruta;
+        const uOperat   = uBruta - gastosOp;
+        const uNeta     = uOperat - totalImp;
+        const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
+        const kpis = [
+          { label:"Ventas $",           v:fmt(totalVentas),   c:C.green,  icon:"📈" },
+          { label:"Ventas KG",          v:totalKgVendidos.toLocaleString("es-MX")+" kg", c:C.blue, icon:"⚖️" },
+          { label:"Gastos",             v:fmt(gastosOp),      c:C.red,    icon:"💸" },
+          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),      c:C.purple, icon:"🏛️" },
+          { label:"Utilidad neta",      v:fmt(uNeta),         c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
+        ];
+        const filas = [
+          { concepto:"Ventas totales",              monto:totalVentas, c:C.green,                bold:true,  icon:"📈", sep:false },
+          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta,  c:C.muted,                bold:false, icon:"🥑", sep:false },
+          { concepto:"= Utilidad bruta",            monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true  },
+          { concepto:"(-) Gastos operativos",       monto:gastosOp,    c:C.muted,                bold:false, icon:"💸", sep:false },
+          { concepto:"= Utilidad operativa",        monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true  },
+          { concepto:"(-) ISR",                     monto:totalISR,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
+          { concepto:"(-) IVA",                     monto:totalIVA,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
+        ];
+        return (
+          <div style={{...card,padding:"16px 18px",marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,fontSize:13,color:C.text}}>📊 Estado de Resultados</div>
+              <span style={{background:C.greenL,color:C.green,fontWeight:700,fontSize:11,padding:"3px 12px",borderRadius:20,border:`1px solid ${C.greenM}`}}>{periodoLabel()}</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}} className="kpi-grid">
+              {kpis.map(k=>(
+                <div key={k.label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${k.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow,outline:k.destacado?`1.5px solid ${k.c}44`:"none"}}>
+                  <div style={{fontSize:18,marginBottom:3}}>{k.icon}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:k.c,lineHeight:1.2,fontFamily:"monospace"}}>{k.v}</div>
+                  <div style={{color:C.muted,fontSize:10,marginTop:3}}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:C.bg}}>
+                    {["Concepto","Monto","% Ventas"].map((h,i)=>(
+                      <th key={h} style={{padding:"8px 12px",color:C.muted,fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.4,borderBottom:`2px solid ${C.border}`,textAlign:i===0?"left":"right"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f,i)=>[
+                    f.sep&&<tr key={`sep-${i}`}><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>,
+                      <tr key={i} style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
+                        <td style={{padding:"9px 12px",fontWeight:f.bold?700:400,color:C.text,borderBottom:`1px solid ${C.border}`}}>
+                          <span style={{marginRight:5}}>{f.icon}</span>{f.concepto}
+                        </td>
+                        <td style={{padding:"9px 12px",textAlign:"right",fontWeight:f.bold?800:500,color:f.c,fontFamily:"monospace",fontSize:13,borderBottom:`1px solid ${C.border}`}}>
+                          {fmt(f.monto)}
+                        </td>
+                        <td style={{padding:"9px 12px",textAlign:"right",color:C.muted,fontSize:11,borderBottom:`1px solid ${C.border}`}}>
+                          {pct(f.monto)}
+                        </td>
+                      </tr>
+                  ])}
+                  <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
+                  <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
+                    <td style={{padding:"11px 12px",fontWeight:800,fontSize:13,color:C.text}}>
+                      <span style={{marginRight:5}}>{uNeta>=0?"🏆":"⚠️"}</span>= Utilidad neta
+                    </td>
+                    <td style={{padding:"11px 12px",textAlign:"right",fontWeight:800,color:uNeta>=0?C.green:C.red,fontFamily:"monospace",fontSize:15}}>
+                      {fmt(uNeta)}
+                    </td>
+                    <td style={{padding:"11px 12px",textAlign:"right",color:C.muted,fontSize:11}}>
+                      {pct(uNeta)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Caja */}
       <div style={{...card,borderLeft:`4px solid ${C.green}`,padding:"12px 14px"}}>
@@ -383,10 +466,12 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
-  const [show,   setShow]   = useState(false);
-  const [filter, setFilter] = useState("pendiente");
-  const [form, setForm] = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
+function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }) {
+  const [show,         setShow]        = useState(false);
+  const [filter,       setFilter]      = useState("pendiente");
+  const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
+  const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
+  const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
 
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const setItem = (i,k,v) => setForm(f=>{
@@ -402,29 +487,41 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
   const guardar = () => {
     if(!form.cliente||!form.fechaEntrega) return alert("Completa cliente y fecha de entrega");
     if(form.items.some(it=>!it.producto||!it.cantidad||!it.precio)) return alert("Completa todos los productos");
-    setPedidos(ps=>[{id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"},...ps]);
+    const np={id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
+    setPedidos(ps=>[np,...ps]);
+    logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
     setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
     setShow(false);
   };
-  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); };
-  const completar = id => {
+  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); logBit("Canceló pedido",`#${id}`); };
+  const abrirCompletar = id => {
     const p=pedidos.find(x=>x.id===id); if(!p) return;
-    setVentas(vs=>[...(p.items||[]).map(it=>({
+    setKgsReales((p.items||[]).map(it=>String(it.cantidad)));
+    setCompletando(p);
+  };
+  const confirmarCompletar = () => {
+    const p=completando; if(!p) return;
+    const items = (p.items||[]).map((it,i)=>({...it, cantidad: parseFloat(kgsReales[i]||it.cantidad)||parseFloat(it.cantidad) }));
+    const totalReal = items.reduce((s,it)=>s+(it.cantidad*parseFloat(it.precio)),0);
+    setVentas(vs=>[...items.map((it,i)=>({
       pedidoId:p.id,
       itemId:`${p.id}-${it.producto}-${Math.random().toString(36).slice(2,5)}`,
       semana:weekOf(todayStr()), dia:dayOf(todayStr()), mes:monthOf(todayStr()), fecha:todayStr(),
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
-      cantidad:parseFloat(it.cantidad), precio:parseFloat(it.precio),
-      total:parseFloat(it.cantidad)*parseFloat(it.precio),
+      cantidad:it.cantidad, precio:parseFloat(it.precio),
+      total:it.cantidad*parseFloat(it.precio),
       estatusPago:"pendiente", tipoPago:p.tipoPago, fechaPago:"",
       factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
+      estatusFactura: p.factura==="si" ? "pendiente_factura" : "no_aplica",
     })),...vs]);
-    setPedidos(ps=>ps.map(x=>x.id===id?{...x,estatus:"completado"}:x));
+    setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal}:x));
+    logBit("Completó pedido",`#${p.id} · ${p.cliente} · ${fmt(totalReal)}`);
+    setCompletando(null);
   };
 
   const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
 
-  let lista = filter==="todos" ? pedidos : pedidos.filter(p=>p.estatus===filter);
+  let lista = (filter==="todos" ? pedidos : pedidos.filter(p=>p.estatus===filter)).slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
   // Apply period filter on fechaEntrega
   if(pedFilt.tipo==="hoy") lista = lista.filter(p=>p.fechaEntrega===todayStr());
   else if(pedFilt.tipo==="fecha") lista = pedFilt.valor ? lista.filter(p=>p.fechaEntrega===pedFilt.valor) : lista;
@@ -496,7 +593,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
                         {p.estatus==="pendiente"&&(
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>completar(p.id)}>✓ Completar</button>
+                            <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
                             <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
                           </div>
                         )}
@@ -509,6 +606,53 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
           </table>
         </div>
       </div>
+
+      {/* Modal confirmar KG reales */}
+      {completando&&(
+        <div style={modal}>
+          <div style={{...mbox,maxWidth:480}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,color:C.green}}>⚖️ Confirmar KG reales</h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setCompletando(null)}>×</button>
+            </div>
+            <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:14}}>
+              📦 Pedido #{completando.id} · {completando.cliente}<br/>
+              <span style={{fontSize:11,fontWeight:400}}>Edita los KG si el cliente pesó diferente al pedido original</span>
+            </div>
+            {(completando.items||[]).map((it,i)=>(
+              <div key={i} style={{background:C.bg,borderRadius:9,padding:"10px 14px",marginBottom:8,border:`1px solid ${C.border}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <div style={{flex:"1 1 160px",fontWeight:600,fontSize:13}}>{it.producto} <span style={badge(C.blue,C.blueL)}>{it.calibre}</span></div>
+                  <div style={{flex:"0 0 auto"}}>
+                    <label style={{...lbl,margin:"0 0 2px"}}>KG pedido: <strong>{it.cantidad}</strong></label>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <label style={lbl}>KG real *</label>
+                      <input type="number" inputMode="decimal" style={{...inp,width:100,padding:"7px 10px"}}
+                        value={kgsReales[i]||""}
+                        onChange={e=>setKgsReales(k=>{const n=[...k];n[i]=e.target.value;return n;})}/>
+                    </div>
+                  </div>
+                  <div style={{fontSize:12,color:C.green,fontWeight:700,minWidth:90}}>
+                    {fmt((parseFloat(kgsReales[i]||it.cantidad)||0)*parseFloat(it.precio))}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{...totRow,marginTop:12}}>
+              <span style={{fontWeight:600,color:C.muted}}>Total real</span>
+              <span style={{fontSize:20,fontWeight:800,color:C.green}}>
+                {fmt((completando.items||[]).reduce((s,it,i)=>s+(parseFloat(kgsReales[i]||it.cantidad)||0)*parseFloat(it.precio),0))}
+              </span>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setCompletando(null)}>Cancelar</button>
+              <button style={btn(C.green)} onClick={confirmarCompletar}>✅ Confirmar y Completar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {show&&(
         <div style={modal}>
@@ -529,7 +673,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
               </div>
               <div><label style={lbl}>Tipo de pago</label>
                 <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                  {["efectivo","transferencia","tarjeta"].map(t=><option key={t}>{t}</option>)}
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Requiere factura</label>
@@ -588,16 +732,32 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
-function Ventas({ ventas, setVentas }) {
-  const [editing, setEditing] = useState(null);
-  const [form,    setForm]    = useState({});
-  const [filt,    setFilt]    = useState({tipo:"todo",valor:""});
+function Ventas({ ventas, setVentas, logBit }) {
+  const [editing,    setEditing]    = useState(null);
+  const [form,       setForm]       = useState({});
+  const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
+  const [filtCliente,setFiltCliente]= useState("");
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
   const diasPendiente = v => {
     if(!v.fechaFactura||v.estatusPago==="pagado") return "—";
     return daysDiff(v.fechaFactura)+" días";
+  };
+
+  const estatusFactura = v => {
+    if(v.estatusFactura==="cancelada") return { label:"❌ Cancelada", color:C.red };
+    if(v.factura && v.factura.trim() && v.factura.toLowerCase()!=="no aplica")
+      return { label:"✅ Factura realizada", color:C.green };
+    if(v.estatusFactura==="pendiente_factura" || (!v.factura && v.estatusFactura!=="no_aplica"))
+      return { label:"⏳ Pend. facturar", color:C.amber };
+    return { label:"— No aplica", color:C.muted };
+  };
+  const estatusFacturaLabel = v => {
+    if(v.estatus==="cancelada") return { label:"❌ Cancelada", color:C.red };
+    if(v.estatusFactura==="no_aplica"||v.factura==="No aplica") return { label:"No aplica", color:C.muted };
+    if(v.factura && v.factura!=="No aplica" && v.factura.trim()!=="") return { label:"✅ Factura realizada", color:C.green };
+    return { label:"⏳ Pend. facturar", color:C.amber };
   };
 
   const cols = [
@@ -608,7 +768,9 @@ function Ventas({ ventas, setVentas }) {
     {l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
   ];
 
-  const lista = applyFilter(ventas, filt);
+  const listaFecha = applyFilter(ventas, filt);
+  const clientes_unicos = [...new Set(ventas.map(v=>v.cliente))].filter(Boolean).sort();
+  const lista = (filtCliente ? listaFecha.filter(v=>v.cliente===filtCliente) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
   const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
@@ -626,16 +788,23 @@ function Ventas({ ventas, setVentas }) {
         <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
+        <button style={nb(!filtCliente)} onClick={()=>setFiltCliente("")}>Todos</button>
+        {clientes_unicos.map(c=>(
+          <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Total","Estatus","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
+            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Total","Estatus Pago","Estatus Factura","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
               <th key={h} style={th}>{h}</th>
             ))}</tr></thead>
             <tbody>
-              {lista.length===0&&<tr><td colSpan={19} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin ventas en este período 📋</td></tr>}
+              {lista.length===0&&<tr><td colSpan={20} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin ventas en este período 📋</td></tr>}
               {lista.map(v=>(
-                <tr key={v.itemId}>
+                <tr key={v.itemId} style={{opacity:v.estatus==="cancelada"?0.5:1,background:v.estatus==="cancelada"?"#fff5f5":"transparent"}}>
                   <td style={td}><span style={{fontWeight:700,color:C.green,fontSize:11}}>#{v.pedidoId}</span></td>
                   <td style={td}>{v.semana}</td>
                   <td style={td}>{v.dia}</td>
@@ -647,14 +816,21 @@ function Ventas({ ventas, setVentas }) {
                   <td style={td}>{fmt(v.precio)}</td>
                   <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
                   <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
-                  <td style={td}>{v.tipoPago}</td>
+                  <td style={td}>{(()=>{const ef=estatusFacturaLabel(v);return <span style={badge(ef.color)}>{ef.label}</span>;})()}</td>
+                  <td style={{...td,opacity:v.estatus==="cancelada"?0.4:1}}>{v.tipoPago}</td>
                   <td style={td}>{fmtDate(v.fechaPago)||"—"}</td>
                   <td style={td}>{v.factura||"—"}</td>
                   <td style={td}>{v.facturaEmisor||"—"}</td>
                   <td style={td}>{v.remision||"—"}</td>
                   <td style={td}>{fmtDate(v.fechaFactura)||"—"}</td>
+                  <td style={td}>{(()=>{const ef=estatusFactura(v);return <span style={{...badge(ef.color),fontSize:10}}>{ef.label}</span>;})()}</td>
                   <td style={td}><span style={v.estatusPago!=="pagado"&&v.fechaFactura?{color:C.red,fontWeight:700}:{}}>{diasPendiente(v)}</span></td>
-                  <td style={td}><button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button></td>
+                  <td style={td}>
+                    <div style={{display:"flex",gap:3}}>
+                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button>
+                      <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} title="Eliminar venta" onClick={()=>{ if(window.confirm(`¿Eliminar esta venta?\n\n#${v.pedidoId} · ${v.cliente}\n${v.producto} ${v.calibre} · ${fmt(v.total)}\n\nEsta acción no se puede deshacer.`)) { setVentas(vs=>vs.filter(x=>x.itemId!==v.itemId)); logBit("Eliminó venta",`#${v.pedidoId} · ${v.cliente} · ${v.producto} ${v.calibre} · ${fmt(v.total)}`); } }}>🗑️</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -663,31 +839,120 @@ function Ventas({ ventas, setVentas }) {
       </div>
       {editing&&(
         <div style={modal}>
-          <div style={{...mbox,maxWidth:540}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{...mbox,maxWidth:560}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
               <h3 style={{margin:0,color:C.green}}>✏️ Editar Venta</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setEditing(null)}>×</button>
             </div>
+            {/* Info de la venta */}
+            <div style={{background:C.bg,borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:C.muted}}>
+              <strong style={{color:C.text}}>{form.cliente}</strong> · {form.producto} {form.calibre} · #{form.pedidoId}
+            </div>
             <div style={g2}>
-              <div><label style={lbl}>Estatus pago</label>
-                <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
-                  <option value="pendiente">⏳ Pendiente</option><option value="pagado">✅ Pagado</option>
+              {/* ── Cantidades ── */}
+              <div>
+                <label style={lbl}>KG reales</label>
+                <input type="number" inputMode="decimal" style={inp}
+                  value={form.cantidad||""}
+                  onChange={e=>sf("cantidad",e.target.value)}/>
+              </div>
+              <div>
+                <label style={lbl}>Precio $/kg</label>
+                <input type="number" inputMode="decimal" style={inp}
+                  value={form.precio||""}
+                  onChange={e=>sf("precio",e.target.value)}/>
+              </div>
+              {/* Total calculado */}
+              <div style={{gridColumn:"1/-1",background:C.greenL,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`}}>
+                <span style={{color:C.muted,fontSize:12}}>Total actualizado</span>
+                <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
+              </div>
+              {/* ── Fecha venta ── */}
+              <div>
+                <label style={lbl}>Fecha de venta</label>
+                <input type="date" style={inp} value={form.fecha||""} onChange={e=>sf("fecha",e.target.value)}/>
+              </div>
+              {/* ── Calibre ── */}
+              <div>
+                <label style={lbl}>Calibre</label>
+                <input style={inp} placeholder="Calibre" value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)}/>
+              </div>
+              {/* ── Pago ── */}
+              <div>
+                <label style={lbl}>Estatus pago</label>
+                <select style={sel} value={form.estatusPago||"pendiente"} onChange={e=>sf("estatusPago",e.target.value)}>
+                  <option value="pendiente">⏳ Pendiente</option>
+                  <option value="pagado">✅ Pagado</option>
                 </select>
               </div>
-              <div><label style={lbl}>Fecha de pago</label><input type="date" style={inp} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/></div>
-              <div><label style={lbl}>Factura #</label><input style={inp} placeholder="Número o No aplica" value={form.factura||""} onChange={e=>sf("factura",e.target.value)}/></div>
-              <div><label style={lbl}>Emisor factura</label>
+              <div>
+                <label style={lbl}>Tipo de pago</label>
+                <select style={sel} value={form.tipoPago||""} onChange={e=>sf("tipoPago",e.target.value)}>
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={lbl}>Fecha de pago</label>
+                <div style={{display:"flex",gap:4}}>
+                  <input type="date" style={{...inp,flex:1}} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/>
+                  {form.fechaPago&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaPago","")}>✕</button>}
+                </div>
+              </div>
+              {/* ── Factura ── */}
+              <div>
+                <label style={lbl}>Estatus factura</label>
+                <select style={sel} value={form.estatusFactura||"no_aplica"} onChange={e=>sf("estatusFactura",e.target.value)}>
+                  <option value="no_aplica">— No aplica</option>
+                  <option value="pendiente_factura">⏳ Pendiente de facturar</option>
+                  <option value="factura_realizada">✅ Factura realizada</option>
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Factura #</label>
+                <input style={inp} placeholder="Número de factura"
+                  value={form.factura||""}
+                  onChange={e=>{ sf("factura",e.target.value); sf("estatusFactura", e.target.value.trim() ? "factura_realizada" : "pendiente_factura"); }}/>
+              </div>
+              <div>
+                <label style={lbl}>Emisor factura</label>
                 <select style={sel} value={form.facturaEmisor||""} onChange={e=>sf("facturaEmisor",e.target.value)}>
                   <option value="">— Seleccionar —</option>
                   {["SAJI","FRASAVO","DAVID","OTRO"].map(em=><option key={em}>{em}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Fecha de factura</label><input type="date" style={inp} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/></div>
-              <div><label style={lbl}>Remisión</label><input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/></div>
+              <div>
+                <label style={lbl}>Remisión</label>
+                <input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={lbl}>Fecha de factura</label>
+                <div style={{display:"flex",gap:4}}>
+                  <input type="date" style={{...inp,flex:1}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
+                  {form.fechaFactura&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaFactura","")}>✕</button>}
+                </div>
+              </div>
             </div>
-            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+            {/* Botones */}
+            <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end",flexWrap:"wrap"}}>
+              <button style={{...btnO(C.red),color:C.red}} onClick={()=>{
+                if(window.confirm("¿Está seguro de eliminar esta venta? Esta acción no se puede deshacer.")) {
+                  setVentas(vs=>vs.filter(v=>v.itemId!==editing));
+                  logBit("Eliminó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}`);
+                  setEditing(null);
+                }
+              }}>🗑️ Eliminar</button>
               <button style={btnO()} onClick={()=>setEditing(null)}>Cancelar</button>
-              <button style={btn()} onClick={save}>💾 Guardar</button>
+              <button style={btn()} onClick={()=>{
+                const cant = parseFloat(String(form.cantidad).replace(",","."))||0;
+                const prec = parseFloat(String(form.precio).replace(",","."))||0;
+                const itemId = editing;
+                setVentas(vs=>vs.map(v=>v.itemId===itemId ? {
+                  ...form,
+                  cantidad:cant, precio:prec, total:cant*prec,
+                } : v));
+                logBit("Editó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt(cant*prec)}`);
+                setEditing(null);
+              }}>💾 Guardar</button>
             </div>
           </div>
         </div>
@@ -701,15 +966,16 @@ function Ventas({ ventas, setVentas }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
-function Gastos({ gastos, setGastos }) {
-  const [show,   setShow]   = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [form,   setForm]   = useState(gastoEmpty());
-  const [filt,   setFilt]   = useState({tipo:"todo",valor:""});
+function Gastos({ gastos, setGastos, logBit }) {
+  const [show,      setShow]      = useState(false);
+  const [editId,    setEditId]    = useState(null);
+  const [form,      setForm]      = useState(gastoEmpty());
+  const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
+  const [filtTipo,  setFiltTipo]  = useState("");
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
     if(k==="tipoGasto") n.gasto="";
-    if(k==="metodoPago"&&v==="Efectivo") n.estatusPago="pagado";
+    if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
     return n;
   });
 
@@ -718,8 +984,8 @@ function Gastos({ gastos, setGastos }) {
   const guardar  = () => {
     if(!form.gasto||!form.monto) return alert("Completa descripción y monto");
     const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, monto:parseFloat(form.monto) };
-    if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
-    else        setGastos(gs=>[reg,...gs]);
+    if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
+    else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
     setShow(false);
   };
 
@@ -728,7 +994,8 @@ function Gastos({ gastos, setGastos }) {
     {l:"Gasto",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},
     {l:"Estatus",k:"estatusPago"},{l:"Total",k:"monto"}
   ];
-  const lista = applyFilter(gastos, filt);
+  const listaFecha = applyFilter(gastos, filt);
+  const lista = (filtTipo ? listaFecha.filter(g=>g.tipoGasto===filtTipo) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const total = lista.reduce((s,g)=>s+g.monto,0);
   const porPagar = lista.filter(g=>g.estatusPago==="porpagar").reduce((s,g)=>s+g.monto,0);
   const gastoOpts = TIPOS_GASTO[form.tipoGasto]||[];
@@ -749,6 +1016,13 @@ function Gastos({ gastos, setGastos }) {
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🏷️ Tipo:</span>
+        <button style={nb(!filtTipo)} onClick={()=>setFiltTipo("")}>Todos</button>
+        {Object.keys(TIPOS_GASTO).map(t=>(
+          <button key={t} style={nb(filtTipo===t)} onClick={()=>setFiltTipo(t)}>{t}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -825,8 +1099,8 @@ function Gastos({ gastos, setGastos }) {
                 const finalGasto = form.gasto==="__otro"?(form.gastoCustom||""):form.gasto;
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
                 const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto) };
-                if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
-                else        setGastos(gs=>[reg,...gs]);
+                if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
+                else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 setShow(false);
               }}>💾 Guardar Gasto</button>
             </div>
@@ -840,11 +1114,11 @@ function Gastos({ gastos, setGastos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 // PAGOS RECIBIDOS — con abonos parciales
 // ════════════════════════════════════════════════════════════════════════════════
-function Pagos({ pagos, setPagos, ventas, setVentas }) {
+function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
   const [show,      setShow]      = useState(false);
   const [detalle,   setDetalle]   = useState(null); // pedidoId con detalle abierto
   const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"efectivo", pedidoId:"", monto:"" });
+  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // Todos los pedidos que tienen ventas (completados)
@@ -875,13 +1149,14 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
       esAbono: monto < getResumen(form.pedidoId).totalPedido - 0.01,
     };
     setPagos(ps=>[nuevoPago,...ps]);
+    logBit("Registró abono",`#${form.pedidoId} · ${cli} · ${fmt(monto)} · ${form.tipoPago}`);
     // Si el abono liquida el saldo, marcar ventas como pagadas
     const nuevoTotal = pagos.filter(p=>p.pedidoId===form.pedidoId).reduce((s,p)=>s+p.monto,0) + monto;
     const totalPed   = getResumen(form.pedidoId).totalPedido;
     if(nuevoTotal >= totalPed - 0.01) {
       setVentas(vs=>vs.map(v=>v.pedidoId===form.pedidoId?{...v,estatusPago:"pagado",fechaPago:form.fecha,tipoPago:form.tipoPago}:v));
     }
-    setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:"",monto:""});
+    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:"",monto:""});
     setShow(false);
   };
 
@@ -889,7 +1164,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Cliente",k:"cliente"},{l:"Tipo Pago",k:"tipoPago"},{l:"#Pedido",k:"pedidoId"},{l:"Abono",k:"monto"}
   ];
-  const lista       = applyFilter(pagos, filt);
+  const lista       = applyFilter(pagos, filt).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const totalAbonado= lista.reduce((s,p)=>s+p.monto,0);
 
   // Agrupar por pedido para la vista de saldos
@@ -926,9 +1201,8 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
               {pedidosUnicos.map(p=>{
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
-                return (
-                  <>
-                    <tr key={p.pedidoId} style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
+                return [
+                    <tr key={p.pedidoId+"-row"} style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
                       <td style={td}>{fmt(p.totalPedido)}</td>
@@ -956,7 +1230,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
                         <div style={{display:"flex",gap:5}}>
                           {p.saldo>0&&(
                             <button style={{...btn(C.green),padding:"4px 10px",fontSize:11}}
-                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
+                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
                               + Abonar
                             </button>
                           )}
@@ -967,8 +1241,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
                         </div>
                       </td>
                     </tr>
-                    {/* Abonos detalle */}
-                    {detalle===p.pedidoId&&abonosPed.map((ab,i)=>(
+                    ,detalle===p.pedidoId&&abonosPed.map((ab,i)=>(
                       <tr key={ab.id} style={{background:"#f0fff4"}}>
                         <td style={{...td,paddingLeft:24,fontSize:12,color:C.muted}} colSpan={2}>
                           └ Abono {i+1} · {fmtDate(ab.fecha)}
@@ -993,8 +1266,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
                         <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
                       </tr>
                     )}
-                  </>
-                );
+                ];
               })}
             </tbody>
           </table>
@@ -1114,14 +1386,15 @@ function Pagos({ pagos, setPagos, ventas, setVentas }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
-function Fruta({ fruta, setFruta, productos, proveedores }) {
+function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
   const [showPago, setShowPago] = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [form,     setForm]     = useState(frutaEmpty());
   const [pagoForm, setPagoForm] = useState({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" });
-  const [filt,     setFilt]     = useState({tipo:"todo",valor:""});
-  const [activeProv, setActiveProv] = useState(null);
+  const [filt,        setFilt]        = useState({tipo:"todo",valor:""});
+  const [filtProv,    setFiltProv]    = useState("");
+  const [activeProv,  setActiveProv]  = useState(null);
 
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
@@ -1140,8 +1413,8 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
       // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
     };
-    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); }
-    else setFruta(fs=>[reg,...fs]);
+    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
+    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad}kg · ${fmt(reg.total)}`); }
     setForm(frutaEmpty()); setShowComp(false);
   };
 
@@ -1149,12 +1422,14 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
     if(!pagoForm.proveedor||!pagoForm.monto) return alert("Completa proveedor y monto");
     const pago = { ...pagoForm, id:Date.now(), monto:parseFloat(pagoForm.monto), tipo:"pago" };
     setFruta(fs=>[pago,...fs]);
+    logBit("Pago a proveedor fruta",`${pagoForm.proveedor} · ${fmt(parseFloat(pagoForm.monto))}`);
     setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(false);
   };
 
   const compras = fruta.filter(f=>!f.tipo);
   const pagosF  = fruta.filter(f=>f.tipo==="pago");
-  const listaComp = applyFilter(compras, filt);
+  const listaFechaFruta = applyFilter(compras, filt);
+  const listaComp = (filtProv ? listaFechaFruta.filter(c=>c.proveedor===filtProv) : listaFechaFruta).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
 
   // Proveedores que ya tienen compras registradas (para el saldo)
   const existingProveedores = [...new Set(compras.map(c=>c.proveedor))];
@@ -1179,7 +1454,23 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
         <div>
           <h2 style={{...h2s,margin:0}}>🥑 Fruta — Compras e Inventario</h2>
-          <div style={{color:C.muted,fontSize:12,marginTop:2}}>Total comprado: <strong style={{color:C.teal}}>{fmt(compras.reduce((s,c)=>s+c.total,0))}</strong></div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:6}}>
+            <div style={{background:C.tealL,border:`1px solid ${C.teal}33`,borderRadius:9,padding:"6px 14px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+              <span style={{fontSize:10,color:C.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total comprado</span>
+              <span style={{fontSize:16,fontWeight:800,color:C.teal}}>{fmt(compras.reduce((s,c)=>s+c.total,0))}</span>
+            </div>
+            {(()=>{
+              const totalC=compras.reduce((s,c)=>s+c.total,0);
+              const totalP=pagosF.reduce((s,p)=>s+p.monto,0);
+              const porPagar=Math.max(0,totalC-totalP);
+              return (
+                <div style={{background:porPagar>0?C.redL:C.greenL,border:`1px solid ${porPagar>0?C.red:C.green}33`,borderRadius:9,padding:"6px 14px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+                  <span style={{fontSize:10,color:porPagar>0?C.red:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Por pagar</span>
+                  <span style={{fontSize:16,fontWeight:800,color:porPagar>0?C.red:C.green}}>{porPagar>0?fmt(porPagar):"✅ Al corriente"}</span>
+                </div>
+              );
+            })()}
+          </div>
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp,cols,`fruta-${todayStr()}.csv`)}>⬇ CSV</button>
@@ -1199,9 +1490,8 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
                 {existingProveedores.map(prov=>{
                   const s=saldoProveedor(prov);
                   const pagosProv = pagosF.filter(p=>p.proveedor===prov);
-                  return (
-                    <>
-                      <tr key={prov} style={{background:C.bg}}>
+                  return [
+                    <tr key={prov+"-main"} style={{background:C.bg}}>
                         <td style={{...td,fontWeight:700,padding:"8px 8px"}}>{prov}</td>
                         <td style={{...td,padding:"8px 8px"}}><strong style={{fontSize:12}}>{fmt(s.totalCompras)}</strong></td>
                         <td style={{...td,padding:"8px 8px"}}><span style={{color:C.green,fontWeight:700,fontSize:12}}>{fmt(s.totalPagos)}</span></td>
@@ -1220,8 +1510,7 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
                           <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
                         </tr>
                       ))}
-                    </>
-                  );
+                  ];
                 })}
               </tbody>
             </table>
@@ -1231,6 +1520,13 @@ function Fruta({ fruta, setFruta, productos, proveedores }) {
 
       {/* Compras list */}
       <FilterBar filter={filt} setFilter={setFilt} count={listaComp.length}/>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🚛 Proveedor:</span>
+        <button style={nb(!filtProv)} onClick={()=>setFiltProv("")}>Todos</button>
+        {allProveedores.map(p=>(
+          <button key={p} style={nb(filtProv===p)} onClick={()=>setFiltProv(p)}>{p}</button>
+        ))}
+      </div>
       <div style={card}>
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
         <div style={{overflowX:"auto"}}>
@@ -1467,6 +1763,133 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BITÁCORA DE CAMBIOS
+// ════════════════════════════════════════════════════════════════════════════════
+function Bitacora({ bitacora, setBitacora }) {
+  const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
+  const [filtUsuario,setFiltUsuario]= useState("");
+  const [filtAccion, setFiltAccion] = useState("");
+
+  const lista = applyFilter(bitacora, filt)
+    .filter(r => !filtUsuario || r.usuario===filtUsuario)
+    .filter(r => !filtAccion  || r.accion===filtAccion);
+
+  const usuarios = [...new Set(bitacora.map(r=>r.usuario).filter(Boolean))];
+  const acciones = [...new Set(bitacora.map(r=>r.accion).filter(Boolean))].sort();
+
+  const accionColor = accion => {
+    if(/elimin/i.test(accion)) return {c:C.red,   bg:C.redL};
+    if(/edit|modif/i.test(accion)) return {c:C.blue,  bg:C.blueL};
+    if(/nuevo|complet|registr/i.test(accion)) return {c:C.green, bg:C.greenL};
+    if(/cancel/i.test(accion)) return {c:C.amber, bg:C.amberL};
+    return {c:C.muted, bg:C.bg};
+  };
+
+  const exportBit = () => exportCSV(lista,
+    [{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}],
+    `bitacora-${todayStr()}.csv`
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
+        <div>
+          <h2 style={{...h2s,margin:0}}>📋 Bitácora de Cambios</h2>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>
+            {lista.length} evento{lista.length!==1?"s":""} registrado{lista.length!==1?"s":""}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:7}}>
+          <button style={btn(C.blue)} onClick={exportBit}>⬇ CSV</button>
+          {bitacora.length>0&&(
+            <button style={btnO(C.red)} onClick={()=>{ if(window.confirm("¿Limpiar toda la bitácora? Esta acción no se puede deshacer.")) setBitacora([]); }}>
+              🗑️ Limpiar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+
+      {/* Filtros por usuario y acción */}
+      {(usuarios.length>1||acciones.length>0)&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+          {usuarios.length>1&&(
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Usuario:</span>
+              <button style={nb(!filtUsuario)} onClick={()=>setFiltUsuario("")}>Todos</button>
+              {usuarios.map(u=><button key={u} style={nb(filtUsuario===u)} onClick={()=>setFiltUsuario(filtUsuario===u?"":u)}>{u}</button>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Estadísticas rápidas */}
+      {bitacora.length>0&&(()=>{
+        const stats = acciones.slice(0,6).map(a=>{
+          const n = bitacora.filter(r=>r.accion===a).length;
+          const {c,bg} = accionColor(a);
+          return {a,n,c,bg};
+        }).sort((x,y)=>y.n-x.n);
+        return (
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            {stats.map(({a,n,c,bg})=>(
+              <div key={a} style={{background:bg,border:`1px solid ${c}33`,borderRadius:9,padding:"7px 13px",cursor:"pointer",opacity:filtAccion===a?1:0.85}}
+                onClick={()=>setFiltAccion(filtAccion===a?"":a)}>
+                <div style={{fontSize:10,color:c,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>{a}</div>
+                <div style={{fontSize:17,fontWeight:800,color:c,marginTop:1}}>{n}</div>
+              </div>
+            ))}
+            {filtAccion&&<button style={{...btnO(C.muted),padding:"7px 12px",fontSize:11,alignSelf:"center"}} onClick={()=>setFiltAccion("")}>✕ Quitar filtro</button>}
+          </div>
+        );
+      })()}
+
+      {/* Tabla */}
+      <div style={card}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead>
+              <tr>
+                {["Fecha","Hora","Usuario","Acción","Detalle"].map(h=>(
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lista.length===0&&(
+                <tr><td colSpan={5} style={{...td,textAlign:"center",color:C.muted,padding:36}}>
+                  {bitacora.length===0?"Sin eventos registrados aún — cada cambio que hagas aparecerá aquí 📝":"Sin eventos en este período"}
+                </td></tr>
+              )}
+              {lista.map((r,i)=>{
+                const {c,bg} = accionColor(r.accion);
+                return (
+                  <tr key={r.id||i} style={{background:i%2===0?"#fff":"#f9fcfa"}}>
+                    <td style={{...td,fontWeight:600,whiteSpace:"nowrap"}}>{fmtDate(r.fecha)}</td>
+                    <td style={{...td,color:C.muted,whiteSpace:"nowrap"}}>{r.hora}</td>
+                    <td style={td}><span style={{fontWeight:700,color:C.green}}>👤 {r.usuario||"—"}</span></td>
+                    <td style={td}><span style={{...badge(c,bg),fontSize:11}}>{r.accion}</span></td>
+                    <td style={{...td,color:C.muted,fontSize:12}}>{r.detalle||"—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {lista.length>0&&(
+          <div style={{...totRow,marginTop:8}}>
+            <span style={{fontWeight:600,color:C.muted,fontSize:12}}>Mostrando {lista.length} de {bitacora.length} eventos totales</span>
+            <span style={{fontSize:11,color:C.muted}}>Más reciente primero</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1755,8 +2178,34 @@ export default function App() {
   const [clientes,   setClientes,   loadedCli]  = useSupabase("catalogos_clientes",   INIT_CLI);
   const [productos,  setProductos,  loadedPro]  = useSupabase("catalogos_productos",  INIT_PROD);
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
+  const [bitacora,   setBitacora,   loadedBit]  = useSupabase("bitacora", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv;
+  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit;
+
+  const logBit = (accion, detalle="") => {
+    const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
+    setBitacora(b=>[reg,...b.slice(0,499)]);
+  };
+
+  const exportExcel = async () => {
+    // Cargar SheetJS dinámicamente
+    if(!window.XLSX) {
+      await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    const X = window.XLSX;
+    const toRows = (rows, cols) => [cols.map(c=>c.l), ...rows.map(r=>cols.map(c=>r[c.k]??""))];
+    const wb = X.utils.book_new();
+    const sheets = [
+      { name:"Ventas",   rows:toRows(ventas,  [{l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus Pago",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"},{l:"Fecha Pago",k:"fechaPago"},{l:"Factura",k:"factura"},{l:"Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"}]) },
+      { name:"Gastos",   rows:toRows(gastos,  [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Descripcion",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"},{l:"Monto",k:"monto"}]) },
+      { name:"Pagos",    rows:toRows(pagos,   [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Tipo Pago",k:"tipoPago"},{l:"#Pedido",k:"pedidoId"},{l:"Monto",k:"monto"}]) },
+      { name:"Fruta",    rows:toRows(fruta.filter(f=>!f.tipo), [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"}]) },
+      { name:"Pedidos",  rows:toRows(pedidos, [{l:"#Pedido",k:"id"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Fecha Entrega",k:"fechaEntrega"},{l:"Total",k:"total"},{l:"Estatus",k:"estatus"},{l:"Tipo Pago",k:"tipoPago"},{l:"Factura",k:"factura"}]) },
+      { name:"Bitacora", rows:toRows(bitacora,[{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}]) },
+    ];
+    sheets.forEach(s=>{ const ws=X.utils.aoa_to_sheet(s.rows); X.utils.book_append_sheet(wb,ws,s.name); });
+    X.writeFile(wb, `SAJI-Group-${todayStr()}.xlsx`);
+  };
 
   const handleLogin = (nombre) => {
     sessionStorage.setItem("saji_user", nombre);
@@ -1779,6 +2228,7 @@ export default function App() {
     { id:"pagos",     label:"🧾 Pagos"     },
     { id:"fruta",     label:"🥑 Fruta"     },
     { id:"catalogos", label:"🗂️ Catálogos" },
+    { id:"bitacora",  label:"📋 Bitácora"  },
   ];
 
   // Pantalla de carga mientras conecta con Supabase
@@ -1790,21 +2240,29 @@ export default function App() {
       <div style={{width:180,height:4,background:C.border,borderRadius:2,overflow:"hidden",marginTop:8}}>
         <div style={{height:"100%",background:C.green,borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
       </div>
-      <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}`}</style>
+      <style>{`
+  @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+  @media(min-width:600px){.kpi-grid{grid-template-columns:repeat(5,1fr)!important}}
+  @media(max-width:599px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+  }
+`}</style>
     </div>
   );
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
-      <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap" }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <SAJILogo s={30}/>
-          <div style={{lineHeight:1.15}}>
-            <div style={{fontWeight:800,fontSize:13,color:C.green}}>SAJI Group</div>
-            <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
+      <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap", overflow:"hidden" }}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0}}>
+          <button onClick={()=>window.location.reload()} style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center"}} title="Actualizar">
+            <SAJILogo s={34}/>
+          </button>
+          <div style={{lineHeight:1.15,minWidth:0}}>
+            <div style={{fontWeight:800,fontSize:13,color:C.green,whiteSpace:"nowrap"}}>SAJI Group</div>
+            <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
           </div>
         </div>
-        <nav style={{ display:"flex", gap:3, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center" }}>
+        <nav style={{ display:"flex", gap:3, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center", flex:"1 1 auto", minWidth:0 }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
               background:tab===t.id?C.green:"transparent",
@@ -1815,9 +2273,8 @@ export default function App() {
               whiteSpace:"nowrap", transition:"all .15s"
             }}>{t.label}</button>
           ))}
-          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>
-            📥 Excel
-          </button>
+          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>
+          <button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>
           <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
             <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
             <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
@@ -1829,11 +2286,12 @@ export default function App() {
 
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos}/>}
-        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas}/>}
-        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos}/>}
-        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas}/>}
-        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores}/>}
+        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+        {tab==="bitacora"  && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
         {tab==="catalogos" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
       </main>
 
