@@ -469,11 +469,9 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
 function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }) {
-  const [show,         setShow]        = useState(false);
-  const [filter,       setFilter]      = useState("pendiente");
-  const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
-  const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
-  const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
+  const [show,   setShow]   = useState(false);
+  const [filter, setFilter] = useState("pendiente");
+  const [form, setForm] = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
 
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const setItem = (i,k,v) => setForm(f=>{
@@ -496,29 +494,20 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
     setShow(false);
   };
   const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); logBit("Canceló pedido",`#${id}`); };
-  const abrirCompletar = id => {
+  const completar = id => {
     const p=pedidos.find(x=>x.id===id); if(!p) return;
-    setKgsReales((p.items||[]).map(it=>String(it.cantidad)));
-    setCompletando(p);
-  };
-  const confirmarCompletar = () => {
-    const p=completando; if(!p) return;
-    const items = (p.items||[]).map((it,i)=>({...it, cantidad: parseFloat(kgsReales[i]||it.cantidad)||parseFloat(it.cantidad) }));
-    const totalReal = items.reduce((s,it)=>s+(it.cantidad*parseFloat(it.precio)),0);
-    setVentas(vs=>[...items.map((it,i)=>({
+    setVentas(vs=>[...(p.items||[]).map(it=>({
       pedidoId:p.id,
       itemId:`${p.id}-${it.producto}-${Math.random().toString(36).slice(2,5)}`,
       semana:weekOf(todayStr()), dia:dayOf(todayStr()), mes:monthOf(todayStr()), fecha:todayStr(),
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
-      cantidad:it.cantidad, precio:parseFloat(it.precio),
-      total:it.cantidad*parseFloat(it.precio),
+      cantidad:parseFloat(it.cantidad), precio:parseFloat(it.precio),
+      total:parseFloat(it.cantidad)*parseFloat(it.precio),
       estatusPago:"pendiente", tipoPago:p.tipoPago, fechaPago:"",
       factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
-      estatusFactura: p.factura==="si" ? "pendiente_factura" : "no_aplica",
     })),...vs]);
-    setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal}:x));
-    logBit("Completó pedido",`#${p.id} · ${p.cliente} · ${fmt(totalReal)}`);
-    setCompletando(null);
+    setPedidos(ps=>ps.map(x=>x.id===id?{...x,estatus:"completado"}:x));
+    logBit("Completó pedido",`#${id} · ${p.cliente} · ${fmt(p.total)}`);
   };
 
   const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
@@ -595,7 +584,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
                         {p.estatus==="pendiente"&&(
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
+                            <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>completar(p.id)}>✓ Completar</button>
                             <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
                           </div>
                         )}
@@ -608,94 +597,6 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
           </table>
         </div>
       </div>
-
-      {/* Modal confirmar KG reales */}
-      {completando&&(
-        <div style={modal}>
-          <div style={{...mbox,maxWidth:480}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:C.green}}>⚖️ Confirmar KG reales</h3>
-              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setCompletando(null)}>×</button>
-            </div>
-            <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:14}}>
-              📦 Pedido #{completando.id} · {completando.cliente}<br/>
-              <span style={{fontSize:11,fontWeight:400}}>Edita los KG si el cliente pesó diferente al pedido original</span>
-            </div>
-            {(completando.items||[]).map((it,i)=>(
-              <div key={i} style={{background:C.bg,borderRadius:9,padding:"10px 14px",marginBottom:8,border:`1px solid ${C.border}`}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                  <div style={{flex:"1 1 160px",fontWeight:600,fontSize:13}}>{it.producto} <span style={badge(C.blue,C.blueL)}>{it.calibre}</span></div>
-                  <div style={{flex:"0 0 auto"}}>
-                    <label style={{...lbl,margin:"0 0 2px"}}>KG pedido: <strong>{it.cantidad}</strong></label>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <label style={lbl}>KG real *</label>
-                      <input type="number" inputMode="decimal" style={{...inp,width:100,padding:"7px 10px"}}
-                        value={kgsReales[i]||""}
-                        onChange={e=>setKgsReales(k=>{const n=[...k];n[i]=e.target.value;return n;})}/>
-                    </div>
-                  </div>
-                  <div style={{fontSize:12,color:C.green,fontWeight:700,minWidth:90}}>
-                    {fmt((parseFloat(kgsReales[i]||it.cantidad)||0)*parseFloat(it.precio))}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div style={{...totRow,marginTop:12}}>
-              <span style={{fontWeight:600,color:C.muted}}>Total real</span>
-              <span style={{fontSize:20,fontWeight:800,color:C.green}}>
-                {fmt((completando.items||[]).reduce((s,it,i)=>s+(parseFloat(kgsReales[i]||it.cantidad)||0)*parseFloat(it.precio),0))}
-              </span>
-            </div>
-            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
-              <button style={btnO()} onClick={()=>setCompletando(null)}>Cancelar</button>
-              <button style={btn(C.green)} onClick={confirmarCompletar}>✅ Confirmar y Completar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal KGs reales al completar */}
-      {completarId&&(()=>{
-        const p=pedidos.find(x=>x.id===completarId);
-        if(!p) return null;
-        const totalReal = kgsReales.reduce((s,it)=>s+(parseFloat(it.cantidadReal||0)*parseFloat(it.precio||0)),0);
-        return (
-          <div style={modal}>
-            <div style={{...mbox,maxWidth:480}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <h3 style={{margin:0,color:C.green}}>⚖️ Confirmar KG reales</h3>
-                <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setCompletarId(null)}>×</button>
-              </div>
-              <div style={{color:C.muted,fontSize:12,marginBottom:14}}>
-                Pedido <strong style={{color:C.green}}>#{p.id}</strong> · {p.cliente} — ajusta los KG reales pesados en entrega:
-              </div>
-              {kgsReales.map((it,i)=>(
-                <div key={i} style={{background:C.bg,borderRadius:9,padding:"10px 12px",marginBottom:8,border:`1px solid ${C.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                    <span style={{fontWeight:700}}>{pEmoji(it.producto)} {it.producto} <span style={{...badge(C.blue,C.blueL),marginLeft:4}}>{it.calibre}</span></span>
-                    <span style={{color:C.muted,fontSize:11}}>Pedido: {it.cantidad} kg</span>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <label style={{...lbl,margin:0,minWidth:80}}>KG reales *</label>
-                    <input type="number" inputMode="decimal" style={{...inp,flex:1}}
-                      value={it.cantidadReal}
-                      onChange={e=>setKgsReales(ks=>ks.map((k,idx)=>idx===i?{...k,cantidadReal:e.target.value}:k))}/>
-                    <span style={{color:C.green,fontWeight:700,minWidth:80,textAlign:"right"}}>{fmt(parseFloat(it.cantidadReal||0)*parseFloat(it.precio||0))}</span>
-                  </div>
-                </div>
-              ))}
-              <div style={{...totRow,marginTop:8}}>
-                <span style={{color:C.muted,fontWeight:600}}>Total real</span>
-                <span style={{fontSize:20,fontWeight:800,color:C.green}}>{fmt(totalReal)}</span>
-              </div>
-              <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
-                <button style={btnO()} onClick={()=>setCompletarId(null)}>Cancelar</button>
-                <button style={btn(C.green)} onClick={confirmarCompletar}>✅ Confirmar y completar</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {show&&(
         <div style={modal}>
@@ -788,21 +689,6 @@ function Ventas({ ventas, setVentas }) {
     return daysDiff(v.fechaFactura)+" días";
   };
 
-  const estatusFactura = v => {
-    if(v.estatusFactura==="cancelada") return { label:"❌ Cancelada", color:C.red };
-    if(v.factura && v.factura.trim() && v.factura.toLowerCase()!=="no aplica")
-      return { label:"✅ Factura realizada", color:C.green };
-    if(v.estatusFactura==="pendiente_factura" || (!v.factura && v.estatusFactura!=="no_aplica"))
-      return { label:"⏳ Pend. facturar", color:C.amber };
-    return { label:"— No aplica", color:C.muted };
-  };
-  const estatusFacturaLabel = v => {
-    if(v.estatus==="cancelada") return { label:"❌ Cancelada", color:C.red };
-    if(v.estatusFactura==="no_aplica"||v.factura==="No aplica") return { label:"No aplica", color:C.muted };
-    if(v.factura && v.factura!=="No aplica" && v.factura.trim()!=="") return { label:"✅ Factura realizada", color:C.green };
-    return { label:"⏳ Pend. facturar", color:C.amber };
-  };
-
   const cols = [
     {l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Cliente",k:"cliente"},{l:"Calibre",k:"calibre"},{l:"Cantidad KG",k:"cantidad"},
@@ -841,13 +727,13 @@ function Ventas({ ventas, setVentas }) {
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Total","Estatus Pago","Estatus Factura","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
+            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Total","Estatus","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
               <th key={h} style={th}>{h}</th>
             ))}</tr></thead>
             <tbody>
-              {lista.length===0&&<tr><td colSpan={20} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin ventas en este período 📋</td></tr>}
+              {lista.length===0&&<tr><td colSpan={19} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin ventas en este período 📋</td></tr>}
               {lista.map(v=>(
-                <tr key={v.itemId} style={{opacity:v.estatus==="cancelada"?0.5:1,background:v.estatus==="cancelada"?"#fff5f5":"transparent"}}>
+                <tr key={v.itemId}>
                   <td style={td}><span style={{fontWeight:700,color:C.green,fontSize:11}}>#{v.pedidoId}</span></td>
                   <td style={td}>{v.semana}</td>
                   <td style={td}>{v.dia}</td>
@@ -859,21 +745,14 @@ function Ventas({ ventas, setVentas }) {
                   <td style={td}>{fmt(v.precio)}</td>
                   <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
                   <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
-                  <td style={td}>{(()=>{const ef=estatusFacturaLabel(v);return <span style={badge(ef.color)}>{ef.label}</span>;})()}</td>
-                  <td style={{...td,opacity:v.estatus==="cancelada"?0.4:1}}>{v.tipoPago}</td>
+                  <td style={td}>{v.tipoPago}</td>
                   <td style={td}>{fmtDate(v.fechaPago)||"—"}</td>
                   <td style={td}>{v.factura||"—"}</td>
                   <td style={td}>{v.facturaEmisor||"—"}</td>
                   <td style={td}>{v.remision||"—"}</td>
                   <td style={td}>{fmtDate(v.fechaFactura)||"—"}</td>
-                  <td style={td}>{(()=>{const ef=estatusFactura(v);return <span style={{...badge(ef.color),fontSize:10}}>{ef.label}</span>;})()}</td>
                   <td style={td}><span style={v.estatusPago!=="pagado"&&v.fechaFactura?{color:C.red,fontWeight:700}:{}}>{diasPendiente(v)}</span></td>
-                  <td style={td}>
-                    <div style={{display:"flex",gap:3}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button>
-                      {v.estatusFactura!=="cancelada"&&<button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>{ if(window.confirm("¿Cancelar esta venta?")) { setVentas(vs=>vs.map(x=>x.itemId===v.itemId?{...x,estatusFactura:"cancelada"}:x)); logBit("Canceló venta",`#${v.pedidoId} · ${v.cliente} · ${fmt(v.total)}`); } }}>✕</button>}
-                    </div>
-                  </td>
+                  <td style={td}><button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button></td>
                 </tr>
               ))}
             </tbody>
@@ -888,15 +767,13 @@ function Ventas({ ventas, setVentas }) {
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setEditing(null)}>×</button>
             </div>
             <div style={g2}>
-              <div><label style={lbl}>KG reales</label><input type="number" inputMode="decimal" style={inp} value={form.cantidad||""} onChange={e=>sf("cantidad",parseFloat(e.target.value)||0)}/></div>
-              <div><label style={lbl}>Precio $/kg</label><input type="number" inputMode="decimal" style={inp} value={form.precio||""} onChange={e=>sf("precio",parseFloat(e.target.value)||0)}/></div>
               <div><label style={lbl}>Estatus pago</label>
                 <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
                   <option value="pendiente">⏳ Pendiente</option><option value="pagado">✅ Pagado</option>
                 </select>
               </div>
               <div><label style={lbl}>Fecha de pago</label><input type="date" style={inp} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/></div>
-              <div><label style={lbl}>Factura #</label><input style={inp} placeholder="Número o dejar vacío" value={form.factura||""} onChange={e=>sf("factura",e.target.value)}/></div>
+              <div><label style={lbl}>Factura #</label><input style={inp} placeholder="Número o No aplica" value={form.factura||""} onChange={e=>sf("factura",e.target.value)}/></div>
               <div><label style={lbl}>Emisor factura</label>
                 <select style={sel} value={form.facturaEmisor||""} onChange={e=>sf("facturaEmisor",e.target.value)}>
                   <option value="">— Seleccionar —</option>
@@ -907,9 +784,8 @@ function Ventas({ ventas, setVentas }) {
               <div><label style={lbl}>Remisión</label><input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/></div>
             </div>
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
-              <button style={btnO(C.red)} onClick={()=>{ if(window.confirm("¿Cancelar esta venta? Se marcará como cancelada.")) { setVentas(vs=>vs.map(v=>v.itemId===editing?{...v,estatus:"cancelada"}:v)); setEditing(null); }}}>❌ Cancelar venta</button>
-              <button style={btnO()} onClick={()=>setEditing(null)}>Cerrar</button>
-              <button style={btn()} onClick={()=>{ setVentas(vs=>vs.map(v=>v.itemId===editing?{...form, cantidad:parseFloat(form.cantidad)||v.cantidad, precio:parseFloat(form.precio)||v.precio, total:(parseFloat(form.cantidad)||v.cantidad)*(parseFloat(form.precio)||v.precio), estatusFactura: form.factura ? "factura_realizada" : (form.estatusFactura==="no_aplica"?"no_aplica":"pendiente_factura") }:v)); setEditing(null); }}>💾 Guardar</button>
+              <button style={btnO()} onClick={()=>setEditing(null)}>Cancelar</button>
+              <button style={btn()} onClick={save}>💾 Guardar</button>
             </div>
           </div>
         </div>
@@ -2006,24 +1882,30 @@ export default function App() {
     setBitacora(b=>[reg,...b.slice(0,499)]);
   };
 
-  const exportExcel = async () => {
-    // Cargar SheetJS dinámicamente
-    if(!window.XLSX) {
-      await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
-    }
-    const X = window.XLSX;
-    const toRows = (rows, cols) => [cols.map(c=>c.l), ...rows.map(r=>cols.map(c=>r[c.k]??""))];
-    const wb = X.utils.book_new();
+  const exportExcel = () => {
+    const toCSV = (rows, cols) => {
+      const h = cols.map(c=>c.l).join(",");
+      const b = rows.map(r=>cols.map(c=>`"${String(r[c.k]||"").replace(/"/g,"'")}"`).join(",")).join("\n");
+      return "\uFEFF"+h+"\n"+b;
+    };
     const sheets = [
-      { name:"Ventas",   rows:toRows(ventas,  [{l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus Pago",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"},{l:"Fecha Pago",k:"fechaPago"},{l:"Factura",k:"factura"},{l:"Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"}]) },
-      { name:"Gastos",   rows:toRows(gastos,  [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Descripcion",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"},{l:"Monto",k:"monto"}]) },
-      { name:"Pagos",    rows:toRows(pagos,   [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Tipo Pago",k:"tipoPago"},{l:"#Pedido",k:"pedidoId"},{l:"Monto",k:"monto"}]) },
-      { name:"Fruta",    rows:toRows(fruta.filter(f=>!f.tipo), [{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},{l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"}]) },
-      { name:"Pedidos",  rows:toRows(pedidos, [{l:"#Pedido",k:"id"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Fecha Entrega",k:"fechaEntrega"},{l:"Total",k:"total"},{l:"Estatus",k:"estatus"},{l:"Tipo Pago",k:"tipoPago"},{l:"Factura",k:"factura"}]) },
-      { name:"Bitacora", rows:toRows(bitacora,[{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}]) },
+      { name:"Ventas",  data:toCSV(ventas, [{l:"#Pedido",k:"pedidoId"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"}]) },
+      { name:"Gastos",  data:toCSV(gastos, [{l:"Fecha",k:"fecha"},{l:"Descripcion",k:"gasto"},{l:"Tipo",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"},{l:"Monto",k:"monto"}]) },
+      { name:"Pagos",   data:toCSV(pagos,  [{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"#Pedido",k:"pedidoId"},{l:"Tipo Pago",k:"tipoPago"},{l:"Monto",k:"monto"}]) },
+      { name:"Fruta",   data:toCSV(fruta.filter(f=>!f.tipo), [{l:"Fecha",k:"fecha"},{l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"}]) },
+      { name:"Pedidos", data:toCSV(pedidos,[{l:"#Pedido",k:"id"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Total",k:"total"},{l:"Estatus",k:"estatus"},{l:"Tipo Pago",k:"tipoPago"}]) },
+      { name:"Bitacora",data:toCSV(bitacora,[{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}]) },
     ];
-    sheets.forEach(s=>{ const ws=X.utils.aoa_to_sheet(s.rows); X.utils.book_append_sheet(wb,ws,s.name); });
-    X.writeFile(wb, `SAJI-Group-${todayStr()}.xlsx`);
+    // Crear un ZIP con múltiples CSV dentro de un solo archivo Excel-compatible
+    // Usamos el truco de data URI con múltiples tabs como hojas separadas
+    // Para simplicidad: descargar un CSV consolidado con separadores de hoja
+    let contenido = "";
+    sheets.forEach(s => { contenido += `\n\n===== ${s.name} =====\n${s.data}`; });
+    const blob = new Blob(["\uFEFF"+contenido], {type:"text/csv;charset=utf-8;"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `SAJI-Group-${todayStr()}.csv`;
+    a.click();
   };
 
   const handleLogin = (nombre) => {
@@ -2073,9 +1955,7 @@ export default function App() {
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
       <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap", overflow:"hidden" }}>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0}}>
-          <button onClick={()=>window.location.reload()} style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center"}} title="Actualizar">
-            <SAJILogo s={34}/>
-          </button>
+          <SAJILogo s={34}/>
           <div style={{lineHeight:1.15,minWidth:0}}>
             <div style={{fontWeight:800,fontSize:13,color:C.green,whiteSpace:"nowrap"}}>SAJI Group</div>
             <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
