@@ -1201,7 +1201,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
               {pedidosUnicos.map(p=>{
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
-                return [
+                const PedidoRows = () => (<>
                     <tr key={p.pedidoId+"-row"} style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
@@ -1266,7 +1266,8 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
                       </tr>
                     )}
-                ];
+                </>);
+                return <PedidoRows key={p.pedidoId}/>;
               })}
             </tbody>
           </table>
