@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Fragment } from "react";
 import { loadTable, saveTable, subscribeTable } from "./supabase.js";
 
 // ─── iOS zoom fix ─────────────────────────────────────────────────────────────
@@ -1206,7 +1206,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
                 return (
-                  <React.Fragment key={p.pedidoId}>
+                  <Fragment key={p.pedidoId}>
                     <tr style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
@@ -1267,7 +1267,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                             </tr>
                           ))
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -1497,7 +1497,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   const s=saldoProveedor(prov);
                   const pagosProv = pagosF.filter(p=>p.proveedor===prov);
                   return (
-                    <React.Fragment key={prov}>
+                    <Fragment key={prov}>
                       <tr style={{background:C.bg}}>
                         <td style={{...td,fontWeight:700,padding:"8px 8px"}}>{prov}</td>
                         <td style={{...td,padding:"8px 8px"}}><strong style={{fontSize:12}}>{fmt(s.totalCompras)}</strong></td>
@@ -1521,7 +1521,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                               </tr>
                             ))
                       )}
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </tbody>
