@@ -759,8 +759,9 @@ function Ventas({ ventas, setVentas, logBit }) {
   };
   const estatusFacturaLabel = v => {
     if(v.estatus==="cancelada") return { label:"❌ Cancelada", color:C.red };
-    if(v.estatusFactura==="no_aplica"||v.factura==="No aplica") return { label:"No aplica", color:C.muted };
-    if(v.factura && v.factura!=="No aplica" && v.factura.trim()!=="") return { label:"✅ Factura realizada", color:C.green };
+    if(v.estatusFactura==="no_aplica") return { label:"No aplica", color:C.muted };
+    const tieneNumFactura = v.factura && v.factura.trim()!=="" && v.factura!=="No aplica" && v.factura!=="-" && v.factura!=="—";
+    if(tieneNumFactura) return { label:"✅ Factura realizada", color:C.green };
     return { label:"⏳ Pend. facturar", color:C.amber };
   };
 
@@ -827,8 +828,13 @@ function Ventas({ ventas, setVentas, logBit }) {
                   <td style={td}>{v.facturaEmisor||"—"}</td>
                   <td style={td}>{v.remision||"—"}</td>
                   <td style={td}>{fmtDate(v.fechaFactura)||"—"}</td>
-                  <td style={td}>{(()=>{const ef=estatusFactura(v);return <span style={{...badge(ef.color),fontSize:10}}>{ef.label}</span>;})()}</td>
-                  <td style={td}><span style={v.estatusPago!=="pagado"&&v.fechaFactura?{color:C.red,fontWeight:700}:{}}>{diasPendiente(v)}</span></td>
+                  <td style={td}>{(()=>{
+                    const d = diasPendiente(v);
+                    if(d==="—") return <span style={{color:C.muted}}>—</span>;
+                    const n = parseInt(d);
+                    const color = n>30?C.red:n>15?C.amber:C.green;
+                    return <span style={{color,fontWeight:700}}>{d}</span>;
+                  })()}</td>
                   <td style={td}>
                     <div style={{display:"flex",gap:3}}>
                       <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button>
