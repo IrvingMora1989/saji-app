@@ -1205,15 +1205,15 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
               {pedidosUnicos.map(p=>{
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
-                return [
-                    <tr key={p.pedidoId+"-row"} style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
+                return (
+                  <React.Fragment key={p.pedidoId}>
+                    <tr style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
                       <td style={td}>{fmt(p.totalPedido)}</td>
                       <td style={td}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{color:C.green,fontWeight:600}}>{fmt(p.totalAbonado)}</span>
-                          {/* Progress bar */}
                           <div style={{flex:1,minWidth:60,height:6,background:C.border,borderRadius:3,overflow:"hidden"}}>
                             <div style={{width:`${pct}%`,height:"100%",background:pct>=100?C.green:C.amber,borderRadius:3,transition:"width .3s"}}/>
                           </div>
@@ -1245,32 +1245,30 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         </div>
                       </td>
                     </tr>
-                    ,detalle===p.pedidoId&&abonosPed.map((ab,i)=>(
-                      <tr key={ab.id} style={{background:"#f0fff4"}}>
-                        <td style={{...td,paddingLeft:24,fontSize:12,color:C.muted}} colSpan={2}>
-                          └ Abono {i+1} · {fmtDate(ab.fecha)}
-                        </td>
-                        <td style={{...td,fontSize:12}} colSpan={2}>{ab.tipoPago}</td>
-                        <td style={{...td,color:C.green,fontWeight:700,fontSize:13}} colSpan={2}>{fmt(ab.monto)}</td>
-                        <td style={td}>
-                          <button style={{...btn(C.red),padding:"3px 8px",fontSize:11}}
-                            onClick={()=>{
-                              setPagos(ps=>ps.filter(x=>x.id!==ab.id));
-                              // Si quitamos un pago, revisar si la venta debe volver a pendiente
-                              const restante = pagos.filter(x=>x.id!==ab.id&&x.pedidoId===p.pedidoId).reduce((s,x)=>s+x.monto,0);
-                              if(restante < p.totalPedido - 0.01) {
-                                setVentas(vs=>vs.map(v=>v.pedidoId===p.pedidoId?{...v,estatusPago:"pendiente"}:v));
-                              }
-                            }}>✕</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {detalle===p.pedidoId&&abonosPed.length===0&&(
-                      <tr style={{background:"#f9fcfa"}}>
-                        <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
-                      </tr>
+                    {detalle===p.pedidoId&&(
+                      abonosPed.length===0
+                        ? <tr style={{background:"#f9fcfa"}}>
+                            <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
+                          </tr>
+                        : abonosPed.map((ab,i)=>(
+                            <tr key={ab.id} style={{background:"#f0fff4"}}>
+                              <td style={{...td,paddingLeft:24,fontSize:12,color:C.muted}} colSpan={2}>└ Abono {i+1} · {fmtDate(ab.fecha)}</td>
+                              <td style={{...td,fontSize:12}} colSpan={2}>{ab.tipoPago}</td>
+                              <td style={{...td,color:C.green,fontWeight:700,fontSize:13}} colSpan={2}>{fmt(ab.monto)}</td>
+                              <td style={td}>
+                                <button style={{...btn(C.red),padding:"3px 8px",fontSize:11}} onClick={()=>{
+                                  setPagos(ps=>ps.filter(x=>x.id!==ab.id));
+                                  const restante = pagos.filter(x=>x.id!==ab.id&&x.pedidoId===p.pedidoId).reduce((s,x)=>s+x.monto,0);
+                                  if(restante < p.totalPedido - 0.01) {
+                                    setVentas(vs=>vs.map(v=>v.pedidoId===p.pedidoId?{...v,estatusPago:"pendiente"}:v));
+                                  }
+                                }}>✕</button>
+                              </td>
+                            </tr>
+                          ))
                     )}
-                ];
+                  </React.Fragment>
+                );
               })}
             </tbody>
           </table>
@@ -1458,12 +1456,12 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
         <div>
           <h2 style={{...h2s,margin:0}}>🥑 Fruta — Compras e Inventario</h2>
-          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
-            {(()=>{
-              const totalC=compras.reduce((s,c)=>s+c.total,0);
-              const totalP=pagosF.reduce((s,p)=>s+p.monto,0);
-              const porPagar=Math.max(0,totalC-totalP);
-              return (<>
+          {(()=>{
+            const totalC=compras.reduce((s,c)=>s+c.total,0);
+            const totalP=pagosF.reduce((s,p)=>s+p.monto,0);
+            const porPagar=Math.max(0,totalC-totalP);
+            return (
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
                 <div style={{background:C.tealL,border:`1px solid ${C.teal}33`,borderRadius:9,padding:"8px 16px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:110}}>
                   <span style={{fontSize:10,color:C.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total comprado</span>
                   <span style={{fontSize:17,fontWeight:800,color:C.teal}}>{fmt(totalC)}</span>
@@ -1476,9 +1474,9 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <span style={{fontSize:10,color:porPagar>0?C.red:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Por pagar</span>
                   <span style={{fontSize:17,fontWeight:800,color:porPagar>0?C.red:C.green}}>{porPagar>0?fmt(porPagar):"✅ Al corriente"}</span>
                 </div>
-              </>);
-            })()}
-          </div>
+              </div>
+            );
+          })()}
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp,cols,`fruta-${todayStr()}.csv`)}>⬇ CSV</button>
@@ -1498,8 +1496,9 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                 {existingProveedores.map(prov=>{
                   const s=saldoProveedor(prov);
                   const pagosProv = pagosF.filter(p=>p.proveedor===prov);
-                  return [
-                    <tr key={prov+"-main"} style={{background:C.bg}}>
+                  return (
+                    <React.Fragment key={prov}>
+                      <tr style={{background:C.bg}}>
                         <td style={{...td,fontWeight:700,padding:"8px 8px"}}>{prov}</td>
                         <td style={{...td,padding:"8px 8px"}}><strong style={{fontSize:12}}>{fmt(s.totalCompras)}</strong></td>
                         <td style={{...td,padding:"8px 8px"}}><span style={{color:C.green,fontWeight:700,fontSize:12}}>{fmt(s.totalPagos)}</span></td>
@@ -1510,15 +1509,20 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                           </button>
                         </td>
                       </tr>
-                      {activeProv===prov&&pagosProv.map(pg=>(
-                        <tr key={pg.id} style={{background:"#f0fff4"}}>
-                          <td style={{...td,paddingLeft:20,color:C.muted,fontSize:11}} colSpan={1}>└ {fmtDate(pg.fecha)}</td>
-                          <td style={{...td,fontSize:11}} colSpan={2}>{pg.metodoPago}</td>
-                          <td style={{...td,color:C.green,fontWeight:600,fontSize:12}}>{fmt(pg.monto)}</td>
-                          <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
-                        </tr>
-                      ))}
-                  ];
+                      {activeProv===prov&&(
+                        pagosProv.length===0
+                          ? <tr style={{background:"#f9fcfa"}}><td colSpan={5} style={{...td,paddingLeft:20,color:C.muted,fontSize:11}}>Sin pagos registrados</td></tr>
+                          : pagosProv.map(pg=>(
+                              <tr key={pg.id} style={{background:"#f0fff4"}}>
+                                <td style={{...td,paddingLeft:20,color:C.muted,fontSize:11}} colSpan={1}>└ {fmtDate(pg.fecha)}</td>
+                                <td style={{...td,fontSize:11}} colSpan={2}>{pg.metodoPago}</td>
+                                <td style={{...td,color:C.green,fontWeight:600,fontSize:12}}>{fmt(pg.monto)}</td>
+                                <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
+                              </tr>
+                            ))
+                      )}
+                    </React.Fragment>
+                  );
                 })}
               </tbody>
             </table>
@@ -1844,8 +1848,8 @@ function Bitacora({ bitacora, setBitacora }) {
       {bitacora.length>0&&(()=>{
         const stats = acciones.slice(0,6).map(a=>{
           const n = bitacora.filter(r=>r.accion===a).length;
-          const {c,bg} = accionColor(a);
-          return {a,n,c,bg};
+          const col = accionColor(a);
+          return { a:a, n:n, c:col.c, bg:col.bg };
         }).sort((x,y)=>y.n-x.n);
         return (
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
