@@ -358,9 +358,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 </thead>
                 <tbody>
                   {filas.map((f,i)=>(
-                    <Fragment key={i}>
-                      {f.sep&&<tr><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>}
-                      <tr style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
+                    <tr key={i} style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
                         <td style={{padding:"9px 12px",fontWeight:f.bold?700:400,color:C.text,borderBottom:`1px solid ${C.border}`}}>
                           <span style={{marginRight:5}}>{f.icon}</span>{f.concepto}
                         </td>
@@ -371,7 +369,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                           {pct(f.monto)}
                         </td>
                       </tr>
-                    </Fragment>
                   ))}
                   <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
                   <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
@@ -1204,7 +1201,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
                 return (
-                  <Fragment key={p.pedidoId}>
+                  
                     <tr style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
@@ -1270,8 +1267,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
                       </tr>
                     )}
-                  </Fragment>
-                );
+                  );
               })}
             </tbody>
           </table>
@@ -1483,7 +1479,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   const s=saldoProveedor(prov);
                   const pagosProv = pagosF.filter(p=>p.proveedor===prov);
                   return (
-                    <Fragment key={prov}>
+                    
                       <tr style={{background:C.bg}}>
                         <td style={{...td,fontWeight:700,padding:"8px 8px"}}>{prov}</td>
                         <td style={{...td,padding:"8px 8px"}}><strong style={{fontSize:12}}>{fmt(s.totalCompras)}</strong></td>
@@ -1503,8 +1499,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                           <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
                         </tr>
                       ))}
-                    </Fragment>
-                  );
+                    );
                 })}
               </tbody>
             </table>
