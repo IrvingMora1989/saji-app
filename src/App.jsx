@@ -1081,9 +1081,13 @@ function Gastos({ gastos, setGastos, logBit }) {
                 </select>
               </div>
               {form.metodoPago!=="Efectivo"&&(
-                <div style={{gridColumn:"1/-1"}}><label style={lbl}>Estatus del pago</label>
+                <div style={{gridColumn:"1/-1"}}>
+                  <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:6}}>
+                    💳 {form.metodoPago} → se registra como ⏳ pendiente de pago
+                  </div>
+                  <label style={lbl}>Estatus del pago</label>
                   <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
-                    <option value="pagado">✅ Pagado</option><option value="porpagar">⏳ Por pagar</option>
+                    <option value="porpagar">⏳ Por pagar</option><option value="pagado">✅ Pagado</option>
                   </select>
                 </div>
               )}
@@ -1098,7 +1102,7 @@ function Gastos({ gastos, setGastos, logBit }) {
               <button style={btn(C.red)} onClick={()=>{
                 const finalGasto = form.gasto==="__otro"?(form.gastoCustom||""):form.gasto;
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
-                const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto) };
+                const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto), estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar") };
                 if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 setShow(false);
@@ -1360,7 +1364,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                     </div>
                     <div><label style={lbl}>Tipo de pago</label>
                       <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                        {["efectivo","transferencia","tarjeta"].map(t=><option key={t}>{t}</option>)}
+                        {["Transferencia Frasavo","Transferencia SAJI","Efectivo"].map(t=><option key={t}>{t}</option>)}
                       </select>
                     </div>
                     <div style={{gridColumn:"1/-1"}}><label style={lbl}>Fecha del abono</label>
@@ -1454,21 +1458,25 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
         <div>
           <h2 style={{...h2s,margin:0}}>🥑 Fruta — Compras e Inventario</h2>
-          <div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:6}}>
-            <div style={{background:C.tealL,border:`1px solid ${C.teal}33`,borderRadius:9,padding:"6px 14px",display:"flex",flexDirection:"column",alignItems:"center"}}>
-              <span style={{fontSize:10,color:C.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total comprado</span>
-              <span style={{fontSize:16,fontWeight:800,color:C.teal}}>{fmt(compras.reduce((s,c)=>s+c.total,0))}</span>
-            </div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
             {(()=>{
               const totalC=compras.reduce((s,c)=>s+c.total,0);
               const totalP=pagosF.reduce((s,p)=>s+p.monto,0);
               const porPagar=Math.max(0,totalC-totalP);
-              return (
-                <div style={{background:porPagar>0?C.redL:C.greenL,border:`1px solid ${porPagar>0?C.red:C.green}33`,borderRadius:9,padding:"6px 14px",display:"flex",flexDirection:"column",alignItems:"center"}}>
-                  <span style={{fontSize:10,color:porPagar>0?C.red:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Por pagar</span>
-                  <span style={{fontSize:16,fontWeight:800,color:porPagar>0?C.red:C.green}}>{porPagar>0?fmt(porPagar):"✅ Al corriente"}</span>
+              return (<>
+                <div style={{background:C.tealL,border:`1px solid ${C.teal}33`,borderRadius:9,padding:"8px 16px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:110}}>
+                  <span style={{fontSize:10,color:C.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total comprado</span>
+                  <span style={{fontSize:17,fontWeight:800,color:C.teal}}>{fmt(totalC)}</span>
                 </div>
-              );
+                <div style={{background:C.greenL,border:`1px solid ${C.green}33`,borderRadius:9,padding:"8px 16px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:110}}>
+                  <span style={{fontSize:10,color:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total pagado</span>
+                  <span style={{fontSize:17,fontWeight:800,color:C.green}}>{fmt(totalP)}</span>
+                </div>
+                <div style={{background:porPagar>0?C.redL:C.greenL,border:`1px solid ${porPagar>0?C.red:C.green}33`,borderRadius:9,padding:"8px 16px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:110}}>
+                  <span style={{fontSize:10,color:porPagar>0?C.red:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Por pagar</span>
+                  <span style={{fontSize:17,fontWeight:800,color:porPagar>0?C.red:C.green}}>{porPagar>0?fmt(porPagar):"✅ Al corriente"}</span>
+                </div>
+              </>);
             })()}
           </div>
         </div>
@@ -1778,7 +1786,8 @@ function Bitacora({ bitacora, setBitacora }) {
 
   const lista = applyFilter(bitacora, filt)
     .filter(r => !filtUsuario || r.usuario===filtUsuario)
-    .filter(r => !filtAccion  || r.accion===filtAccion);
+    .filter(r => !filtAccion  || r.accion===filtAccion)
+    .slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||(b.hora||"").localeCompare(a.hora||""));
 
   const usuarios = [...new Set(bitacora.map(r=>r.usuario).filter(Boolean))];
   const acciones = [...new Set(bitacora.map(r=>r.accion).filter(Boolean))].sort();
