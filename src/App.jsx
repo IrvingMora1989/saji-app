@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, Fragment } from "react";
+import { useState, useCallback, useEffect, Fragment } from "react"; 
 import { loadTable, saveTable, subscribeTable } from "./supabase.js";
 
 // ─── iOS zoom fix ─────────────────────────────────────────────────────────────
