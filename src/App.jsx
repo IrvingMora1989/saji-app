@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { loadTable, saveTable, subscribeTable } from "./supabase.js";
 
 // ─── iOS zoom fix ─────────────────────────────────────────────────────────────
@@ -100,21 +100,9 @@ const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
-  <svg width={s} height={s} viewBox="0 0 200 200" fill="none">
-    <circle cx="100" cy="100" r="96" stroke="#1a2b1e" strokeWidth="3.5" fill="#f7f9f7"/>
-    <path d="M32 68 A75 75 0 0 1 168 68" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <path d="M32 132 A75 75 0 0 0 168 132" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
-    <text x="100" y="58" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="28" fontWeight="600" letterSpacing="4">SAJI</text>
-    <text x="100" y="160" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="14" letterSpacing="6">GROUP</text>
-    <ellipse cx="108" cy="105" rx="22" ry="28" fill="#5a7a4a" opacity=".85"/>
-    <ellipse cx="108" cy="108" rx="14" ry="18" fill="#2d7a47" opacity=".7"/>
-    <ellipse cx="82" cy="108" rx="16" ry="22" fill="#7ab05a" opacity=".9"/>
-    <ellipse cx="82" cy="109" rx="9" ry="13" fill="#c8e89a" opacity=".9"/>
-    <ellipse cx="82" cy="111" rx="5" ry="7" fill="#8B5E3C" opacity=".8"/>
-    <line x1="108" y1="78" x2="110" y2="70" stroke="#5a7a4a" strokeWidth="2.5" strokeLinecap="round"/>
-    <ellipse cx="130" cy="115" rx="9" ry="10" fill="#d4c9b0" opacity=".8"/>
-    <ellipse cx="124" cy="119" rx="7" ry="8" fill="#c8bc9e" opacity=".75"/>
-  </svg>
+  <img src="/saji-logo.jpeg" width={s} height={s} alt="SAJI Group"
+    style={{objectFit:"contain",borderRadius:"50%"}}
+    onError={e=>{e.target.style.display="none";}}/>
 );
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
@@ -370,9 +358,9 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 </thead>
                 <tbody>
                   {filas.map((f,i)=>(
-                    <>
-                      {f.sep&&<tr key={`sep-${i}`}><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>}
-                      <tr key={i} style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
+                    <React.Fragment key={i}>
+                      {f.sep&&<tr><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>}
+                      <tr style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
                         <td style={{padding:"9px 12px",fontWeight:f.bold?700:400,color:C.text,borderBottom:`1px solid ${C.border}`}}>
                           <span style={{marginRight:5}}>{f.icon}</span>{f.concepto}
                         </td>
@@ -383,7 +371,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                           {pct(f.monto)}
                         </td>
                       </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                   <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
                   <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
@@ -1216,8 +1204,8 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
                 return (
-                  <>
-                    <tr key={p.pedidoId} style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
+                  <React.Fragment key={p.pedidoId}>
+                    <tr style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
                       <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
                       <td style={td}>{fmt(p.totalPedido)}</td>
@@ -1282,7 +1270,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         <td colSpan={7} style={{...td,paddingLeft:24,color:C.muted,fontSize:12}}>Sin abonos registrados aún</td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -1495,8 +1483,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   const s=saldoProveedor(prov);
                   const pagosProv = pagosF.filter(p=>p.proveedor===prov);
                   return (
-                    <>
-                      <tr key={prov} style={{background:C.bg}}>
+                    <React.Fragment key={prov}>
+                      <tr style={{background:C.bg}}>
                         <td style={{...td,fontWeight:700,padding:"8px 8px"}}>{prov}</td>
                         <td style={{...td,padding:"8px 8px"}}><strong style={{fontSize:12}}>{fmt(s.totalCompras)}</strong></td>
                         <td style={{...td,padding:"8px 8px"}}><span style={{color:C.green,fontWeight:700,fontSize:12}}>{fmt(s.totalPagos)}</span></td>
