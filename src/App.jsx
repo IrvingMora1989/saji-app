@@ -734,7 +734,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
 // ════════════════════════════════════════════════════════════════════════════════
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
-function Ventas({ ventas, setVentas }) {
+function Ventas({ ventas, setVentas, logBit }) {
   const [editing,    setEditing]    = useState(null);
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
