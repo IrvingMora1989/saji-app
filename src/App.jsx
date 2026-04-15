@@ -1241,7 +1241,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         </div>
                       </td>
                     </tr>
-                    {/* Abonos detalle */}
+                    
                     {detalle===p.pedidoId&&abonosPed.map((ab,i)=>(
                       <tr key={ab.id} style={{background:"#f0fff4"}}>
                         <td style={{...td,paddingLeft:24,fontSize:12,color:C.muted}} colSpan={2}>
