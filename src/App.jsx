@@ -552,23 +552,23 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
 
       <div style={card}>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed",minWidth:680}}>
+          <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed",minWidth:600}}>
             <colgroup>
-              <col style={{width:72}}/>{/* F.Entrega */}
-              <col style={{width:85}}/>{/* Cliente */}
-              <col style={{width:88}}/>{/* Producto */}
+              <col style={{width:90}}/>{/* Cliente */}
+              <col style={{width:90}}/>{/* Producto */}
               <col style={{width:52}}/>{/* KG */}
               <col style={{width:60}}/>{/* Calibre */}
               <col style={{width:62}}/>{/* $/kg */}
-              <col style={{width:68}}/>{/* Subtotal */}
-              <col style={{width:58}}/>{/* #Ped */}
-              <col style={{width:68}}/>{/* Pago */}
-              <col style={{width:40}}/>{/* Fact */}
-              <col style={{width:80}}/>{/* Estatus */}
-              <col style={{width:90}}/>{/* Acciones */}
+              <col style={{width:72}}/>{/* Subtotal */}
+              <col style={{width:56}}/>{/* #Ped */}
+              <col style={{width:72}}/>{/* F.Entrega */}
+              <col style={{width:56}}/>{/* Pago */}
+              <col style={{width:38}}/>{/* Fact */}
+              <col style={{width:78}}/>{/* Estatus */}
+              <col style={{width:88}}/>{/* Acciones */}
             </colgroup>
             <thead>
-              <tr>{["F.Entrega","Cliente","Producto","KG","Calibre","$/kg","Subtotal","#Ped","Pago","Fact.","Estatus",""].map(h=>(
+              <tr>{["Cliente","Producto","KG","Calibre","$/kg","Subtotal","#Ped","F.Entrega","Pago","Fact.","Estatus",""].map(h=>(
                 <th key={h} style={{...th,padding:"7px 6px",fontSize:10}}>{h}</th>
               ))}</tr>
             </thead>
@@ -578,7 +578,6 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
                 const items=p.items||[];
                 return items.map((it,idx)=>(
                   <tr key={`${p.id}-${idx}`} style={{background:idx%2===0?"#fff":"#f9fcfa"}}>
-                    {idx===0&&<td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}} rowSpan={items.length}>{fmtDate(p.fechaEntrega)}</td>}
                     {idx===0&&<td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} rowSpan={items.length}>{p.cliente}</td>}
                     <td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}}>{pEmoji(it.producto)} {it.producto}</td>
                     <td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px"}}>{it.cantidad}kg</td>
@@ -586,6 +585,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
                     <td style={{...td,fontSize:12,padding:"7px 6px"}}>{fmt(it.precio)}</td>
                     <td style={{...td,padding:"7px 6px"}}><strong style={{color:C.green,fontSize:12}}>{fmt(parseFloat(it.cantidad||0)*parseFloat(it.precio||0))}</strong></td>
                     {idx===0&&<td style={{...td,color:C.muted,fontSize:10,padding:"7px 6px"}} rowSpan={items.length}>#{p.id}</td>}
+                    {idx===0&&<td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}} rowSpan={items.length}>{fmtDate(p.fechaEntrega)}</td>}
                     {idx===0&&<td style={{...td,fontSize:11,padding:"7px 6px"}} rowSpan={items.length}>{p.tipoPago}</td>}
                     {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(p.factura==="si"?C.green:C.muted),padding:"2px 6px",fontSize:10}}>{p.factura==="si"?"✅":"—"}</span></td>}
                     {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(sColor(p.estatus)),padding:"2px 6px",fontSize:10}}>{sLabel(p.estatus)}</span></td>}
@@ -741,8 +741,12 @@ function Ventas({ ventas, setVentas, logBit }) {
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
   const diasPendiente = v => {
-    if(!v.fechaFactura||v.estatusPago==="pagado") return "—";
-    return daysDiff(v.fechaFactura)+" días";
+    // Si ya está pagado, no contabilizar
+    if(v.estatusPago==="pagado") return "—";
+    // Si no tiene factura emitida, no contabilizar
+    if(!v.fechaFactura) return "—";
+    const dias = daysDiff(v.fechaFactura);
+    return dias+" días";
   };
 
   const estatusFactura = v => {
@@ -925,9 +929,9 @@ function Ventas({ ventas, setVentas, logBit }) {
                 <input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/>
               </div>
               <div style={{gridColumn:"1/-1"}}>
-                <label style={lbl}>Fecha de factura</label>
+                <label style={lbl}>Fecha de factura {(form.factura||"").trim()&&!(form.fechaFactura||"").trim()&&<span style={{color:C.red,fontWeight:700}}>* Requerida</span>}</label>
                 <div style={{display:"flex",gap:4}}>
-                  <input type="date" style={{...inp,flex:1}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
+                  <input type="date" style={{...inp,flex:1,borderColor:(form.factura||"").trim()&&!(form.fechaFactura||"").trim()?C.red:C.border}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
                   {form.fechaFactura&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaFactura","")}>✕</button>}
                 </div>
               </div>
@@ -945,6 +949,11 @@ function Ventas({ ventas, setVentas, logBit }) {
               <button style={btn()} onClick={()=>{
                 const cant = parseFloat(String(form.cantidad).replace(",","."))||0;
                 const prec = parseFloat(String(form.precio).replace(",","."))||0;
+                // Validar: si hay número de factura, debe haber fecha de factura
+                if((form.factura||"").trim() && !(form.fechaFactura||"").trim()) {
+                  alert("⚠️ Si capturas un número de factura, debes poner también la Fecha de factura.");
+                  return;
+                }
                 const itemId = editing;
                 setVentas(vs=>vs.map(v=>v.itemId===itemId ? {
                   ...form,
@@ -1012,6 +1021,13 @@ function Gastos({ gastos, setGastos, logBit }) {
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={{...btnO(C.amber),color:C.amber}} onClick={()=>{
+            const tarjetas = gastos.filter(g=>g.metodoPago&&g.metodoPago.toLowerCase().includes("tarjeta")&&g.estatusPago==="pagado");
+            if(tarjetas.length===0) return alert("No hay gastos con tarjeta marcados como pagado.");
+            if(!window.confirm(`¿Cambiar ${tarjetas.length} gasto(s) con tarjeta a "Por pagar"?\n\nPodrás revisarlos y marcarlos como pagados uno a uno.`)) return;
+            setGastos(gs=>gs.map(g=>g.metodoPago&&g.metodoPago.toLowerCase().includes("tarjeta")&&g.estatusPago==="pagado"?{...g,estatusPago:"porpagar"}:g));
+            logBit("Migración gastos tarjeta","Cambió gastos con tarjeta a Por pagar");
+          }}>💳 Tarjeta → Por pagar</button>
           <button style={btn(C.red)} onClick={openNew}>+ Nuevo Gasto</button>
         </div>
       </div>
@@ -1041,7 +1057,7 @@ function Gastos({ gastos, setGastos, logBit }) {
                   <td style={td}>
                     <div style={{display:"flex",gap:4}}>
                       <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>openEdit(g)}>✎</button>
-                      <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>setGastos(gs=>gs.filter(x=>x.id!==g.id))}>✕</button>
+                      <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>{ if(window.confirm(`¿Eliminar este gasto?\n\n${g.gasto} · ${fmt(g.monto)}\n\nEsta acción no se puede deshacer.`)) { setGastos(gs=>gs.filter(x=>x.id!==g.id)); logBit("Eliminó gasto",`${g.gasto} · ${fmt(g.monto)}`); } }}>✕</button>
                     </div>
                   </td>
                 </tr>
