@@ -99,10 +99,24 @@ const totRow= { background:C.greenL, borderRadius:10, padding:"11px 14px", displ
 const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"7px 12px", cursor:"pointer", fontWeight:a?700:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap" });
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
-const SAJI_LOGO_B64 = "data:image/jpeg;base64,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";
 const SAJILogo = ({ s=36 }) => (
-  <img src={SAJI_LOGO_B64} width={s} height={s} alt="SAJI Group"
-    style={{objectFit:"contain",borderRadius:"50%"}}/>
+  <svg width={s} height={s} viewBox="0 0 200 200" fill="none">
+    <circle cx="100" cy="100" r="96" stroke="#1a2b1e" strokeWidth="3.5" fill="#f7f9f7"/>
+    <path d="M32 68 A75 75 0 0 1 168 68" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
+    <path d="M32 132 A75 75 0 0 0 168 132" stroke="#1a2b1e" strokeWidth="2.5" fill="none"/>
+    <text x="100" y="58" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="28" fontWeight="600" letterSpacing="4">SAJI</text>
+    <text x="100" y="160" textAnchor="middle" fill="#1a2b1e" fontFamily="Georgia,serif" fontSize="14" letterSpacing="6">GROUP</text>
+    <ellipse cx="108" cy="105" rx="22" ry="28" fill="#5a7a4a" opacity=".85"/>
+    <ellipse cx="108" cy="108" rx="14" ry="18" fill="#2d7a47" opacity=".7"/>
+    <ellipse cx="82" cy="108" rx="16" ry="22" fill="#7ab05a" opacity=".9"/>
+    <ellipse cx="82" cy="109" rx="9" ry="13" fill="#c8e89a" opacity=".9"/>
+    <ellipse cx="82" cy="111" rx="5" ry="7" fill="#8B5E3C" opacity=".8"/>
+    <line x1="108" y1="78" x2="110" y2="70" stroke="#5a7a4a" strokeWidth="2.5" strokeLinecap="round"/>
+    <ellipse cx="130" cy="115" rx="9" ry="10" fill="#d4c9b0" opacity=".8"/>
+    <ellipse cx="124" cy="119" rx="7" ry="8" fill="#c8bc9e" opacity=".75"/>
+    <path d="M62 90 Q58 82 64 78" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+    <path d="M64 88 Q60 80 68 77" stroke="#5a7a4a" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+  </svg>
 );
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
@@ -114,13 +128,13 @@ const TIPOS_GASTO = {
   "Energías": ["Luz Casa","Luz Trifásica"],
   "Gastos de Viaje": ["Tag","Caseta","Gasolina Caddy","Gasolina Duty","Gasolina Jasso","Gasolina Irving"],
   "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso"],
-  "Servicios Contratados": ["Internet","Agua","GPS Caddy","GPS Duty"],
+  "Servicios Contratados": ["Internet","Agua"],
   "Créditos": ["Santander"],
   "Crédito Automotriz": ["Caddy","Super Dutty"],
   "Facturas": ["Cobro por factura"],
   "Impuestos": ["ISR","IVA"],
 };
-const METODOS_PAGO = ["Efectivo","Tarjeta BBVA","Tarjeta Costco","Tarjeta Plata","Tarjeta SAJI"];
+const METODOS_PAGO = ["Efectivo","Tarjeta BBVA Irving","Tarjeta BBVA empresa","Transferencia BBVA Irving","Transferencia BBVA empresa","Otro"];
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 function FilterBar({ filter, setFilter, count }) {
@@ -174,15 +188,6 @@ function applyFilter(rows, filter, dateKey="fecha") {
     const mo = filter.valor ? parseInt(filter.valor) : (new Date().getMonth()+1);
     return rows.filter(r=>r[dateKey]&&new Date(r[dateKey]+"T12:00:00").getMonth()+1===mo);
   }
-  if(filter.tipo==="rango") {
-    const desde=filter.desde||"", hasta=filter.hasta||"";
-    return rows.filter(r=>{
-      if(!r[dateKey]) return false;
-      if(desde && r[dateKey] < desde) return false;
-      if(hasta && r[dateKey] > hasta) return false;
-      return true;
-    });
-  }
   return rows;
 }
 
@@ -190,7 +195,7 @@ function applyFilter(rows, filter, dateKey="fecha") {
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════════
 function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
-  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
+  const [dashFilt, setDashFilt] = useState({tipo:"todo",valor:""});
 
   // Filter all data by selected period
   const vF   = applyFilter(ventas, dashFilt);
@@ -234,7 +239,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
     if(dashFilt.tipo==="fecha") return dashFilt.valor ? fmtDate(dashFilt.valor) : "Fecha específica";
     if(dashFilt.tipo==="semana") return `Semana ${dashFilt.valor||weekOf(todayStr())}`;
     if(dashFilt.tipo==="mes") return dashFilt.valor ? MESES[parseInt(dashFilt.valor)-1] : MESES[new Date().getMonth()];
-    if(dashFilt.tipo==="rango") { const d=dashFilt.desde?fmtDate(dashFilt.desde):"..."; const h=dashFilt.hasta?fmtDate(dashFilt.hasta):"..."; return `${d} — ${h}`; }
     return "";
   };
 
@@ -264,8 +268,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{color:C.muted,fontSize:12,fontWeight:700}}>📊 Indicadores —</span>
-          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"},{k:"rango",l:"📅 Rango"}].map(f=>(
-            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:"",desde:"",hasta:""})}>{f.l}</button>
+          {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"}].map(f=>(
+            <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:""})}>{f.l}</button>
           ))}
           <span style={{marginLeft:"auto",color:C.green,fontWeight:700,fontSize:12}}>{periodoLabel()}</span>
         </div>
@@ -290,107 +294,18 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
               value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/>
           </div>
         )}
-        {dashFilt.tipo==="rango"&&(
-          <div style={{marginTop:8,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{...lbl,margin:0}}>Desde</span>
-              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
-                value={dashFilt.desde||""} onChange={e=>setDashFilt(f=>({...f,desde:e.target.value}))}/>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{...lbl,margin:0}}>Hasta</span>
-              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
-                value={dashFilt.hasta||""} onChange={e=>setDashFilt(f=>({...f,hasta:e.target.value}))}/>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Estado de Resultados ─────────────────────────────────────── */}
-      {(()=>{
-        const gastosOp  = gF.filter(g=>g.gasto!=="ISR"&&g.gasto!=="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
-        const totalISR  = gF.filter(g=>g.gasto==="ISR").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
-        const totalIVA  = gF.filter(g=>g.gasto==="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
-        const totalImp  = totalISR + totalIVA;
-        const uBruta    = totalVentas - totalFruta;
-        const uOperat   = uBruta - gastosOp;
-        const uNeta     = uOperat - totalImp;
-        const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
-        const kpis = [
-          { label:"Ventas $",           v:fmt(totalVentas),   c:C.green,  icon:"📈" },
-          { label:"Ventas KG",          v:totalKgVendidos.toLocaleString("es-MX")+" kg", c:C.blue, icon:"⚖️" },
-          { label:"Gastos",             v:fmt(gastosOp),      c:C.red,    icon:"💸" },
-          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),      c:C.purple, icon:"🏛️" },
-          { label:"Utilidad neta",      v:fmt(uNeta),         c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
-        ];
-        const filas = [
-          { concepto:"Ventas totales",              monto:totalVentas, c:C.green,                bold:true,  icon:"📈", sep:false },
-          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta,  c:C.muted,                bold:false, icon:"🥑", sep:false },
-          { concepto:"= Utilidad bruta",            monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true  },
-          { concepto:"(-) Gastos operativos",       monto:gastosOp,    c:C.muted,                bold:false, icon:"💸", sep:false },
-          { concepto:"= Utilidad operativa",        monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true  },
-          { concepto:"(-) ISR",                     monto:totalISR,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
-          { concepto:"(-) IVA",                     monto:totalIVA,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
-        ];
-        return (
-          <div style={{...card,padding:"16px 18px",marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{fontWeight:800,fontSize:13,color:C.text}}>📊 Estado de Resultados</div>
-              <span style={{background:C.greenL,color:C.green,fontWeight:700,fontSize:11,padding:"3px 12px",borderRadius:20,border:`1px solid ${C.greenM}`}}>{periodoLabel()}</span>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}} className="kpi-grid">
-              {kpis.map(k=>(
-                <div key={k.label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${k.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow,outline:k.destacado?`1.5px solid ${k.c}44`:"none"}}>
-                  <div style={{fontSize:18,marginBottom:3}}>{k.icon}</div>
-                  <div style={{fontSize:14,fontWeight:800,color:k.c,lineHeight:1.2,fontFamily:"monospace"}}>{k.v}</div>
-                  <div style={{color:C.muted,fontSize:10,marginTop:3}}>{k.label}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead>
-                  <tr style={{background:C.bg}}>
-                    {["Concepto","Monto","% Ventas"].map((h,i)=>(
-                      <th key={h} style={{padding:"8px 12px",color:C.muted,fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.4,borderBottom:`2px solid ${C.border}`,textAlign:i===0?"left":"right"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filas.map((f,i)=>(
-                    <>
-                      {f.sep&&<tr key={`sep-${i}`}><td colSpan={3} style={{padding:0,height:1,background:C.border}}/></tr>}
-                      <tr key={i} style={{background:f.bold?"rgba(0,0,0,0.02)":"transparent"}}>
-                        <td style={{padding:"9px 12px",fontWeight:f.bold?700:400,color:C.text,borderBottom:`1px solid ${C.border}`}}>
-                          <span style={{marginRight:5}}>{f.icon}</span>{f.concepto}
-                        </td>
-                        <td style={{padding:"9px 12px",textAlign:"right",fontWeight:f.bold?800:500,color:f.c,fontFamily:"monospace",fontSize:13,borderBottom:`1px solid ${C.border}`}}>
-                          {fmt(f.monto)}
-                        </td>
-                        <td style={{padding:"9px 12px",textAlign:"right",color:C.muted,fontSize:11,borderBottom:`1px solid ${C.border}`}}>
-                          {pct(f.monto)}
-                        </td>
-                      </tr>
-                    </>
-                  ))}
-                  <tr><td colSpan={3} style={{padding:0,height:2,background:C.border}}/></tr>
-                  <tr style={{background:uNeta>=0?C.greenL:C.redL}}>
-                    <td style={{padding:"11px 12px",fontWeight:800,fontSize:13,color:C.text}}>
-                      <span style={{marginRight:5}}>{uNeta>=0?"🏆":"⚠️"}</span>= Utilidad neta
-                    </td>
-                    <td style={{padding:"11px 12px",textAlign:"right",fontWeight:800,color:uNeta>=0?C.green:C.red,fontFamily:"monospace",fontSize:15}}>
-                      {fmt(uNeta)}
-                    </td>
-                    <td style={{padding:"11px 12px",textAlign:"right",color:C.muted,fontSize:11}}>
-                      {pct(uNeta)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
+        {cards.map(c=>(
+          <div key={c.label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow}}>
+            <div style={{fontSize:20,marginBottom:4}}>{c.icon}</div>
+            <div style={{fontSize:15,fontWeight:800,color:c.c,lineHeight:1.2}}>{c.v}</div>
+            <div style={{color:C.muted,fontSize:10,marginTop:3,lineHeight:1.3}}>{c.label}</div>
           </div>
-        );
-      })()}
+        ))}
+      </div>
 
       {/* Caja */}
       <div style={{...card,borderLeft:`4px solid ${C.green}`,padding:"12px 14px"}}>
@@ -468,7 +383,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }) {
+function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos }) {
   const [show,   setShow]   = useState(false);
   const [filter, setFilter] = useState("pendiente");
   const [form, setForm] = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
@@ -487,13 +402,11 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
   const guardar = () => {
     if(!form.cliente||!form.fechaEntrega) return alert("Completa cliente y fecha de entrega");
     if(form.items.some(it=>!it.producto||!it.cantidad||!it.precio)) return alert("Completa todos los productos");
-    const np={id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
-    setPedidos(ps=>[np,...ps]);
-    logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
+    setPedidos(ps=>[{id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"},...ps]);
     setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
     setShow(false);
   };
-  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); logBit("Canceló pedido",`#${id}`); };
+  const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); };
   const completar = id => {
     const p=pedidos.find(x=>x.id===id); if(!p) return;
     setVentas(vs=>[...(p.items||[]).map(it=>({
@@ -507,7 +420,6 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
       factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
     })),...vs]);
     setPedidos(ps=>ps.map(x=>x.id===id?{...x,estatus:"completado"}:x));
-    logBit("Completó pedido",`#${id} · ${p.cliente} · ${fmt(p.total)}`);
   };
 
   const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
@@ -617,7 +529,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
               </div>
               <div><label style={lbl}>Tipo de pago</label>
                 <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+                  {["efectivo","transferencia","tarjeta"].map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Requiere factura</label>
@@ -677,10 +589,9 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
 function Ventas({ ventas, setVentas }) {
-  const [editing,    setEditing]    = useState(null);
-  const [form,       setForm]       = useState({});
-  const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
-  const [filtCliente,setFiltCliente]= useState("");
+  const [editing, setEditing] = useState(null);
+  const [form,    setForm]    = useState({});
+  const [filt,    setFilt]    = useState({tipo:"todo",valor:""});
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
@@ -697,9 +608,7 @@ function Ventas({ ventas, setVentas }) {
     {l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
   ];
 
-  const listaFecha = applyFilter(ventas, filt);
-  const clientes_unicos = [...new Set(ventas.map(v=>v.cliente))].filter(Boolean).sort();
-  const lista = filtCliente ? listaFecha.filter(v=>v.cliente===filtCliente) : listaFecha;
+  const lista = applyFilter(ventas, filt);
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
   const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
@@ -717,13 +626,6 @@ function Ventas({ ventas, setVentas }) {
         <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
-        <button style={nb(!filtCliente)} onClick={()=>setFiltCliente("")}>Todos</button>
-        {clientes_unicos.map(c=>(
-          <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
-        ))}
-      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -799,16 +701,15 @@ function Ventas({ ventas, setVentas }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
-function Gastos({ gastos, setGastos, logBit }) {
-  const [show,      setShow]      = useState(false);
-  const [editId,    setEditId]    = useState(null);
-  const [form,      setForm]      = useState(gastoEmpty());
-  const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [filtTipo,  setFiltTipo]  = useState("");
+function Gastos({ gastos, setGastos }) {
+  const [show,   setShow]   = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form,   setForm]   = useState(gastoEmpty());
+  const [filt,   setFilt]   = useState({tipo:"todo",valor:""});
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
     if(k==="tipoGasto") n.gasto="";
-    if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
+    if(k==="metodoPago"&&v==="Efectivo") n.estatusPago="pagado";
     return n;
   });
 
@@ -817,8 +718,8 @@ function Gastos({ gastos, setGastos, logBit }) {
   const guardar  = () => {
     if(!form.gasto||!form.monto) return alert("Completa descripción y monto");
     const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, monto:parseFloat(form.monto) };
-    if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
-    else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${reg.gasto} · ${fmt(reg.monto)}`); }
+    if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
+    else        setGastos(gs=>[reg,...gs]);
     setShow(false);
   };
 
@@ -827,8 +728,7 @@ function Gastos({ gastos, setGastos, logBit }) {
     {l:"Gasto",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},
     {l:"Estatus",k:"estatusPago"},{l:"Total",k:"monto"}
   ];
-  const listaFecha = applyFilter(gastos, filt);
-  const lista = filtTipo ? listaFecha.filter(g=>g.tipoGasto===filtTipo) : listaFecha;
+  const lista = applyFilter(gastos, filt);
   const total = lista.reduce((s,g)=>s+g.monto,0);
   const porPagar = lista.filter(g=>g.estatusPago==="porpagar").reduce((s,g)=>s+g.monto,0);
   const gastoOpts = TIPOS_GASTO[form.tipoGasto]||[];
@@ -849,13 +749,6 @@ function Gastos({ gastos, setGastos, logBit }) {
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🏷️ Tipo:</span>
-        <button style={nb(!filtTipo)} onClick={()=>setFiltTipo("")}>Todos</button>
-        {Object.keys(TIPOS_GASTO).map(t=>(
-          <button key={t} style={nb(filtTipo===t)} onClick={()=>setFiltTipo(t)}>{t}</button>
-        ))}
-      </div>
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -932,8 +825,8 @@ function Gastos({ gastos, setGastos, logBit }) {
                 const finalGasto = form.gasto==="__otro"?(form.gastoCustom||""):form.gasto;
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
                 const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto) };
-                if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
-                else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
+                if(editId) setGastos(gs=>gs.map(g=>g.id===editId?reg:g));
+                else        setGastos(gs=>[reg,...gs]);
                 setShow(false);
               }}>💾 Guardar Gasto</button>
             </div>
@@ -947,11 +840,11 @@ function Gastos({ gastos, setGastos, logBit }) {
 // ════════════════════════════════════════════════════════════════════════════════
 // PAGOS RECIBIDOS — con abonos parciales
 // ════════════════════════════════════════════════════════════════════════════════
-function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
+function Pagos({ pagos, setPagos, ventas, setVentas }) {
   const [show,      setShow]      = useState(false);
   const [detalle,   setDetalle]   = useState(null); // pedidoId con detalle abierto
   const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"" });
+  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"efectivo", pedidoId:"", monto:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // Todos los pedidos que tienen ventas (completados)
@@ -982,14 +875,13 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
       esAbono: monto < getResumen(form.pedidoId).totalPedido - 0.01,
     };
     setPagos(ps=>[nuevoPago,...ps]);
-    logBit("Registró abono",`#${form.pedidoId} · ${cli} · ${fmt(monto)} · ${form.tipoPago}`);
     // Si el abono liquida el saldo, marcar ventas como pagadas
     const nuevoTotal = pagos.filter(p=>p.pedidoId===form.pedidoId).reduce((s,p)=>s+p.monto,0) + monto;
     const totalPed   = getResumen(form.pedidoId).totalPedido;
     if(nuevoTotal >= totalPed - 0.01) {
       setVentas(vs=>vs.map(v=>v.pedidoId===form.pedidoId?{...v,estatusPago:"pagado",fechaPago:form.fecha,tipoPago:form.tipoPago}:v));
     }
-    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:"",monto:""});
+    setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:"",monto:""});
     setShow(false);
   };
 
@@ -1064,7 +956,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                         <div style={{display:"flex",gap:5}}>
                           {p.saldo>0&&(
                             <button style={{...btn(C.green),padding:"4px 10px",fontSize:11}}
-                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
+                              onClick={()=>{setForm({fecha:todayStr(),tipoPago:"efectivo",pedidoId:p.pedidoId,monto:String(p.saldo.toFixed(2))});setShow(true);}}>
                               + Abonar
                             </button>
                           )}
@@ -1222,15 +1114,14 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
-function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
+function Fruta({ fruta, setFruta, productos, proveedores }) {
   const [showComp, setShowComp] = useState(false);
   const [showPago, setShowPago] = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [form,     setForm]     = useState(frutaEmpty());
   const [pagoForm, setPagoForm] = useState({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" });
-  const [filt,        setFilt]        = useState({tipo:"todo",valor:""});
-  const [filtProv,    setFiltProv]    = useState("");
-  const [activeProv,  setActiveProv]  = useState(null);
+  const [filt,     setFilt]     = useState({tipo:"todo",valor:""});
+  const [activeProv, setActiveProv] = useState(null);
 
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
@@ -1249,8 +1140,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
     };
-    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
-    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad}kg · ${fmt(reg.total)}`); }
+    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); }
+    else setFruta(fs=>[reg,...fs]);
     setForm(frutaEmpty()); setShowComp(false);
   };
 
@@ -1258,14 +1149,12 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
     if(!pagoForm.proveedor||!pagoForm.monto) return alert("Completa proveedor y monto");
     const pago = { ...pagoForm, id:Date.now(), monto:parseFloat(pagoForm.monto), tipo:"pago" };
     setFruta(fs=>[pago,...fs]);
-    logBit("Pago a proveedor fruta",`${pagoForm.proveedor} · ${fmt(parseFloat(pagoForm.monto))}`);
     setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(false);
   };
 
   const compras = fruta.filter(f=>!f.tipo);
   const pagosF  = fruta.filter(f=>f.tipo==="pago");
-  const listaFechaFruta = applyFilter(compras, filt);
-  const listaComp = filtProv ? listaFechaFruta.filter(c=>c.proveedor===filtProv) : listaFechaFruta;
+  const listaComp = applyFilter(compras, filt);
 
   // Proveedores que ya tienen compras registradas (para el saldo)
   const existingProveedores = [...new Set(compras.map(c=>c.proveedor))];
@@ -1342,13 +1231,6 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
 
       {/* Compras list */}
       <FilterBar filter={filt} setFilter={setFilt} count={listaComp.length}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🚛 Proveedor:</span>
-        <button style={nb(!filtProv)} onClick={()=>setFiltProv("")}>Todos</button>
-        {allProveedores.map(p=>(
-          <button key={p} style={nb(filtProv===p)} onClick={()=>setFiltProv(p)}>{p}</button>
-        ))}
-      </div>
       <div style={card}>
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
         <div style={{overflowX:"auto"}}>
@@ -1873,40 +1755,8 @@ export default function App() {
   const [clientes,   setClientes,   loadedCli]  = useSupabase("catalogos_clientes",   INIT_CLI);
   const [productos,  setProductos,  loadedPro]  = useSupabase("catalogos_productos",  INIT_PROD);
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
-  const [bitacora,   setBitacora,   loadedBit]  = useSupabase("bitacora", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit;
-
-  const logBit = (accion, detalle="") => {
-    const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
-    setBitacora(b=>[reg,...b.slice(0,499)]);
-  };
-
-  const exportExcel = () => {
-    const toCSV = (rows, cols) => {
-      const h = cols.map(c=>c.l).join(",");
-      const b = rows.map(r=>cols.map(c=>`"${String(r[c.k]||"").replace(/"/g,"'")}"`).join(",")).join("\n");
-      return "\uFEFF"+h+"\n"+b;
-    };
-    const sheets = [
-      { name:"Ventas",  data:toCSV(ventas, [{l:"#Pedido",k:"pedidoId"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"}]) },
-      { name:"Gastos",  data:toCSV(gastos, [{l:"Fecha",k:"fecha"},{l:"Descripcion",k:"gasto"},{l:"Tipo",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},{l:"Estatus",k:"estatusPago"},{l:"Monto",k:"monto"}]) },
-      { name:"Pagos",   data:toCSV(pagos,  [{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"#Pedido",k:"pedidoId"},{l:"Tipo Pago",k:"tipoPago"},{l:"Monto",k:"monto"}]) },
-      { name:"Fruta",   data:toCSV(fruta.filter(f=>!f.tipo), [{l:"Fecha",k:"fecha"},{l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus",k:"estatusPago"}]) },
-      { name:"Pedidos", data:toCSV(pedidos,[{l:"#Pedido",k:"id"},{l:"Fecha",k:"fecha"},{l:"Cliente",k:"cliente"},{l:"Total",k:"total"},{l:"Estatus",k:"estatus"},{l:"Tipo Pago",k:"tipoPago"}]) },
-      { name:"Bitacora",data:toCSV(bitacora,[{l:"Fecha",k:"fecha"},{l:"Hora",k:"hora"},{l:"Usuario",k:"usuario"},{l:"Accion",k:"accion"},{l:"Detalle",k:"detalle"}]) },
-    ];
-    // Crear un ZIP con múltiples CSV dentro de un solo archivo Excel-compatible
-    // Usamos el truco de data URI con múltiples tabs como hojas separadas
-    // Para simplicidad: descargar un CSV consolidado con separadores de hoja
-    let contenido = "";
-    sheets.forEach(s => { contenido += `\n\n===== ${s.name} =====\n${s.data}`; });
-    const blob = new Blob(["\uFEFF"+contenido], {type:"text/csv;charset=utf-8;"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `SAJI-Group-${todayStr()}.csv`;
-    a.click();
-  };
+  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv;
 
   const handleLogin = (nombre) => {
     sessionStorage.setItem("saji_user", nombre);
@@ -1929,7 +1779,6 @@ export default function App() {
     { id:"pagos",     label:"🧾 Pagos"     },
     { id:"fruta",     label:"🥑 Fruta"     },
     { id:"catalogos", label:"🗂️ Catálogos" },
-    { id:"bitacora",  label:"📋 Bitácora"  },
   ];
 
   // Pantalla de carga mientras conecta con Supabase
@@ -1941,27 +1790,21 @@ export default function App() {
       <div style={{width:180,height:4,background:C.border,borderRadius:2,overflow:"hidden",marginTop:8}}>
         <div style={{height:"100%",background:C.green,borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
       </div>
-      <style>{`
-  @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
-  @media(min-width:600px){.kpi-grid{grid-template-columns:repeat(5,1fr)!important}}
-  @media(max-width:599px){
-    .kpi-grid{grid-template-columns:repeat(2,1fr)!important}
-  }
-`}</style>
+      <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}`}</style>
     </div>
   );
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
-      <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap", overflow:"hidden" }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0}}>
-          <SAJILogo s={34}/>
-          <div style={{lineHeight:1.15,minWidth:0}}>
-            <div style={{fontWeight:800,fontSize:13,color:C.green,whiteSpace:"nowrap"}}>SAJI Group</div>
-            <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
+      <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap" }}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <SAJILogo s={30}/>
+          <div style={{lineHeight:1.15}}>
+            <div style={{fontWeight:800,fontSize:13,color:C.green}}>SAJI Group</div>
+            <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
           </div>
         </div>
-        <nav style={{ display:"flex", gap:3, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center", flex:"1 1 auto", minWidth:0 }}>
+        <nav style={{ display:"flex", gap:3, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center" }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
               background:tab===t.id?C.green:"transparent",
@@ -1972,8 +1815,9 @@ export default function App() {
               whiteSpace:"nowrap", transition:"all .15s"
             }}>{t.label}</button>
           ))}
-          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>
-          <button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>
+          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>
+            📥 Excel
+          </button>
           <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
             <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
             <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
@@ -1985,12 +1829,11 @@ export default function App() {
 
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
-        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
-        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
-        {tab==="bitacora"  && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
+        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos}/>}
+        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas}/>}
+        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos}/>}
+        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas}/>}
+        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores}/>}
         {tab==="catalogos" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
       </main>
 
