@@ -506,7 +506,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
     setVentas(vs=>[...items.map((it,i)=>({
       pedidoId:p.id,
       itemId:`${p.id}-${it.producto}-${Math.random().toString(36).slice(2,5)}`,
-      semana:weekOf(todayStr()), dia:dayOf(todayStr()), mes:monthOf(todayStr()), fecha:todayStr(),
+      semana:weekOf(p.fechaEntrega||todayStr()), dia:dayOf(p.fechaEntrega||todayStr()), mes:monthOf(p.fechaEntrega||todayStr()), fecha:p.fechaEntrega||todayStr(),
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
       cantidad:it.cantidad, precio:parseFloat(it.precio),
       total:it.cantidad*parseFloat(it.precio),
