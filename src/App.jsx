@@ -472,6 +472,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
   const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
   const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
   const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
+  const [fechaEntregaReal, setFechaEntregaReal] = useState("");
 
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const setItem = (i,k,v) => setForm(f=>{
@@ -497,16 +498,18 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
   const abrirCompletar = id => {
     const p=pedidos.find(x=>x.id===id); if(!p) return;
     setKgsReales((p.items||[]).map(it=>String(it.cantidad)));
+    setFechaEntregaReal(p.fechaEntrega||todayStr());
     setCompletando(p);
   };
   const confirmarCompletar = () => {
     const p=completando; if(!p) return;
+    const fechaVenta = fechaEntregaReal || p.fechaEntrega || todayStr();
     const items = (p.items||[]).map((it,i)=>({...it, cantidad: parseFloat(kgsReales[i]||it.cantidad)||parseFloat(it.cantidad) }));
     const totalReal = items.reduce((s,it)=>s+(it.cantidad*parseFloat(it.precio)),0);
     setVentas(vs=>[...items.map((it,i)=>({
       pedidoId:p.id,
       itemId:`${p.id}-${it.producto}-${Math.random().toString(36).slice(2,5)}`,
-      semana:weekOf(p.fechaEntrega||todayStr()), dia:dayOf(p.fechaEntrega||todayStr()), mes:monthOf(p.fechaEntrega||todayStr()), fecha:p.fechaEntrega||todayStr(),
+      semana:weekOf(fechaVenta), dia:dayOf(fechaVenta), mes:monthOf(fechaVenta), fecha:fechaVenta,
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
       cantidad:it.cantidad, precio:parseFloat(it.precio),
       total:it.cantidad*parseFloat(it.precio),
@@ -514,7 +517,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
       factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
       estatusFactura: p.factura==="si" ? "pendiente_factura" : "no_aplica",
     })),...vs]);
-    setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal}:x));
+    setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal,fechaEntrega:fechaVenta}:x));
     logBit("Completó pedido",`#${p.id} · ${p.cliente} · ${fmt(totalReal)}`);
     setCompletando(null);
   };
@@ -618,6 +621,11 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
             <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:14}}>
               📦 Pedido #{completando.id} · {completando.cliente}<br/>
               <span style={{fontSize:11,fontWeight:400}}>Edita los KG si el cliente pesó diferente al pedido original</span>
+            </div>
+            <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`}}>
+              <label style={lbl}>📅 Fecha real de entrega <span style={{color:C.red}}>*</span></label>
+              <input type="date" style={inp} value={fechaEntregaReal} onChange={e=>setFechaEntregaReal(e.target.value)}/>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>Esta fecha se usará en la venta y en todos los indicadores</div>
             </div>
             {(completando.items||[]).map((it,i)=>(
               <div key={i} style={{background:C.bg,borderRadius:9,padding:"10px 14px",marginBottom:8,border:`1px solid ${C.border}`}}>
