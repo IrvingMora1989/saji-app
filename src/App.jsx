@@ -802,26 +802,7 @@ function Ventas({ ventas, setVentas, logBit }) {
           <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
         ))}
       </div>
-      {filtCliente&&(
-        <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          <span style={{color:C.amber,fontSize:12,fontWeight:700}}>💳 Asignar tipo de pago a <strong>{filtCliente}</strong>:</span>
-          <button style={btn(C.green)} onClick={()=>{
-            if(window.confirm(`¿Poner TODAS las ventas de "${filtCliente}" en Efectivo?`)) {
-              setVentas(vs=>vs.map(v=>v.cliente===filtCliente?{...v,tipoPago:"Efectivo"}:v));
-            }
-          }}>💵 Efectivo</button>
-          <button style={btn(C.blue)} onClick={()=>{
-            if(window.confirm(`¿Poner TODAS las ventas de "${filtCliente}" en Transferencia Frasavo?`)) {
-              setVentas(vs=>vs.map(v=>v.cliente===filtCliente?{...v,tipoPago:"Transferencia Frasavo"}:v));
-            }
-          }}>🏦 Transferencia Frasavo</button>
-          <button style={btn(C.purple)} onClick={()=>{
-            if(window.confirm(`¿Poner TODAS las ventas de "${filtCliente}" en Transferencia SAJI?`)) {
-              setVentas(vs=>vs.map(v=>v.cliente===filtCliente?{...v,tipoPago:"Transferencia SAJI"}:v));
-            }
-          }}>🏦 Transferencia SAJI</button>
-        </div>
-      )}
+
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
