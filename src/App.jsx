@@ -15,7 +15,7 @@ const DIAS      = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","S
 const MESES     = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const dayOf     = d => DIAS[new Date(d+"T12:00:00").getDay()];
 const monthOf   = d => MESES[new Date(d+"T12:00:00").getMonth()];
-const weekOf    = d => { const dt=new Date(d+"T12:00:00"),s=new Date(dt.getFullYear(),0,1); return Math.ceil(((dt-s)/86400000+s.getDay()+1)/7); };
+const weekOf    = d => { const dt=new Date(d+"T12:00:00"),jan4=new Date(dt.getFullYear(),0,4),s=new Date(jan4); s.setDate(jan4.getDate()-(jan4.getDay()||7)+1); return Math.floor((dt-s)/(7*86400000))+1; };
 const fmt       = n => Number(n||0).toLocaleString("es-MX",{style:"currency",currency:"MXN"});
 const fmtDate   = d => { if(!d) return ""; const [y,mo,dy]=d.split("-"); return `${dy}/${mo}/${y.slice(2)}`; };
 const daysDiff  = d => { if(!d) return 0; const diff=new Date()-new Date(d+"T12:00:00"); return Math.max(0,Math.floor(diff/86400000)); };
@@ -800,6 +800,11 @@ function Ventas({ ventas, setVentas, logBit }) {
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
+          <button style={btn(C.purple)} onClick={()=>{
+            if(window.confirm(`¿Recalcular semana, día y mes de TODAS las ventas (${ventas.length} registros) basándose en su fecha?\n\nEsto corrige los registros con semana incorrecta.`)) {
+              setVentas(vs=>vs.map(v=>v.fecha ? {...v, semana:weekOf(v.fecha), dia:dayOf(v.fecha), mes:monthOf(v.fecha)} : v));
+            }
+          }}>🔄 Recalcular semanas</button>
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
