@@ -790,7 +790,14 @@ function Ventas({ ventas, setVentas, logBit }) {
             <strong style={{color:C.blue}}> {totalKg.toLocaleString("es-MX")} kg</strong>
           </div>
         </div>
-        <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
+          <button style={btn(C.amber)} title="Poner todas las ventas en Efectivo" onClick={()=>{
+            if(window.confirm("¿Poner TODAS las ventas en Tipo de Pago: Efectivo?\n\nEsto actualizará todos los registros.")) {
+              setVentas(vs=>vs.map(v=>({...v,tipoPago:"Efectivo"})));
+            }
+          }}>💵 Todo a Efectivo</button>
+        </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -822,7 +829,15 @@ function Ventas({ ventas, setVentas, logBit }) {
                   <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
                   <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
                   <td style={td}>{(()=>{const ef=estatusFacturaLabel(v);return <span style={badge(ef.color)}>{ef.label}</span>;})()}</td>
-                  <td style={{...td,opacity:v.estatus==="cancelada"?0.4:1}}>{v.tipoPago}</td>
+                  <td style={{...td,opacity:v.estatus==="cancelada"?0.4:1}}>{(()=>{
+                    const t = v.tipoPago||"";
+                    const tl = t.toLowerCase().trim();
+                    if(tl==="efectivo") return "Efectivo";
+                    if(tl.includes("frasavo")) return "Transferencia Frasavo";
+                    if(tl.includes("saji")) return "Transferencia SAJI";
+                    if(tl.includes("transfer")) return "Transferencia SAJI";
+                    return t||"Efectivo";
+                  })()}</td>
                   <td style={td}>{fmtDate(v.fechaPago)||"—"}</td>
                   <td style={td}>{v.factura||"—"}</td>
                   <td style={td}>{v.facturaEmisor||"—"}</td>
@@ -837,7 +852,20 @@ function Ventas({ ventas, setVentas, logBit }) {
                   })()}</td>
                   <td style={td}>
                     <div style={{display:"flex",gap:3}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{setEditing(v.itemId);setForm({...v});}}>✎</button>
+                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{
+                        // Normalizar tipoPago al abrir el modal para evitar mismatch
+                        const normTipo = (t) => {
+                          if(!t) return "Efectivo";
+                          const tl = t.toLowerCase().trim();
+                          if(tl==="efectivo") return "Efectivo";
+                          if(tl.includes("frasavo")) return "Transferencia Frasavo";
+                          if(tl.includes("saji")) return "Transferencia SAJI";
+                          if(tl.includes("transfer")) return "Transferencia SAJI";
+                          return "Efectivo";
+                        };
+                        setEditing(v.itemId);
+                        setForm({...v, tipoPago: normTipo(v.tipoPago)});
+                      }}>✎</button>
                       <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} title="Eliminar venta" onClick={()=>{ if(window.confirm(`¿Eliminar esta venta?\n\n#${v.pedidoId} · ${v.cliente}\n${v.producto} ${v.calibre} · ${fmt(v.total)}\n\nEsta acción no se puede deshacer.`)) { setVentas(vs=>vs.filter(x=>x.itemId!==v.itemId)); logBit("Eliminó venta",`#${v.pedidoId} · ${v.cliente} · ${v.producto} ${v.calibre} · ${fmt(v.total)}`); } }}>🗑️</button>
                     </div>
                   </td>
