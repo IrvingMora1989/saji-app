@@ -166,7 +166,8 @@ function applyFilter(rows, filter, dateKey="fecha") {
   if(filter.tipo==="semana") {
     const w = filter.valor ? parseInt(filter.valor) : weekOf(t);
     return rows.filter(r=>{
-      const sem = r.semana ? parseInt(r.semana) : (r[dateKey] ? weekOf(r[dateKey]) : null);
+      // Recalcular siempre desde la fecha para evitar datos stale
+      const sem = r[dateKey] ? weekOf(r[dateKey]) : (r.semana ? parseInt(r.semana) : null);
       return sem===w;
     });
   }
@@ -202,6 +203,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
   const totalVentas = vF.reduce((s,v)=>s+v.total,0);
   const totalGastos = gF.reduce((s,g)=>s+g.monto,0);
   const totalFruta  = frF.reduce((s,f)=>s+f.total,0);
+  // Costo de ventas fruta = costoFruta * KG vendidos (desde la tabla ventas)
+  const costoVentasFruta = vF.reduce((s,v)=>s+((parseFloat(v.costoFruta)||0)*(parseFloat(v.cantidad)||0)),0);
   const utilidad    = totalVentas - totalGastos - totalFruta;
 
   // "Por cobrar" = ventas del período MENOS pagos de esos pedidos (de cualquier fecha)
@@ -312,7 +315,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         const totalISR  = gF.filter(g=>g.gasto==="ISR").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
         const totalIVA  = gF.filter(g=>g.gasto==="IVA").reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
         const totalImp  = totalISR + totalIVA;
-        const uBruta    = totalVentas - totalFruta;
+        const uBruta    = totalVentas - costoVentasFruta;
         const uOperat   = uBruta - gastosOp;
         const uNeta     = uOperat - totalImp;
         const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
@@ -324,13 +327,13 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
           { label:"Utilidad neta",      v:fmt(uNeta),         c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
         ];
         const filas = [
-          { concepto:"Ventas totales",              monto:totalVentas, c:C.green,                bold:true,  icon:"📈", sep:false },
-          { concepto:"(-) Costo de ventas (fruta)", monto:totalFruta,  c:C.muted,                bold:false, icon:"🥑", sep:false },
-          { concepto:"= Utilidad bruta",            monto:uBruta,      c:uBruta>=0?C.amber:C.red, bold:true, icon:"💡", sep:true  },
-          { concepto:"(-) Gastos operativos",       monto:gastosOp,    c:C.muted,                bold:false, icon:"💸", sep:false },
-          { concepto:"= Utilidad operativa",        monto:uOperat,     c:uOperat>=0?C.teal:C.red, bold:true, icon:"⚖️", sep:true  },
-          { concepto:"(-) ISR",                     monto:totalISR,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
-          { concepto:"(-) IVA",                     monto:totalIVA,    c:C.muted,                bold:false, icon:"🏛️", sep:false },
+          { concepto:"Ventas totales",              monto:totalVentas,      c:C.green,                 bold:true,  icon:"📈", sep:false },
+          { concepto:"(-) Costo de ventas (fruta)", monto:costoVentasFruta, c:C.muted,                 bold:false, icon:"🥑", sep:false },
+          { concepto:"= Utilidad bruta",            monto:uBruta,           c:uBruta>=0?C.amber:C.red, bold:true,  icon:"💡", sep:true  },
+          { concepto:"(-) Gastos operativos",       monto:gastosOp,         c:C.muted,                 bold:false, icon:"💸", sep:false },
+          { concepto:"= Utilidad operativa",        monto:uOperat,          c:uOperat>=0?C.teal:C.red, bold:true,  icon:"⚖️", sep:true  },
+          { concepto:"(-) ISR",                     monto:totalISR,         c:C.muted,                 bold:false, icon:"🏛️", sep:false },
+          { concepto:"(-) IVA",                     monto:totalIVA,         c:C.muted,                 bold:false, icon:"🏛️", sep:false },
         ];
         return (
           <div style={{...card,padding:"16px 18px",marginBottom:12}}>
@@ -776,9 +779,9 @@ function Ventas({ ventas, setVentas, logBit }) {
   const cols = [
     {l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Cliente",k:"cliente"},{l:"Calibre",k:"calibre"},{l:"Cantidad KG",k:"cantidad"},
-    {l:"Precio",k:"precio"},{l:"Total",k:"total"},{l:"Estatus Pago",k:"estatusPago"},
-    {l:"Tipo Pago",k:"tipoPago"},{l:"Fecha Pago",k:"fechaPago"},{l:"Factura",k:"factura"},
-    {l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
+    {l:"Precio $/KG",k:"precio"},{l:"Costo Fruta",k:"costoFruta"},{l:"Total",k:"total"},
+    {l:"Estatus Pago",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"},{l:"Fecha Pago",k:"fechaPago"},
+    {l:"Factura",k:"factura"},{l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
   ];
 
   const listaFecha = applyFilter(ventas, filt);
@@ -800,6 +803,58 @@ function Ventas({ ventas, setVentas, logBit }) {
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
+          <button style={btn(C.green)} onClick={()=>document.getElementById("importVentasXLSX").click()}>⬆ Importar Excel</button>
+          <input id="importVentasXLSX" type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={async e=>{
+            const file=e.target.files[0]; if(!file) return;
+            e.target.value="";
+            try {
+              const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs");
+              const buf = await file.arrayBuffer();
+              const wb = XLSX.read(buf,{type:"array",cellDates:true});
+              const ws = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(ws,{defval:""});
+              const excelToDate = v => {
+                if(!v) return "";
+                if(v instanceof Date) { const d=v; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+                if(typeof v==="number") { const d=new Date(Math.round((v-25569)*86400*1000)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`; }
+                return String(v).split("T")[0]||"";
+              };
+              const normEstatusPago = v => { const s=String(v||"").toLowerCase(); return (s.includes("pagado")||s.includes("pago"))?"pagado":"pendiente"; };
+              const normTipoPago = v => { const s=String(v||"").toLowerCase(); if(s.includes("frasavo")) return "Transferencia Frasavo"; if(s.includes("saji")) return "Transferencia SAJI"; if(s.includes("transfer")) return "Transferencia SAJI"; return "Efectivo"; };
+              const importadas = rows.map((r,i)=>{
+                const fecha = excelToDate(r["Fecha entrega"]||r["Fecha"]);
+                return {
+                  pedidoId:    String(r["Pedido"]||r["#Pedido"]||`IMP-${i+1}`),
+                  itemId:      `imp-${Date.now()}-${i}`,
+                  semana:      r["Semana"]!=null ? parseInt(r["Semana"]) : (fecha?weekOf(fecha):null),
+                  dia:         r["Día"]||r["Dia"]||(fecha?dayOf(fecha):""),
+                  mes:         r["Mes"]||(fecha?monthOf(fecha):""),
+                  fecha:       fecha,
+                  cliente:     String(r["Cliente"]||""),
+                  calibre:     String(r["Caibre"]||r["Calibre"]||""),
+                  cantidad:    parseFloat(r["KG"]||r["Cantidad"]||0),
+                  precio:      parseFloat(r["$/KG"]||r["Precio"]||0),
+                  costoFruta:  parseFloat(r["Costo fruta"]||r["Costo Fruta"]||0)||null,
+                  total:       parseFloat(r["Total"]||0),
+                  estatusPago: normEstatusPago(r["Estatus Pago"]||r["Estatus"]),
+                  tipoPago:    normTipoPago(r["Tipo de pago"]||r["Tipo Pago"]),
+                  fechaPago:   excelToDate(r["Fecha de pago"]||r["Fecha Pago"]),
+                  factura:     String(r["Factura"]||""),
+                  facturaEmisor:String(r["Factura emisor"]||r["Factura Emisor"]||""),
+                  remision:    String(r["Remisión"]||r["Remision"]||""),
+                  fechaFactura:excelToDate(r["F. Factura"]||r["Fecha Factura"]),
+                  estatusFactura: (r["Factura"]&&String(r["Factura"]).trim()&&String(r["Factura"])!=="-") ? "factura_realizada" : "no_aplica",
+                  producto: "",
+                };
+              }).filter(r=>r.cliente&&r.fecha);
+              if(importadas.length===0) return alert("No se encontraron filas válidas en el Excel.\n\nVerifica que las columnas coincidan con el formato esperado.");
+              if(window.confirm(`¿Importar ${importadas.length} ventas del archivo "${file.name}"?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)) {
+                setVentas(importadas);
+                logBit("Importó Excel",`${importadas.length} ventas de ${file.name}`);
+                alert(`✅ ${importadas.length} ventas importadas correctamente.`);
+              }
+            } catch(err) { alert("Error al leer el Excel: "+err.message); }
+          }}/>
           <button style={btn(C.purple)} onClick={()=>{
             if(window.confirm(`¿Recalcular semana, día y mes de TODAS las ventas (${ventas.length} registros) basándose en su fecha?\n\nEsto corrige los registros con semana incorrecta.`)) {
               setVentas(vs=>vs.map(v=>v.fecha ? {...v, semana:weekOf(v.fecha), dia:dayOf(v.fecha), mes:monthOf(v.fecha)} : v));
@@ -819,7 +874,7 @@ function Ventas({ ventas, setVentas, logBit }) {
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Total","Estatus Pago","Estatus Factura","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
+            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Costo Fruta","Total","Estatus Pago","Estatus Factura","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
               <th key={h} style={th}>{h}</th>
             ))}</tr></thead>
             <tbody>
@@ -835,6 +890,7 @@ function Ventas({ ventas, setVentas, logBit }) {
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{v.calibre}</span></td>
                   <td style={td}>{v.cantidad} kg</td>
                   <td style={td}>{fmt(v.precio)}</td>
+                  <td style={td}><span style={{color:C.red}}>{v.costoFruta!=null?fmt(v.costoFruta):"—"}</span></td>
                   <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
                   <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
                   <td style={td}>{(()=>{const ef=estatusFacturaLabel(v);return <span style={badge(ef.color)}>{ef.label}</span>;})()}</td>
@@ -908,6 +964,12 @@ function Ventas({ ventas, setVentas, logBit }) {
                 <input type="number" inputMode="decimal" style={inp}
                   value={form.precio||""}
                   onChange={e=>sf("precio",e.target.value)}/>
+              </div>
+              <div>
+                <label style={lbl}>Costo fruta $/kg</label>
+                <input type="number" inputMode="decimal" style={inp}
+                  value={form.costoFruta||""}
+                  onChange={e=>sf("costoFruta",e.target.value)}/>
               </div>
               {/* Total calculado */}
               <div style={{gridColumn:"1/-1",background:C.greenL,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`}}>
