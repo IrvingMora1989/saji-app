@@ -411,18 +411,15 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         {clientesUnicos.length===0
           ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:16}}>Sin ventas registradas aún</p>
           : (()=>{
-              // Agrupar ventas normalizando cliente, y separar Fishers por tipo de pago
               const grupos = {};
               ventas.forEach(v => {
                 const cli = normCliente(v.cliente);
                 let key = cli;
                 if(cli === "Fishers") {
-                  const tipo   = (v.tipoPago||"").toLowerCase();
-                  const emisor = (v.facturaEmisor||"").toLowerCase();
-                  // Primero intentar por tipoPago, luego por emisor como fallback
-                  if(tipo.includes("frasavo") || emisor.includes("frasavo")) key = "Fishers FRASAVO";
-                  else if(tipo.includes("saji") || emisor.includes("saji") || emisor.includes("serasei")) key = "Fishers SAJI";
-                  else key = "Fishers FRASAVO"; // default Fishers a FRASAVO si no hay info
+                  const emisor = (v.facturaEmisor||"").trim().toLowerCase();
+                  if(emisor.includes("frasavo")) key = "Fishers FRASAVO";
+                  else if(emisor.includes("saji")) key = "Fishers SAJI";
+                  else key = "Fishers";
                 }
                 if(!grupos[key]) grupos[key] = { cli:key, totalVendido:0, pendiente:0 };
                 grupos[key].totalVendido += parseFloat(v.total)||0;
