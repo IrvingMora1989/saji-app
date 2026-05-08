@@ -417,10 +417,10 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 let key = cli;
                 if(cli === "Fishers") {
                   const emisor = (v.facturaEmisor||"").trim().toLowerCase();
-                  if(emisor.includes("frasavo")) key = "Fishers FRASAVO";
-                  else if(emisor.includes("saji")) key = "Fishers SAJI";
-                  else key = "Fishers";
+                  if(emisor.includes("saji")) key = "Fishers SAJI";
+                  else key = null; // Frasavo y sin emisor no aparecen
                 }
+                if(!key) return;
                 if(!grupos[key]) grupos[key] = { cli:key, totalVendido:0, pendiente:0 };
                 grupos[key].totalVendido += parseFloat(v.total)||0;
                 if((v.estatusPago||"").toLowerCase() !== "pagado")
@@ -2301,35 +2301,40 @@ function Inventarios({ inventario, setInventario, productos, logBit }) {
   const [subTab,    setSubTab]    = useState("stock");   // stock | movimientos
   const [showModal, setShowModal] = useState(false);
   const [tipoMov,   setTipoMov]   = useState("entrada"); // entrada | salida
-  const [form,      setForm]      = useState({ producto:"", calibre:"", kg:"", ubicacion:"Frío", lote:"", fecha:todayStr(), notas:"" });
+  const [form,      setForm]      = useState({ calibre:"", kg:"", ubicacion:"Frío", fecha:todayStr(), notas:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
 
-  // Stock actual: suma entradas - salidas por producto+calibre+ubicacion
+  // Stock actual: suma entradas - salidas por calibre+ubicacion (solo Aguacate)
   const stock = () => {
     const mapa = {};
     (inventario||[]).forEach(m=>{
-      const k = `${m.producto}||${m.calibre}||${m.ubicacion}`;
-      if(!mapa[k]) mapa[k] = { producto:m.producto, calibre:m.calibre, ubicacion:m.ubicacion, kg:0 };
+      const k = `${m.calibre||"Sin calibre"}||${m.ubicacion}`;
+      if(!mapa[k]) mapa[k] = { calibre:m.calibre||"Sin calibre", ubicacion:m.ubicacion, kg:0 };
       mapa[k].kg += m.tipo==="entrada" ? parseFloat(m.kg||0) : -parseFloat(m.kg||0);
     });
-    return Object.values(mapa).filter(x=>x.kg>0.001).sort((a,b)=>a.producto.localeCompare(b.producto));
+    return Object.values(mapa);
   };
 
   const guardar = () => {
-    if(!form.producto || !form.kg || !form.ubicacion) return alert("Completa producto, KG y ubicación");
-    const mov = { id:Date.now(), ...form, kg:parseFloat(form.kg), tipo:tipoMov };
+    if(!form.kg || !form.ubicacion || !form.calibre) return alert("Completa calibre, KG y ubicación");
+    const mov = { id:Date.now(), ...form, producto:"Aguacate", kg:parseFloat(form.kg), tipo:tipoMov };
     setInventario(inv=>[mov,...(inv||[])]);
-    logBit(tipoMov==="entrada"?"Entrada inventario":"Salida inventario", `${form.producto} ${form.calibre} · ${form.kg}kg · ${form.ubicacion}${form.lote?` · Lote ${form.lote}`:""}`);
-    setForm({ producto:"", calibre:"", kg:"", ubicacion:"Frío", lote:"", fecha:todayStr(), notas:"" });
+    logBit(tipoMov==="entrada"?"Entrada inventario":"Salida inventario", `Aguacate ${form.calibre} · ${form.kg}kg · ${form.ubicacion}`);
+    setForm({ calibre:"", kg:"", ubicacion:"Frío", fecha:todayStr(), notas:"" });
     setShowModal(false);
   };
 
   const stockActual = stock();
-  const totalKgFrio     = stockActual.filter(x=>x.ubicacion==="Frío").reduce((s,x)=>s+x.kg,0);
-  const totalKgCalor    = stockActual.filter(x=>x.ubicacion==="Calor").reduce((s,x)=>s+x.kg,0);
-  const totalKgAmbiente = stockActual.filter(x=>x.ubicacion==="Ambiente").reduce((s,x)=>s+x.kg,0);
+  // Calibres únicos con stock > 0
+  const calibresUnicos = [...new Set(stockActual.map(x=>x.calibre))].sort();
+  const kgPorUbicacion = ub => stockActual.filter(x=>x.ubicacion===ub).reduce((s,x)=>s+x.kg,0);
+  const totalKgFrio     = kgPorUbicacion("Frío");
+  const totalKgCalor    = kgPorUbicacion("Calor");
+  const totalKgAmbiente = kgPorUbicacion("Ambiente");
+  // kg de un calibre en una ubicación
+  const kgCal = (cal,ub) => { const r=stockActual.find(x=>x.calibre===cal&&x.ubicacion===ub); return r ? r.kg : 0; };
 
   const movimientos = [...(inventario||[])].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
 
@@ -2338,11 +2343,7 @@ function Inventarios({ inventario, setInventario, productos, logBit }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
         <div>
           <h2 style={{...h2s,margin:0}}>📦 Inventarios</h2>
-          <div style={{color:C.muted,fontSize:12,marginTop:2}}>Control de stock por ubicación y lote</div>
-        </div>
-        <div style={{display:"flex",gap:6}}>
-          <button style={btn(C.green)} onClick={()=>{setTipoMov("entrada");setShowModal(true);}}>+ Entrada</button>
-          <button style={btn(C.red)}   onClick={()=>{setTipoMov("salida"); setShowModal(true);}}>− Salida</button>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>Toca un campo de KG para actualizar el stock</div>
         </div>
       </div>
 
@@ -2369,38 +2370,78 @@ function Inventarios({ inventario, setInventario, productos, logBit }) {
 
       {subTab==="stock"&&(
         <div style={card}>
-          {stockActual.length===0
-            ? <p style={{color:C.muted,textAlign:"center",padding:24}}>Sin inventario registrado</p>
-            : (
-              <>
-                {UBICACIONES.map(ub=>{
-                  const items = stockActual.filter(x=>x.ubicacion===ub);
-                  if(items.length===0) return null;
+          <div style={{overflowX:"auto"}}>
+            <div style={{marginBottom:8,fontWeight:700,fontSize:13,color:C.green}}>🥑 Aguacate — Stock por calibre</div>
+            {calibresUnicos.length===0&&<p style={{color:C.muted,textAlign:"center",padding:16,fontSize:12}}>Sin stock registrado. Toca una celda para agregar.</p>}
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  <th style={th}>Calibre</th>
+                  <th style={{...th,color:C.blue}}>❄️ Frío</th>
+                  <th style={{...th,color:C.red}}>🔥 Calor</th>
+                  <th style={{...th,color:C.amber}}>🌡️ Ambiente</th>
+                  <th style={th}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calibresUnicos.map(cal=>{
+                  const frio     = kgCal(cal,"Frío");
+                  const calor    = kgCal(cal,"Calor");
+                  const ambiente = kgCal(cal,"Ambiente");
+                  const total    = frio + calor + ambiente;
+                  const celda = (kg, ub) => (
+                    <td key={ub} style={{...td,textAlign:"right",cursor:"pointer",transition:"background .15s"}}
+                      title={`Actualizar ${cal} · ${ub}`}
+                      onClick={()=>{ sf("calibre",cal); sf("ubicacion",ub); sf("kg",""); setShowModal(true); }}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.greenL}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      {kg>0
+                        ? <strong style={{color:kg<50?C.amber:C.green}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+                        : <span style={{color:C.border,fontSize:18}}>+</span>}
+                    </td>
+                  );
                   return (
-                    <div key={ub} style={{marginBottom:16}}>
-                      <div style={{fontWeight:700,fontSize:13,color:C.muted,marginBottom:8,paddingBottom:4,borderBottom:`1px solid ${C.border}`}}>
-                        {ub==="Frío"?"❄️":ub==="Calor"?"🔥":"🌡️"} {ub}
-                      </div>
-                      <div style={{overflowX:"auto"}}>
-                        <table style={{width:"100%",borderCollapse:"collapse"}}>
-                          <thead><tr>{["Producto","Calibre","Stock KG"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
-                          <tbody>
-                            {items.map((x,i)=>(
-                              <tr key={i}>
-                                <td style={td}><strong>{x.producto}</strong></td>
-                                <td style={td}><span style={badge(C.blue,C.blueL)}>{x.calibre||"—"}</span></td>
-                                <td style={td}><strong style={{color:x.kg<50?C.red:C.green}}>{x.kg.toLocaleString("es-MX",{maximumFractionDigits:2})} kg</strong></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <tr key={cal}>
+                      <td style={td}><span style={badge(C.blue,C.blueL)}>{cal}</span></td>
+                      {celda(frio,"Frío")}
+                      {celda(calor,"Calor")}
+                      {celda(ambiente,"Ambiente")}
+                      <td style={{...td,textAlign:"right"}}><strong style={{color:C.text}}>{total.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong></td>
+                    </tr>
                   );
                 })}
-              </>
-            )
-          }
+                {/* Fila para agregar nuevo calibre */}
+                {(productos.find(p=>p.nombre==="Aguacate")?.calibres||[])
+                  .filter(c=>!calibresUnicos.includes(c))
+                  .map(cal=>(
+                    <tr key={`new-${cal}`} style={{opacity:0.45}}>
+                      <td style={td}><span style={badge(C.muted)}>{cal}</span></td>
+                      {["Frío","Calor","Ambiente"].map(ub=>(
+                        <td key={ub} style={{...td,textAlign:"right",cursor:"pointer"}}
+                          title={`Agregar ${cal} · ${ub}`}
+                          onClick={()=>{ sf("calibre",cal); sf("ubicacion",ub); sf("kg",""); setShowModal(true); }}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.greenL}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <span style={{color:C.border,fontSize:18}}>+</span>
+                        </td>
+                      ))}
+                      <td style={td}></td>
+                    </tr>
+                  ))
+                }
+                {/* Fila totales */}
+                {calibresUnicos.length>0&&(
+                  <tr style={{background:C.bg,borderTop:`2px solid ${C.border}`}}>
+                    <td style={{...td,fontWeight:800}}>TOTAL</td>
+                    <td style={{...td,textAlign:"right",fontWeight:800,color:C.blue}}>{totalKgFrio.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
+                    <td style={{...td,textAlign:"right",fontWeight:800,color:C.red}}>{totalKgCalor.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
+                    <td style={{...td,textAlign:"right",fontWeight:800,color:C.amber}}>{totalKgAmbiente.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
+                    <td style={{...td,textAlign:"right",fontWeight:800,color:C.green}}>{(totalKgFrio+totalKgCalor+totalKgAmbiente).toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -2411,17 +2452,15 @@ function Inventarios({ inventario, setInventario, productos, logBit }) {
             : (
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>{["Fecha","Tipo","Producto","Calibre","KG","Ubicación","Lote","Notas",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Fecha","Tipo","Calibre","KG","Ubicación","Notas",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {movimientos.map(m=>(
                       <tr key={m.id}>
                         <td style={td}>{fmtDate(m.fecha)}</td>
                         <td style={td}><span style={badge(m.tipo==="entrada"?C.green:C.red)}>{m.tipo==="entrada"?"⬆ Entrada":"⬇ Salida"}</span></td>
-                        <td style={td}><strong>{m.producto}</strong></td>
-                        <td style={td}>{m.calibre||"—"}</td>
+                        <td style={td}><span style={badge(C.blue,C.blueL)}>{m.calibre||"—"}</span></td>
                         <td style={td}><strong style={{color:m.tipo==="entrada"?C.green:C.red}}>{m.tipo==="entrada"?"+":"-"}{parseFloat(m.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} kg</strong></td>
                         <td style={td}>{m.ubicacion}</td>
-                        <td style={td}>{m.lote||"—"}</td>
                         <td style={td}>{m.notas||"—"}</td>
                         <td style={td}><button style={{...btn(C.red),padding:"3px 8px",fontSize:11}} onClick={()=>{ if(window.confirm("¿Eliminar este movimiento?")) { setInventario(inv=>(inv||[]).filter(x=>x.id!==m.id)); }}}>🗑️</button></td>
                       </tr>
@@ -2437,42 +2476,42 @@ function Inventarios({ inventario, setInventario, productos, logBit }) {
       {/* Modal entrada/salida */}
       {showModal&&(
         <div style={modal}>
-          <div style={{...mbox,maxWidth:460}}>
+          <div style={{...mbox,maxWidth:380}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:tipoMov==="entrada"?C.green:C.red}}>
-                {tipoMov==="entrada"?"⬆ Registrar Entrada":"⬇ Registrar Salida"}
-              </h3>
+              <h3 style={{margin:0,color:C.green}}>🥑 Actualizar Stock</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowModal(false)}>×</button>
             </div>
+            {/* Info calibre + ubicacion */}
+            <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`,display:"flex",gap:10,alignItems:"center"}}>
+              <span style={badge(C.blue,C.blueL)}>{form.calibre}</span>
+              <span style={{color:C.muted,fontSize:12}}>→</span>
+              <span style={{fontWeight:700,fontSize:13}}>{form.ubicacion==="Frío"?"❄️":form.ubicacion==="Calor"?"🔥":"🌡️"} {form.ubicacion}</span>
+              <span style={{marginLeft:"auto",fontWeight:700,color:C.green,fontSize:13}}>
+                Stock actual: {kgCal(form.calibre,form.ubicacion).toLocaleString("es-MX",{maximumFractionDigits:1})} kg
+              </span>
+            </div>
+            {/* Tipo movimiento */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              {[{t:"entrada",label:"⬆ Entrada",c:C.green},{t:"salida",label:"⬇ Salida",c:C.red}].map(op=>(
+                <button key={op.t} onClick={()=>setTipoMov(op.t)} style={{
+                  padding:"10px 0",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer",
+                  background:tipoMov===op.t?op.c:"transparent",
+                  color:tipoMov===op.t?"#fff":op.c,
+                  border:`2px solid ${op.c}`,transition:"all .15s"
+                }}>{op.label}</button>
+              ))}
+            </div>
             <div style={g2}>
-              <div><label style={lbl}>Producto *</label>
-                <select style={sel} value={form.producto} onChange={e=>sf("producto",e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {productos.map(p=><option key={p.nombre}>{p.nombre}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Calibre</label>
-                <select style={sel} value={form.calibre} onChange={e=>sf("calibre",e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {getCals(form.producto).map(c=><option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>KG *</label>
-                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.kg} onChange={e=>sf("kg",e.target.value)}/>
-              </div>
-              <div><label style={lbl}>Ubicación *</label>
-                <select style={sel} value={form.ubicacion} onChange={e=>sf("ubicacion",e.target.value)}>
-                  {UBICACIONES.map(u=><option key={u}>{u}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Número de lote</label>
-                <input style={inp} placeholder="Ej. L-2024-001" value={form.lote} onChange={e=>sf("lote",e.target.value)}/>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={lbl}>KG *</label>
+                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.kg}
+                  onChange={e=>sf("kg",e.target.value)} autoFocus/>
               </div>
               <div><label style={lbl}>Fecha</label>
                 <input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
               </div>
-              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Notas</label>
-                <input style={inp} placeholder="Observaciones opcionales" value={form.notas} onChange={e=>sf("notas",e.target.value)}/>
+              <div><label style={lbl}>Notas</label>
+                <input style={inp} placeholder="Opcional" value={form.notas} onChange={e=>sf("notas",e.target.value)}/>
               </div>
             </div>
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
@@ -2619,7 +2658,6 @@ export default function App() {
     { id:"bitacora",    label:"📋 Bitácora"    },
   ];
   const TABS_OPERATIVO = [
-    { id:"pedidos",     label:"📦 Pedidos"     },
     { id:"inventarios", label:"📦 Inventarios" },
   ];
   const TABS = rol==="operativo" ? TABS_OPERATIVO : TABS_ADMIN;
