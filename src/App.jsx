@@ -393,27 +393,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         );
       })()}
 
-      {/* Caja */}
-      <div style={{...card,borderLeft:`4px solid ${C.green}`,padding:"12px 14px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div style={{fontWeight:800,fontSize:13}}>💵 Control de Caja (Efectivo)</div>
-          <span style={{fontSize:11,color:C.green,fontWeight:600}}>{periodoLabel()}</span>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-          {[
-            {label:"Entradas",v:fmt(entradasEfectivo),c:C.green},
-            {label:"Salidas",v:fmt(salidasEfectivo),c:C.red},
-            {label:"Saldo caja",v:fmt(saldoCaja),c:saldoCaja>=0?C.green:C.red},
-          ].map(x=>(
-            <div key={x.label} style={{background:C.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${C.border}`}}>
-              <div style={{color:C.muted,fontSize:10,marginBottom:3}}>{x.label}</div>
-              <div style={{fontSize:15,fontWeight:800,color:x.c}}>{x.v}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{color:C.muted,fontSize:10,marginTop:7}}>* Entradas: ventas cobradas en efectivo · Salidas: gastos + fruta en efectivo</div>
-      </div>
-
       {/* Saldo por cliente — solo los que deben */}
       <div style={card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -424,8 +403,16 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
           ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:16}}>Sin ventas registradas aún</p>
           : (()=>{
               const conDeuda = clientesUnicos
-                .map(cli=>({ cli, ...saldoCliente(cli) }))
-                .filter(x=>x.pendiente>0)
+                .map(cli=>{
+                  const ventasCli = ventas.filter(v=>v.cliente===cli);
+                  const totalVendido = ventasCli.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+                  const pendiente = ventasCli
+                    .filter(v=>(v.estatusPago||"").toLowerCase()!=="pagado")
+                    .reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+                  const totalCobrado = totalVendido - pendiente;
+                  return { cli, totalVendido, totalCobrado, pendiente };
+                })
+                .filter(x=>x.pendiente>0.01)
                 .sort((a,b)=>b.pendiente-a.pendiente);
               const totalPend = conDeuda.reduce((s,x)=>s+x.pendiente,0);
               return conDeuda.length===0
@@ -442,7 +429,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                           <span>Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong></span>
                           <span>Cobrado: <strong style={{color:C.green}}>{fmt(totalCobrado)}</strong></span>
                         </div>
-                        {/* Barra de progreso */}
                         <div style={{marginTop:7,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
                           <div style={{width:`${totalVendido>0?Math.min(100,Math.round(totalCobrado/totalVendido*100)):0}%`,height:"100%",background:C.green,borderRadius:3}}/>
                         </div>
@@ -476,6 +462,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
   const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
   const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
   const [fechaEntregaReal, setFechaEntregaReal] = useState("");
+  const [remisionReal,     setRemisionReal]     = useState("");
+  const [tipoPagoReal,     setTipoPagoReal]     = useState("Efectivo");
 
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const setItem = (i,k,v) => setForm(f=>{
@@ -502,6 +490,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
     const p=pedidos.find(x=>x.id===id); if(!p) return;
     setKgsReales((p.items||[]).map(it=>String(it.cantidad)));
     setFechaEntregaReal(p.fechaEntrega||todayStr());
+    setRemisionReal("");
+    setTipoPagoReal(p.tipoPago||"Efectivo");
     setCompletando(p);
   };
   const confirmarCompletar = () => {
@@ -516,8 +506,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
       cantidad:it.cantidad, precio:parseFloat(it.precio),
       total:it.cantidad*parseFloat(it.precio),
-      estatusPago:"pendiente", tipoPago:p.tipoPago, fechaPago:"",
-      factura:"", facturaEmisor:"", remision:"", fechaFactura:"",
+      estatusPago:"pendiente", tipoPago:tipoPagoReal||p.tipoPago, fechaPago:"",
+      factura:"", facturaEmisor:"", remision:remisionReal||"", fechaFactura:"",
       estatusFactura: p.factura==="si" ? "pendiente_factura" : "no_aplica",
     })),...vs]);
     setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal,fechaEntrega:fechaVenta}:x));
@@ -629,6 +619,18 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
               <label style={lbl}>📅 Fecha real de entrega <span style={{color:C.red}}>*</span></label>
               <input type="date" style={inp} value={fechaEntregaReal} onChange={e=>setFechaEntregaReal(e.target.value)}/>
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>Esta fecha se usará en la venta y en todos los indicadores</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",border:`1px solid ${C.border}`}}>
+                <label style={lbl}>💳 Tipo de pago</label>
+                <select style={sel} value={tipoPagoReal} onChange={e=>setTipoPagoReal(e.target.value)}>
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",border:`1px solid ${C.border}`}}>
+                <label style={lbl}>📄 Remisión</label>
+                <input style={inp} placeholder="Número de remisión" value={remisionReal} onChange={e=>setRemisionReal(e.target.value)}/>
+              </div>
             </div>
             {(completando.items||[]).map((it,i)=>(
               <div key={i} style={{background:C.bg,borderRadius:9,padding:"10px 14px",marginBottom:8,border:`1px solid ${C.border}`}}>
@@ -881,7 +883,19 @@ function Ventas({ ventas, setVentas, logBit }) {
               {lista.length===0&&<tr><td colSpan={20} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin ventas en este período 📋</td></tr>}
               {lista.map(v=>(
                 <tr key={v.itemId} style={{opacity:v.estatus==="cancelada"?0.5:1,background:v.estatus==="cancelada"?"#fff5f5":"transparent"}}>
-                  <td style={td}><span style={{fontWeight:700,color:C.green,fontSize:11}}>#{v.pedidoId}</span></td>
+                  <td style={td}><span style={{fontWeight:700,color:C.green,fontSize:11,cursor:"pointer",textDecoration:"underline",textDecorationStyle:"dotted"}} onClick={()=>{
+                        const normTipo = (t) => {
+                          if(!t) return "Efectivo";
+                          const tl = t.toLowerCase().trim();
+                          if(tl==="efectivo") return "Efectivo";
+                          if(tl.includes("frasavo")) return "Transferencia Frasavo";
+                          if(tl.includes("saji")) return "Transferencia SAJI";
+                          if(tl.includes("transfer")) return "Transferencia SAJI";
+                          return "Efectivo";
+                        };
+                        setEditing(v.itemId);
+                        setForm({...v, tipoPago: normTipo(v.tipoPago)});
+                      }}>#{v.pedidoId}</span></td>
                   <td style={td}>{v.semana}</td>
                   <td style={td}>{v.dia}</td>
                   <td style={td}>{v.mes}</td>
@@ -917,20 +931,6 @@ function Ventas({ ventas, setVentas, logBit }) {
                   })()}</td>
                   <td style={td}>
                     <div style={{display:"flex",gap:3}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{
-                        // Normalizar tipoPago al abrir el modal para evitar mismatch
-                        const normTipo = (t) => {
-                          if(!t) return "Efectivo";
-                          const tl = t.toLowerCase().trim();
-                          if(tl==="efectivo") return "Efectivo";
-                          if(tl.includes("frasavo")) return "Transferencia Frasavo";
-                          if(tl.includes("saji")) return "Transferencia SAJI";
-                          if(tl.includes("transfer")) return "Transferencia SAJI";
-                          return "Efectivo";
-                        };
-                        setEditing(v.itemId);
-                        setForm({...v, tipoPago: normTipo(v.tipoPago)});
-                      }}>✎</button>
                       <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} title="Eliminar venta" onClick={()=>{ if(window.confirm(`¿Eliminar esta venta?\n\n#${v.pedidoId} · ${v.cliente}\n${v.producto} ${v.calibre} · ${fmt(v.total)}\n\nEsta acción no se puede deshacer.`)) { setVentas(vs=>vs.filter(x=>x.itemId!==v.itemId)); logBit("Eliminó venta",`#${v.pedidoId} · ${v.cliente} · ${v.producto} ${v.calibre} · ${fmt(v.total)}`); } }}>🗑️</button>
                     </div>
                   </td>
