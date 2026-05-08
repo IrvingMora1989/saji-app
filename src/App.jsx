@@ -20,6 +20,15 @@ const fmt       = n => Number(n||0).toLocaleString("es-MX",{style:"currency",cur
 const fmtDate   = d => { if(!d) return ""; const [y,mo,dy]=d.split("-"); return `${dy}/${mo}/${y.slice(2)}`; };
 const daysDiff  = d => { if(!d) return 0; const diff=new Date()-new Date(d+"T12:00:00"); return Math.max(0,Math.floor(diff/86400000)); };
 
+// Normaliza nombres de clientes para agrupar variantes
+const normCliente = c => {
+  if(!c) return c;
+  const s = c.trim();
+  if(/^la hortaliza$/i.test(s) || /^hortaliza$/i.test(s)) return "Hortaliza";
+  if(/^panader[ií]a$/i.test(s) || /^tortas temoaya$/i.test(s)) return "TORTAS TEMOAYA";
+  return s;
+};
+
 // ─── useSupabase — reemplaza usePersist con sync en tiempo real ───────────────
 const useSupabase = (tabla, init) => {
   const [val, setVal] = useState(init);
@@ -402,16 +411,25 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         {clientesUnicos.length===0
           ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:16}}>Sin ventas registradas aún</p>
           : (()=>{
-              const conDeuda = clientesUnicos
-                .map(cli=>{
-                  const ventasCli = ventas.filter(v=>v.cliente===cli);
-                  const totalVendido = ventasCli.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
-                  const pendiente = ventasCli
-                    .filter(v=>(v.estatusPago||"").toLowerCase()!=="pagado")
-                    .reduce((s,v)=>s+(parseFloat(v.total)||0),0);
-                  const totalCobrado = totalVendido - pendiente;
-                  return { cli, totalVendido, totalCobrado, pendiente };
-                })
+              // Agrupar ventas normalizando cliente, y separar Fishers por emisor
+              const grupos = {};
+              ventas.forEach(v => {
+                const cli = normCliente(v.cliente);
+                // Fishers: separar por facturaEmisor
+                let key = cli;
+                if(cli === "Fishers") {
+                  const emisor = (v.facturaEmisor||"").toLowerCase();
+                  if(emisor.includes("frasavo")) key = "Fishers FRASAVO";
+                  else if(emisor.includes("saji") || emisor.includes("serasei")) key = "Fishers SAJI";
+                  else key = "Fishers";
+                }
+                if(!grupos[key]) grupos[key] = { cli:key, totalVendido:0, pendiente:0 };
+                grupos[key].totalVendido += parseFloat(v.total)||0;
+                if((v.estatusPago||"").toLowerCase() !== "pagado")
+                  grupos[key].pendiente += parseFloat(v.total)||0;
+              });
+              const conDeuda = Object.values(grupos)
+                .map(g=>({ ...g, totalCobrado: g.totalVendido - g.pendiente }))
                 .filter(x=>x.pendiente>0.01)
                 .sort((a,b)=>b.pendiente-a.pendiente);
               const totalPend = conDeuda.reduce((s,x)=>s+x.pendiente,0);
@@ -787,8 +805,8 @@ function Ventas({ ventas, setVentas, logBit }) {
   ];
 
   const listaFecha = applyFilter(ventas, filt);
-  const clientes_unicos = [...new Set(ventas.map(v=>v.cliente))].filter(Boolean).sort();
-  const lista = (filtCliente ? listaFecha.filter(v=>v.cliente===filtCliente) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const clientes_unicos = [...new Set(ventas.map(v=>normCliente(v.cliente)))].filter(Boolean).sort();
+  const lista = (filtCliente ? listaFecha.filter(v=>normCliente(v.cliente)===filtCliente) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
   const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
@@ -900,7 +918,7 @@ function Ventas({ ventas, setVentas, logBit }) {
                   <td style={td}>{v.dia}</td>
                   <td style={td}>{v.mes}</td>
                   <td style={td}>{fmtDate(v.fecha)}</td>
-                  <td style={{...td,fontWeight:600}}>{v.cliente}</td>
+                  <td style={{...td,fontWeight:600}}>{normCliente(v.cliente)}</td>
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{v.calibre}</span></td>
                   <td style={td}>{v.cantidad} kg</td>
                   <td style={td}>{fmt(v.precio)}</td>
@@ -2032,7 +2050,7 @@ function Bitacora({ bitacora, setBitacora }) {
 // ════════════════════════════════════════════════════════════════════════════════
 // APP ROOT — Dark mode + sidebar + Excel import
 // ════════════════════════════════════════════════════════════════════════════════
-const INIT_CLI  = ["La Hortaliza","Fishers","Taquitos","Panadería"];
+const INIT_CLI  = ["Hortaliza","Fishers","Taquitos","TORTAS TEMOAYA"];
 const INIT_PROD = [
   { nombre:"Aguacate", calibres:["tercera","segunda","primera","extra","súper"] },
   { nombre:"Cebolla",  calibres:["extra","jumbo"] },
@@ -2246,9 +2264,208 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
 }
 
 // ─── Usuarios autorizados ─────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// INVENTARIOS
+// ════════════════════════════════════════════════════════════════════════════════
+const UBICACIONES = ["Frío","Calor","Ambiente"];
+
+function Inventarios({ inventario, setInventario, productos, logBit }) {
+  const [subTab,    setSubTab]    = useState("stock");   // stock | movimientos
+  const [showModal, setShowModal] = useState(false);
+  const [tipoMov,   setTipoMov]   = useState("entrada"); // entrada | salida
+  const [form,      setForm]      = useState({ producto:"", calibre:"", kg:"", ubicacion:"Frío", lote:"", fecha:todayStr(), notas:"" });
+  const sf = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
+
+  // Stock actual: suma entradas - salidas por producto+calibre+ubicacion
+  const stock = () => {
+    const mapa = {};
+    (inventario||[]).forEach(m=>{
+      const k = `${m.producto}||${m.calibre}||${m.ubicacion}`;
+      if(!mapa[k]) mapa[k] = { producto:m.producto, calibre:m.calibre, ubicacion:m.ubicacion, kg:0 };
+      mapa[k].kg += m.tipo==="entrada" ? parseFloat(m.kg||0) : -parseFloat(m.kg||0);
+    });
+    return Object.values(mapa).filter(x=>x.kg>0.001).sort((a,b)=>a.producto.localeCompare(b.producto));
+  };
+
+  const guardar = () => {
+    if(!form.producto || !form.kg || !form.ubicacion) return alert("Completa producto, KG y ubicación");
+    const mov = { id:Date.now(), ...form, kg:parseFloat(form.kg), tipo:tipoMov };
+    setInventario(inv=>[mov,...(inv||[])]);
+    logBit(tipoMov==="entrada"?"Entrada inventario":"Salida inventario", `${form.producto} ${form.calibre} · ${form.kg}kg · ${form.ubicacion}${form.lote?` · Lote ${form.lote}`:""}`);
+    setForm({ producto:"", calibre:"", kg:"", ubicacion:"Frío", lote:"", fecha:todayStr(), notas:"" });
+    setShowModal(false);
+  };
+
+  const stockActual = stock();
+  const totalKgFrio     = stockActual.filter(x=>x.ubicacion==="Frío").reduce((s,x)=>s+x.kg,0);
+  const totalKgCalor    = stockActual.filter(x=>x.ubicacion==="Calor").reduce((s,x)=>s+x.kg,0);
+  const totalKgAmbiente = stockActual.filter(x=>x.ubicacion==="Ambiente").reduce((s,x)=>s+x.kg,0);
+
+  const movimientos = [...(inventario||[])].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div>
+          <h2 style={{...h2s,margin:0}}>📦 Inventarios</h2>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>Control de stock por ubicación y lote</div>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          <button style={btn(C.green)} onClick={()=>{setTipoMov("entrada");setShowModal(true);}}>+ Entrada</button>
+          <button style={btn(C.red)}   onClick={()=>{setTipoMov("salida"); setShowModal(true);}}>− Salida</button>
+        </div>
+      </div>
+
+      {/* KPI cards por ubicación */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
+        {[
+          {label:"❄️ Frío",      kg:totalKgFrio,     c:C.blue},
+          {label:"🔥 Calor",     kg:totalKgCalor,    c:C.red},
+          {label:"🌡️ Ambiente",  kg:totalKgAmbiente, c:C.amber},
+        ].map(x=>(
+          <div key={x.label} style={{...card,padding:"12px 14px",borderTop:`3px solid ${x.c}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:x.c,marginBottom:4}}>{x.label}</div>
+            <div style={{fontSize:22,fontWeight:800,color:C.text}}>{x.kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {[{id:"stock",label:"📊 Stock actual"},{id:"movimientos",label:"📋 Movimientos"}].map(t=>(
+          <button key={t.id} style={nb(subTab===t.id)} onClick={()=>setSubTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      {subTab==="stock"&&(
+        <div style={card}>
+          {stockActual.length===0
+            ? <p style={{color:C.muted,textAlign:"center",padding:24}}>Sin inventario registrado</p>
+            : (
+              <>
+                {UBICACIONES.map(ub=>{
+                  const items = stockActual.filter(x=>x.ubicacion===ub);
+                  if(items.length===0) return null;
+                  return (
+                    <div key={ub} style={{marginBottom:16}}>
+                      <div style={{fontWeight:700,fontSize:13,color:C.muted,marginBottom:8,paddingBottom:4,borderBottom:`1px solid ${C.border}`}}>
+                        {ub==="Frío"?"❄️":ub==="Calor"?"🔥":"🌡️"} {ub}
+                      </div>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead><tr>{["Producto","Calibre","Stock KG"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {items.map((x,i)=>(
+                              <tr key={i}>
+                                <td style={td}><strong>{x.producto}</strong></td>
+                                <td style={td}><span style={badge(C.blue,C.blueL)}>{x.calibre||"—"}</span></td>
+                                <td style={td}><strong style={{color:x.kg<50?C.red:C.green}}>{x.kg.toLocaleString("es-MX",{maximumFractionDigits:2})} kg</strong></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )
+          }
+        </div>
+      )}
+
+      {subTab==="movimientos"&&(
+        <div style={card}>
+          {movimientos.length===0
+            ? <p style={{color:C.muted,textAlign:"center",padding:24}}>Sin movimientos registrados</p>
+            : (
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{["Fecha","Tipo","Producto","Calibre","KG","Ubicación","Lote","Notas",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {movimientos.map(m=>(
+                      <tr key={m.id}>
+                        <td style={td}>{fmtDate(m.fecha)}</td>
+                        <td style={td}><span style={badge(m.tipo==="entrada"?C.green:C.red)}>{m.tipo==="entrada"?"⬆ Entrada":"⬇ Salida"}</span></td>
+                        <td style={td}><strong>{m.producto}</strong></td>
+                        <td style={td}>{m.calibre||"—"}</td>
+                        <td style={td}><strong style={{color:m.tipo==="entrada"?C.green:C.red}}>{m.tipo==="entrada"?"+":"-"}{parseFloat(m.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} kg</strong></td>
+                        <td style={td}>{m.ubicacion}</td>
+                        <td style={td}>{m.lote||"—"}</td>
+                        <td style={td}>{m.notas||"—"}</td>
+                        <td style={td}><button style={{...btn(C.red),padding:"3px 8px",fontSize:11}} onClick={()=>{ if(window.confirm("¿Eliminar este movimiento?")) { setInventario(inv=>(inv||[]).filter(x=>x.id!==m.id)); }}}>🗑️</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </div>
+      )}
+
+      {/* Modal entrada/salida */}
+      {showModal&&(
+        <div style={modal}>
+          <div style={{...mbox,maxWidth:460}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,color:tipoMov==="entrada"?C.green:C.red}}>
+                {tipoMov==="entrada"?"⬆ Registrar Entrada":"⬇ Registrar Salida"}
+              </h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowModal(false)}>×</button>
+            </div>
+            <div style={g2}>
+              <div><label style={lbl}>Producto *</label>
+                <select style={sel} value={form.producto} onChange={e=>sf("producto",e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  {productos.map(p=><option key={p.nombre}>{p.nombre}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Calibre</label>
+                <select style={sel} value={form.calibre} onChange={e=>sf("calibre",e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  {getCals(form.producto).map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>KG *</label>
+                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.kg} onChange={e=>sf("kg",e.target.value)}/>
+              </div>
+              <div><label style={lbl}>Ubicación *</label>
+                <select style={sel} value={form.ubicacion} onChange={e=>sf("ubicacion",e.target.value)}>
+                  {UBICACIONES.map(u=><option key={u}>{u}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Número de lote</label>
+                <input style={inp} placeholder="Ej. L-2024-001" value={form.lote} onChange={e=>sf("lote",e.target.value)}/>
+              </div>
+              <div><label style={lbl}>Fecha</label>
+                <input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Notas</label>
+                <input style={inp} placeholder="Observaciones opcionales" value={form.notas} onChange={e=>sf("notas",e.target.value)}/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setShowModal(false)}>Cancelar</button>
+              <button style={btn(tipoMov==="entrada"?C.green:C.red)} onClick={guardar}>
+                💾 Guardar {tipoMov==="entrada"?"Entrada":"Salida"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const USUARIOS = [
-  { user:"Irving", pass:"1111$" },
-  { user:"Jasso",  pass:"1956$" },
+  { user:"Irving", pass:"1111$",  rol:"admin" },
+  { user:"Jasso",  pass:"1956$",  rol:"admin" },
+  { user:"Daniel", pass:"op01$",  rol:"operativo" },
+  { user:"Hector", pass:"op02$",  rol:"operativo" },
+  { user:"Jose",   pass:"op03$",  rol:"operativo" },
 ];
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -2260,7 +2477,7 @@ function LoginScreen({ onLogin }) {
 
   const login = () => {
     const found = USUARIOS.find(u => u.user.toLowerCase()===user.trim().toLowerCase() && u.pass===pass);
-    if(found) { onLogin(found.user); }
+    if(found) { onLogin(found.user, found.rol); }
     else { setError("Usuario o contraseña incorrectos"); }
   };
 
@@ -2303,6 +2520,7 @@ export default function App() {
   const [tab,        setTab]        = useState("dashboard");
   const [showImport, setShowImport] = useState(false);
   const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
+  const [rol,        setRol]        = useState(() => sessionStorage.getItem("saji_rol")||"admin");
 
   const [pedidos,    setPedidos,    loadedPed]  = useSupabase("pedidos",    []);
   const [ventas,     setVentas,     loadedVen]  = useSupabase("ventas",     []);
@@ -2313,8 +2531,9 @@ export default function App() {
   const [productos,  setProductos,  loadedPro]  = useSupabase("catalogos_productos",  INIT_PROD);
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
   const [bitacora,   setBitacora,   loadedBit]  = useSupabase("bitacora", []);
+  const [inventario, setInventario, loadedInv]  = useSupabase("inventario", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit;
+  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv;
 
   const logBit = (accion, detalle="") => {
     const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
@@ -2341,29 +2560,41 @@ export default function App() {
     X.writeFile(wb, `SAJI-Group-${todayStr()}.xlsx`);
   };
 
-  const handleLogin = (nombre) => {
+  const handleLogin = (nombre, rolUsuario) => {
     sessionStorage.setItem("saji_user", nombre);
+    sessionStorage.setItem("saji_rol",  rolUsuario||"admin");
     setUsuario(nombre);
+    setRol(rolUsuario||"admin");
+    // Redirigir operativos a pedidos por defecto
+    if(rolUsuario==="operativo") setTab("pedidos");
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem("saji_user");
+    sessionStorage.removeItem("saji_rol");
     setUsuario("");
+    setRol("admin");
   };
 
   // Mostrar login si no hay sesión
   if(!usuario) return <LoginScreen onLogin={handleLogin}/>;
 
-  const TABS = [
-    { id:"dashboard", label:"🏠 Inicio"    },
-    { id:"pedidos",   label:"📦 Pedidos"   },
-    { id:"ventas",    label:"💰 Ventas"    },
-    { id:"gastos",    label:"💸 Gastos"    },
-    { id:"pagos",     label:"🧾 Pagos"     },
-    { id:"fruta",     label:"🥑 Fruta"     },
-    { id:"catalogos", label:"🗂️ Catálogos" },
-    { id:"bitacora",  label:"📋 Bitácora"  },
+  const TABS_ADMIN = [
+    { id:"dashboard",   label:"🏠 Inicio"      },
+    { id:"pedidos",     label:"📦 Pedidos"     },
+    { id:"ventas",      label:"💰 Ventas"      },
+    { id:"gastos",      label:"💸 Gastos"      },
+    { id:"pagos",       label:"🧾 Pagos"       },
+    { id:"fruta",       label:"🥑 Fruta"       },
+    { id:"inventarios", label:"📦 Inventarios" },
+    { id:"catalogos",   label:"🗂️ Catálogos"  },
+    { id:"bitacora",    label:"📋 Bitácora"    },
   ];
+  const TABS_OPERATIVO = [
+    { id:"pedidos",     label:"📦 Pedidos"     },
+    { id:"inventarios", label:"📦 Inventarios" },
+  ];
+  const TABS = rol==="operativo" ? TABS_OPERATIVO : TABS_ADMIN;
 
   // Pantalla de carga mientras conecta con Supabase
   if(!todoCargado) return (
@@ -2407,10 +2638,11 @@ export default function App() {
               whiteSpace:"nowrap", transition:"all .15s"
             }}>{t.label}</button>
           ))}
-          <button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>
-          <button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>
+          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>}
+          {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>}
           <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
             <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
+            {rol==="operativo"&&<span style={{fontSize:9,background:C.amberL,color:C.amber,fontWeight:700,padding:"2px 6px",borderRadius:10,border:`1px solid ${C.amber}44`}}>OPERATIVO</span>}
             <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
               Salir
             </button>
@@ -2419,14 +2651,15 @@ export default function App() {
       </header>
 
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
-        {tab==="dashboard" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"   && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
-        {tab==="ventas"    && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-        {tab==="gastos"    && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
-        {tab==="pagos"     && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-        {tab==="fruta"     && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
-        {tab==="bitacora"  && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
-        {tab==="catalogos" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
+        {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
+        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+        {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+        {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} productos={productos} logBit={logBit}/>}
+        {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
+        {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
       </main>
 
       {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
