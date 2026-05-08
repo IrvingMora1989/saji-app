@@ -2495,7 +2495,11 @@ function LoginScreen({ onLogin }) {
 }
 
 export default function App() {
-  const [tab,        setTab]        = useState("dashboard");
+  const [tab, setTab] = useState(() => {
+    const savedRol = sessionStorage.getItem("saji_rol")||"admin";
+    const savedTab = "dashboard";
+    return savedRol==="operativo" ? "inventarios" : savedTab;
+  });
   const [showImport, setShowImport] = useState(false);
   const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
   const [rol,        setRol]        = useState(() => sessionStorage.getItem("saji_rol")||"admin");
@@ -2543,8 +2547,7 @@ export default function App() {
     sessionStorage.setItem("saji_rol",  rolUsuario||"admin");
     setUsuario(nombre);
     setRol(rolUsuario||"admin");
-    // Redirigir operativos a pedidos por defecto
-    if(rolUsuario==="operativo") setTab("pedidos");
+    setTab(rolUsuario==="operativo" ? "inventarios" : "dashboard");
   };
 
   const handleLogout = () => {
