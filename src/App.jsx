@@ -768,6 +768,7 @@ function Ventas({ ventas, setVentas, logBit }) {
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
   const [filtCliente,setFiltCliente]= useState("");
+  const [filtFactura,setFiltFactura]= useState(""); // "": todos | "con": con factura | "sin": sin factura | "no_aplica": no aplica
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
@@ -806,7 +807,14 @@ function Ventas({ ventas, setVentas, logBit }) {
 
   const listaFecha = applyFilter(ventas, filt);
   const clientes_unicos = [...new Set(ventas.map(v=>normCliente(v.cliente)))].filter(Boolean).sort();
-  const lista = (filtCliente ? listaFecha.filter(v=>normCliente(v.cliente)===filtCliente) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const listaCliente = (filtCliente ? listaFecha.filter(v=>normCliente(v.cliente)===filtCliente) : listaFecha);
+  const lista = (()=>{
+    let l = listaCliente;
+    if(filtFactura==="con")      l = l.filter(v=>{ const f=v.factura?.trim(); return f&&f!=="-"&&f!=="—"&&f.toLowerCase()!=="no aplica"; });
+    if(filtFactura==="sin")      l = l.filter(v=>{ const ef=v.estatusFactura||""; const f=v.factura?.trim()||""; return ef!=="no_aplica" && (!f||f==="-"||f==="—"); });
+    if(filtFactura==="no_aplica")l = l.filter(v=>(v.estatusFactura||"")==="no_aplica");
+    return l.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  })();
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
   const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
 
@@ -888,6 +896,17 @@ function Ventas({ ventas, setVentas, logBit }) {
         <button style={nb(!filtCliente)} onClick={()=>setFiltCliente("")}>Todos</button>
         {clientes_unicos.map(c=>(
           <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
+        ))}
+      </div>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🧾 Factura:</span>
+        {[
+          {k:"",         label:"Todas"},
+          {k:"con",      label:"✅ Con factura"},
+          {k:"sin",      label:"⏳ Pend. facturar"},
+          {k:"no_aplica",label:"— No aplica"},
+        ].map(op=>(
+          <button key={op.k} style={nb(filtFactura===op.k)} onClick={()=>setFiltFactura(op.k)}>{op.label}</button>
         ))}
       </div>
 
