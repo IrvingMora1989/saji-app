@@ -768,7 +768,8 @@ function Ventas({ ventas, setVentas, logBit }) {
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
   const [filtCliente,setFiltCliente]= useState("");
-  const [filtFactura,setFiltFactura]= useState(""); // "": todos | "con": con factura | "sin": sin factura | "no_aplica": no aplica
+  const [filtFactura,setFiltFactura]= useState("");
+  const [filtNumFactura,setFiltNumFactura]= useState("");
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
   const save = () => { setVentas(vs=>vs.map(v=>v.itemId===editing?{...form}:v)); setEditing(null); };
 
@@ -813,6 +814,7 @@ function Ventas({ ventas, setVentas, logBit }) {
     if(filtFactura==="con")      l = l.filter(v=>{ const f=v.factura?.trim(); return f&&f!=="-"&&f!=="—"&&f.toLowerCase()!=="no aplica"; });
     if(filtFactura==="sin")      l = l.filter(v=>{ const ef=v.estatusFactura||""; const f=v.factura?.trim()||""; return ef!=="no_aplica" && (!f||f==="-"||f==="—"); });
     if(filtFactura==="no_aplica")l = l.filter(v=>(v.estatusFactura||"")==="no_aplica");
+    if(filtNumFactura.trim())    l = l.filter(v=>(v.factura||"").toLowerCase().includes(filtNumFactura.trim().toLowerCase()));
     return l.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   })();
   const totalLista = lista.reduce((s,v)=>s+v.total,0);
@@ -908,6 +910,15 @@ function Ventas({ ventas, setVentas, logBit }) {
         ].map(op=>(
           <button key={op.k} style={nb(filtFactura===op.k)} onClick={()=>setFiltFactura(op.k)}>{op.label}</button>
         ))}
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+          <input
+            style={{...inp,width:160,padding:"5px 10px",fontSize:12,margin:0}}
+            placeholder="🔍 Buscar # factura"
+            value={filtNumFactura}
+            onChange={e=>setFiltNumFactura(e.target.value)}
+          />
+          {filtNumFactura&&<button style={{...btnO(C.red),padding:"4px 8px",fontSize:11}} onClick={()=>setFiltNumFactura("")}>✕</button>}
+        </div>
       </div>
 
       <div style={card}>
