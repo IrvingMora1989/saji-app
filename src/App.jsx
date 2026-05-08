@@ -2350,74 +2350,60 @@ function Inventarios({ inventario, setInventario, logBit }) {
 
       {/* Tabla calibre × ubicación */}
       <div style={card}>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead>
-              <tr>
-                <th style={th}>Calibre</th>
-                <th style={{...th,color:C.blue}}>❄️ Frío</th>
-                <th style={{...th,color:C.red}}>🔥 Calor</th>
-                <th style={{...th,color:C.amber}}>🌡️ Ambiente</th>
-                <th style={th}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CALIBRES_INV.map(cal=>{
-                const frio=getKg(cal,"Frío"), calor=getKg(cal,"Calor"), ambiente=getKg(cal,"Ambiente");
-                const total=frio+calor+ambiente;
-                const celda = (kg, ub) => (
-                  <td key={ub} style={{...td,textAlign:"right",cursor:"pointer"}}
-                    title={`Actualizar ${cal} · ${ub}`}
+        {/* Vista móvil: cards por calibre */}
+        {CALIBRES_INV.map(cal=>{
+          const frio=getKg(cal,"Frío"), calor=getKg(cal,"Calor"), ambiente=getKg(cal,"Ambiente");
+          return (
+            <div key={cal} style={{marginBottom:12,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>
+              <div style={{fontWeight:700,fontSize:13,marginBottom:8}}>
+                <span style={badge(C.blue,C.blueL)}>{cal}</span>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                {[{ub:"Frío",kg:frio,c:C.blue,ico:"❄️"},{ub:"Calor",kg:calor,c:C.red,ico:"🔥"},{ub:"Ambiente",kg:ambiente,c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
+                  <div key={ub} style={{background:C.bg,borderRadius:8,padding:"10px 8px",textAlign:"center",border:`1px solid ${c}33`,cursor:"pointer"}}
                     onClick={()=>{ setEditCell({calibre:cal,ubicacion:ub}); setKgInput(kg>0?String(kg):""); setShowModal(true); }}
                     onMouseEnter={e=>e.currentTarget.style.background=C.greenL}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    onMouseLeave={e=>e.currentTarget.style.background=C.bg}>
+                    <div style={{fontSize:16,marginBottom:4}}>{ico}</div>
+                    <div style={{fontSize:10,color:c,fontWeight:700,marginBottom:4}}>{ub}</div>
                     {kg>0
-                      ? <strong style={{color:kg<50?C.amber:C.green}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
-                      : <span style={{color:C.border,fontSize:20,lineHeight:1}}>+</span>}
-                  </td>
-                );
-                return (
-                  <tr key={cal}>
-                    <td style={td}><span style={badge(C.blue,C.blueL)}>{cal}</span></td>
-                    {celda(frio,"Frío")}
-                    {celda(calor,"Calor")}
-                    {celda(ambiente,"Ambiente")}
-                    <td style={{...td,textAlign:"right"}}>
-                      <strong style={{color:C.text}}>{total.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
-                    </td>
-                  </tr>
-                );
-              })}
-              {/* Fila totales */}
-              <tr style={{background:C.bg,borderTop:`2px solid ${C.border}`}}>
-                <td style={{...td,fontWeight:800}}>TOTAL</td>
-                <td style={{...td,textAlign:"right",fontWeight:800,color:C.blue}}>{totalFrio.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
-                <td style={{...td,textAlign:"right",fontWeight:800,color:C.red}}>{totalCalor.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
-                <td style={{...td,textAlign:"right",fontWeight:800,color:C.amber}}>{totalAmbiente.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
-                <td style={{...td,textAlign:"right",fontWeight:800,color:C.green}}>{(totalFrio+totalCalor+totalAmbiente).toLocaleString("es-MX",{maximumFractionDigits:1})} kg</td>
-              </tr>
-              {/* Fila merma */}
-              {(()=>{
-                const mermaKg = getKg("Merma","—");
-                return (
-                  <tr style={{background:"#fff8f0",borderTop:`2px solid ${C.border}`}}>
-                    <td style={{...td,fontWeight:700,color:C.amber}}>⚠️ Merma</td>
-                    <td colSpan={3} style={{...td,textAlign:"center",color:C.muted,fontSize:11,fontStyle:"italic"}}>Sin clasificación de ubicación</td>
-                    <td style={{...td,textAlign:"right",cursor:"pointer"}}
-                      title="Actualizar merma"
-                      onClick={()=>{ setEditCell({calibre:"Merma",ubicacion:"—"}); setKgInput(mermaKg>0?String(mermaKg):""); setShowModal(true); }}
-                      onMouseEnter={e=>e.currentTarget.style.background=C.amberL}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      {mermaKg>0
-                        ? <strong style={{color:C.amber}}>{mermaKg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
-                        : <span style={{color:C.border,fontSize:20,lineHeight:1}}>+</span>}
-                    </td>
-                  </tr>
-                );
-              })()}
-            </tbody>
-          </table>
+                      ? <div style={{fontSize:14,fontWeight:800,color:kg<50?C.amber:C.green}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})}<span style={{fontSize:10}}> kg</span></div>
+                      : <div style={{fontSize:20,color:C.border,lineHeight:1}}>+</div>}
+                  </div>
+                ))}
+              </div>
+              <div style={{textAlign:"right",fontSize:11,color:C.muted,marginTop:6}}>
+                Total: <strong style={{color:C.text}}>{(frio+calor+ambiente).toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Fila totales */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+          {[{ub:"Frío",kg:totalFrio,c:C.blue,ico:"❄️"},{ub:"Calor",kg:totalCalor,c:C.red,ico:"🔥"},{ub:"Ambiente",kg:totalAmbiente,c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
+            <div key={ub} style={{background:C.bg,borderRadius:8,padding:"8px 6px",textAlign:"center",border:`2px solid ${c}`}}>
+              <div style={{fontSize:10,color:c,fontWeight:700}}>{ico} Total {ub}</div>
+              <div style={{fontSize:15,fontWeight:800,color:c}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
+            </div>
+          ))}
         </div>
+
+        {/* Merma */}
+        {(()=>{
+          const mermaKg = getKg("Merma","—");
+          return (
+            <div style={{background:"#fff8f0",borderRadius:8,padding:"10px 14px",border:`1px solid ${C.amber}44`,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}
+              onClick={()=>{ setEditCell({calibre:"Merma",ubicacion:"—"}); setKgInput(mermaKg>0?String(mermaKg):""); setShowModal(true); }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.amberL}
+              onMouseLeave={e=>e.currentTarget.style.background="#fff8f0"}>
+              <span style={{fontWeight:700,color:C.amber}}>⚠️ Merma</span>
+              {mermaKg>0
+                ? <strong style={{color:C.amber,fontSize:16}}>{mermaKg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+                : <span style={{color:C.border,fontSize:22}}>+</span>}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Modal actualizar KG */}
