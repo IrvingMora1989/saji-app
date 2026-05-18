@@ -2456,6 +2456,237 @@ function Inventarios({ inventario, setInventario, logBit }) {
 }
 
 
+// ════════════════════════════════════════════════════════════════════════════════
+// CAJA
+// ════════════════════════════════════════════════════════════════════════════════
+function Caja({ ventas, gastos, fruta, pagos, cajaMov, setCajaMov, logBit }) {
+  const [subTab,    setSubTab]    = useState("balance");
+  const [showModal, setShowModal] = useState(false);
+  const [form,      setForm]      = useState({ fecha:todayStr(), tipo:"entrada", cuenta:"Efectivo", concepto:"", monto:"" });
+  const sf = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const CUENTAS = ["Efectivo","Banco"];
+
+  // ── Calcular entradas desde ventas cobradas (pagos registrados) ──────────────
+  const entVentas = cuenta => {
+    return pagos.reduce((s,p) => {
+      const tp = (p.tipoPago||"").toLowerCase();
+      if(cuenta==="Efectivo" && tp==="efectivo") return s+(parseFloat(p.monto)||0);
+      if(cuenta==="Banco"    && (tp.includes("saji") && !tp.includes("frasavo"))) return s+(parseFloat(p.monto)||0);
+      return s;
+    }, 0);
+  };
+
+  // ── Calcular salidas desde gastos pagados ────────────────────────────────────
+  const salGastos = cuenta => {
+    return gastos.filter(g=>(g.estatusPago||"").toLowerCase()==="pagado").reduce((s,g) => {
+      const mp = (g.metodoPago||"").toLowerCase();
+      if(cuenta==="Efectivo" && mp==="efectivo") return s+(parseFloat(g.monto)||0);
+      if(cuenta==="Banco"    && (mp.includes("saji") || mp.includes("transfer")) && !mp.includes("frasavo")) return s+(parseFloat(g.monto)||0);
+      return s;
+    }, 0);
+  };
+
+  // ── Calcular salidas desde compras de fruta pagadas ──────────────────────────
+  const salFruta = cuenta => {
+    return fruta.filter(f=>!f.tipo&&(f.estatusPago||"").toLowerCase()==="pagado").reduce((s,f) => {
+      const mp = (f.metodoPago||"").toLowerCase();
+      if(cuenta==="Efectivo" && mp==="efectivo") return s+(parseFloat(f.total)||0);
+      if(cuenta==="Banco"    && (mp.includes("saji") || mp.includes("transfer")) && !mp.includes("frasavo")) return s+(parseFloat(f.total)||0);
+      return s;
+    }, 0);
+  };
+
+  // ── Movimientos manuales por cuenta ─────────────────────────────────────────
+  const movCuenta = (cuenta, tipo) =>
+    (cajaMov||[]).filter(m=>m.cuenta===cuenta&&m.tipo===tipo).reduce((s,m)=>s+(parseFloat(m.monto)||0),0);
+
+  // ── Balance por cuenta ───────────────────────────────────────────────────────
+  const balance = cuenta => {
+    const ent = entVentas(cuenta) + movCuenta(cuenta,"entrada");
+    const sal = salGastos(cuenta) + salFruta(cuenta) + movCuenta(cuenta,"salida");
+    return { ent, sal, bal: ent - sal };
+  };
+
+  const guardar = () => {
+    if(!form.concepto || !form.monto) return alert("Completa concepto y monto");
+    const mov = { id:Date.now(), ...form, monto:parseFloat(form.monto) };
+    setCajaMov(m=>[mov,...(m||[])]);
+    logBit("Movimiento caja", `${form.tipo} · ${form.cuenta} · ${fmt(parseFloat(form.monto))} · ${form.concepto}`);
+    setForm({ fecha:todayStr(), tipo:"entrada", cuenta:"Efectivo", concepto:"", monto:"" });
+    setShowModal(false);
+  };
+
+  const movimientos = [...(cajaMov||[])].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div>
+          <h2 style={{...h2s,margin:0}}>💰 Caja</h2>
+          <div style={{color:C.muted,fontSize:12,marginTop:2}}>Balance calculado desde ventas, gastos y fruta · más movimientos manuales</div>
+        </div>
+        <button style={btn(C.green)} onClick={()=>setShowModal(true)}>+ Movimiento manual</button>
+      </div>
+
+      {/* Sub tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {[{id:"balance",label:"💰 Balance"},{id:"detalle",label:"📊 Detalle por cuenta"},{id:"movimientos",label:"📋 Movimientos manuales"}].map(t=>(
+          <button key={t.id} style={nb(subTab===t.id)} onClick={()=>setSubTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* BALANCE */}
+      {subTab==="balance"&&(
+        <div>
+          {CUENTAS.map(cuenta=>{
+            const {ent,sal,bal} = balance(cuenta);
+            const ico = cuenta==="Efectivo"?"💵":cuenta==="Efectivo"?"💵":"🏦";
+            return (
+              <div key={cuenta} style={{...card,marginBottom:10,borderLeft:`4px solid ${bal>=0?C.green:C.red}`}}>
+                <div style={{fontWeight:800,fontSize:14,marginBottom:10}}>{ico} {cuenta}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  {[
+                    {label:"⬆ Entradas",  v:ent, c:C.green},
+                    {label:"⬇ Salidas",   v:sal, c:C.red},
+                    {label:"= Saldo",      v:bal, c:bal>=0?C.green:C.red, bold:true},
+                  ].map(x=>(
+                    <div key={x.label} style={{background:C.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${C.border}`}}>
+                      <div style={{color:C.muted,fontSize:10,marginBottom:3}}>{x.label}</div>
+                      <div style={{fontSize:x.bold?18:14,fontWeight:x.bold?800:600,color:x.c}}>{fmt(x.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {/* Total general */}
+          <div style={{...card,borderLeft:`4px solid ${C.blue}`}}>
+            <div style={{fontWeight:800,fontSize:14,marginBottom:10}}>📊 Total General</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[
+                {label:"⬆ Total entradas", v:CUENTAS.reduce((s,c)=>s+balance(c).ent,0), c:C.green},
+                {label:"⬇ Total salidas",  v:CUENTAS.reduce((s,c)=>s+balance(c).sal,0), c:C.red},
+                {label:"= Saldo total",    v:CUENTAS.reduce((s,c)=>s+balance(c).bal,0), c:CUENTAS.reduce((s,c)=>s+balance(c).bal,0)>=0?C.green:C.red, bold:true},
+              ].map(x=>(
+                <div key={x.label} style={{background:C.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${C.border}`}}>
+                  <div style={{color:C.muted,fontSize:10,marginBottom:3}}>{x.label}</div>
+                  <div style={{fontSize:x.bold?18:14,fontWeight:x.bold?800:600,color:x.c}}>{fmt(x.v)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DETALLE POR CUENTA */}
+      {subTab==="detalle"&&(
+        <div>
+          {CUENTAS.map(cuenta=>{
+            const ico = cuenta==="Efectivo"?"💵":cuenta==="Efectivo"?"💵":"🏦";
+            const evs = entVentas(cuenta);
+            const sg  = salGastos(cuenta);
+            const sf2 = salFruta(cuenta);
+            const me  = movCuenta(cuenta,"entrada");
+            const ms  = movCuenta(cuenta,"salida");
+            const bal = evs + me - sg - sf2 - ms;
+            return (
+              <div key={cuenta} style={{...card,marginBottom:10}}>
+                <div style={{fontWeight:800,fontSize:13,marginBottom:10,color:C.blue}}>{ico} {cuenta}</div>
+                {[
+                  {label:"Ventas cobradas",      v:evs,  c:C.green, tipo:"entrada"},
+                  {label:"Movimientos entrada",   v:me,   c:C.green, tipo:"entrada"},
+                  {label:"Gastos pagados",        v:-sg,  c:C.red,   tipo:"salida"},
+                  {label:"Compras de fruta",      v:-sf2, c:C.red,   tipo:"salida"},
+                  {label:"Movimientos salida",    v:-ms,  c:C.red,   tipo:"salida"},
+                ].map(x=>(
+                  <div key={x.label} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
+                    <span style={{fontSize:12,color:C.muted}}>{x.label}</span>
+                    <span style={{fontSize:12,fontWeight:600,color:x.v>=0?C.green:C.red}}>{x.v>=0?"+":""}{fmt(Math.abs(x.v))}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:4}}>
+                  <span style={{fontWeight:800,fontSize:13}}>Saldo</span>
+                  <span style={{fontWeight:800,fontSize:16,color:bal>=0?C.green:C.red}}>{fmt(bal)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* MOVIMIENTOS MANUALES */}
+      {subTab==="movimientos"&&(
+        <div style={card}>
+          {movimientos.length===0
+            ? <p style={{color:C.muted,textAlign:"center",padding:24}}>Sin movimientos manuales registrados</p>
+            : <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{["Fecha","Tipo","Cuenta","Concepto","Monto",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {movimientos.map(m=>(
+                      <tr key={m.id}>
+                        <td style={td}>{fmtDate(m.fecha)}</td>
+                        <td style={td}><span style={badge(m.tipo==="entrada"?C.green:C.red)}>{m.tipo==="entrada"?"⬆ Entrada":"⬇ Salida"}</span></td>
+                        <td style={td}>{m.cuenta}</td>
+                        <td style={td}>{m.concepto}</td>
+                        <td style={td}><strong style={{color:m.tipo==="entrada"?C.green:C.red}}>{m.tipo==="entrada"?"+":"-"}{fmt(m.monto)}</strong></td>
+                        <td style={td}><button style={{...btn(C.red),padding:"3px 8px",fontSize:11}} onClick={()=>{ if(window.confirm("¿Eliminar este movimiento?")) { setCajaMov(mv=>(mv||[]).filter(x=>x.id!==m.id)); }}}>🗑️</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+          }
+        </div>
+      )}
+
+      {/* Modal movimiento manual */}
+      {showModal&&(
+        <div style={modal}>
+          <div style={{...mbox,maxWidth:400}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,color:C.green}}>💰 Movimiento Manual</h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowModal(false)}>×</button>
+            </div>
+            {/* Entrada / Salida */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              {[{t:"entrada",label:"⬆ Entrada",c:C.green},{t:"salida",label:"⬇ Salida",c:C.red}].map(op=>(
+                <button key={op.t} onClick={()=>sf("tipo",op.t)} style={{
+                  padding:"10px 0",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer",
+                  background:form.tipo===op.t?op.c:"transparent",
+                  color:form.tipo===op.t?"#fff":op.c,
+                  border:`2px solid ${op.c}`,transition:"all .15s"
+                }}>{op.label}</button>
+              ))}
+            </div>
+            <div style={g2}>
+              <div><label style={lbl}>Cuenta *</label>
+                <select style={sel} value={form.cuenta} onChange={e=>sf("cuenta",e.target.value)}>
+                  {CUENTAS.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Fecha</label>
+                <input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Concepto *</label>
+                <input style={inp} placeholder="Ej. Retiro banco, Depósito, Traspaso..." value={form.concepto} onChange={e=>sf("concepto",e.target.value)}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Monto *</label>
+                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)} autoFocus/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setShowModal(false)}>Cancelar</button>
+              <button style={btn(form.tipo==="entrada"?C.green:C.red)} onClick={guardar}>💾 Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const USUARIOS = [
   { user:"Irving", pass:"1111$",  rol:"admin" },
   { user:"Jasso",  pass:"1956$",  rol:"admin" },
@@ -2532,8 +2763,9 @@ export default function App() {
   const [proveedores,setProveedores,loadedProv] = useSupabase("catalogos_proveedores",["Frasavo","Mosco"]);
   const [bitacora,   setBitacora,   loadedBit]  = useSupabase("bitacora", []);
   const [inventario, setInventario, loadedInv]  = useSupabase("inventario", []);
+  const [cajaMov,    setCajaMov,    loadedCaj]  = useSupabase("caja_mov", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv;
+  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv && loadedCaj;
 
   const logBit = (accion, detalle="") => {
     const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
@@ -2585,6 +2817,7 @@ export default function App() {
     { id:"gastos",      label:"💸 Gastos"      },
     { id:"pagos",       label:"🧾 Pagos"       },
     { id:"fruta",       label:"🥑 Fruta"       },
+    { id:"caja",        label:"💵 Caja"        },
     { id:"inventarios", label:"📦 Inventarios" },
     { id:"catalogos",   label:"🗂️ Catálogos"  },
     { id:"bitacora",    label:"📋 Bitácora"    },
@@ -2655,6 +2888,7 @@ export default function App() {
         {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
         {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
         {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+        {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
         {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
         {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
         {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
