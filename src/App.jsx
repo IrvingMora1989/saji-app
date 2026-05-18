@@ -2295,8 +2295,8 @@ function ImportModal({ onClose, setPedidos, setVentas, setGastos, setFruta, setP
 // ════════════════════════════════════════════════════════════════════════════════
 // INVENTARIOS
 // ════════════════════════════════════════════════════════════════════════════════
-const UBICACIONES = ["Frío","Calor","Ambiente"];
-const CALIBRES_INV = ["Primera","Extra","Tercera"];
+const UBICACIONES = ["Frío","Frío2","Calor","Ambiente"];
+const CALIBRES_INV = ["Primera","Extra","Tercera","Super","Mixto"];
 
 function Inventarios({ inventario, setInventario, logBit }) {
   const [showModal, setShowModal] = useState(false);
@@ -2325,7 +2325,6 @@ function Inventarios({ inventario, setInventario, logBit }) {
   };
 
   const kgPorUb = ub => CALIBRES_INV.reduce((s,c)=>s+getKg(c,ub),0);
-  const totalFrio=kgPorUb("Frío"), totalCalor=kgPorUb("Calor"), totalAmbiente=kgPorUb("Ambiente");
 
   return (
     <div>
@@ -2335,36 +2334,37 @@ function Inventarios({ inventario, setInventario, logBit }) {
       </div>
 
       {/* KPI totales por ubicación */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
         {[
-          {label:"❄️ Frío",     kg:totalFrio,     c:C.blue},
-          {label:"🔥 Calor",    kg:totalCalor,    c:C.red},
-          {label:"🌡️ Ambiente", kg:totalAmbiente, c:C.amber},
+          {label:"❄️ Frío",     kg:kgPorUb("Frío"),     c:C.blue},
+          {label:"❄️ Frío 2",   kg:kgPorUb("Frío2"),    c:"#5b8dee"},
+          {label:"🔥 Calor",    kg:kgPorUb("Calor"),    c:C.red},
+          {label:"🌡️ Ambiente", kg:kgPorUb("Ambiente"), c:C.amber},
         ].map(x=>(
           <div key={x.label} style={{...card,padding:"12px 14px",borderTop:`3px solid ${x.c}`}}>
             <div style={{fontSize:13,fontWeight:700,color:x.c,marginBottom:4}}>{x.label}</div>
-            <div style={{fontSize:22,fontWeight:800,color:C.text}}>{x.kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
+            <div style={{fontSize:20,fontWeight:800,color:C.text}}>{x.kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
           </div>
         ))}
       </div>
 
       {/* Tabla calibre × ubicación */}
       <div style={card}>
-        {/* Vista móvil: cards por calibre */}
+        {/* Cards por calibre */}
         {CALIBRES_INV.map(cal=>{
-          const frio=getKg(cal,"Frío"), calor=getKg(cal,"Calor"), ambiente=getKg(cal,"Ambiente");
+          const frio=getKg(cal,"Frío"), frio2=getKg(cal,"Frío2"), calor=getKg(cal,"Calor"), ambiente=getKg(cal,"Ambiente");
           return (
             <div key={cal} style={{marginBottom:12,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>
               <div style={{fontWeight:700,fontSize:13,marginBottom:8}}>
                 <span style={badge(C.blue,C.blueL)}>{cal}</span>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                {[{ub:"Frío",kg:frio,c:C.blue,ico:"❄️"},{ub:"Calor",kg:calor,c:C.red,ico:"🔥"},{ub:"Ambiente",kg:ambiente,c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[{ub:"Frío",kg:frio,c:C.blue,ico:"❄️"},{ub:"Frío2",kg:frio2,c:"#5b8dee",ico:"❄️"},{ub:"Calor",kg:calor,c:C.red,ico:"🔥"},{ub:"Ambiente",kg:ambiente,c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
                   <div key={ub} style={{background:C.bg,borderRadius:8,padding:"10px 8px",textAlign:"center",border:`1px solid ${c}33`,cursor:"pointer"}}
                     onClick={()=>{ setEditCell({calibre:cal,ubicacion:ub}); setKgInput(kg>0?String(kg):""); setShowModal(true); }}
                     onMouseEnter={e=>e.currentTarget.style.background=C.greenL}
                     onMouseLeave={e=>e.currentTarget.style.background=C.bg}>
-                    <div style={{fontSize:16,marginBottom:4}}>{ico}</div>
+                    <div style={{fontSize:14,marginBottom:2}}>{ico}</div>
                     <div style={{fontSize:10,color:c,fontWeight:700,marginBottom:4}}>{ub}</div>
                     {kg>0
                       ? <div style={{fontSize:14,fontWeight:800,color:kg<50?C.amber:C.green}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})}<span style={{fontSize:10}}> kg</span></div>
@@ -2373,15 +2373,15 @@ function Inventarios({ inventario, setInventario, logBit }) {
                 ))}
               </div>
               <div style={{textAlign:"right",fontSize:11,color:C.muted,marginTop:6}}>
-                Total: <strong style={{color:C.text}}>{(frio+calor+ambiente).toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+                Total: <strong style={{color:C.text}}>{(frio+frio2+calor+ambiente).toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
               </div>
             </div>
           );
         })}
 
         {/* Fila totales */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-          {[{ub:"Frío",kg:totalFrio,c:C.blue,ico:"❄️"},{ub:"Calor",kg:totalCalor,c:C.red,ico:"🔥"},{ub:"Ambiente",kg:totalAmbiente,c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+          {[{ub:"Frío",kg:kgPorUb("Frío"),c:C.blue,ico:"❄️"},{ub:"Frío2",kg:kgPorUb("Frío2"),c:"#5b8dee",ico:"❄️"},{ub:"Calor",kg:kgPorUb("Calor"),c:C.red,ico:"🔥"},{ub:"Ambiente",kg:kgPorUb("Ambiente"),c:C.amber,ico:"🌡️"}].map(({ub,kg,c,ico})=>(
             <div key={ub} style={{background:C.bg,borderRadius:8,padding:"8px 6px",textAlign:"center",border:`2px solid ${c}`}}>
               <div style={{fontSize:10,color:c,fontWeight:700}}>{ico} Total {ub}</div>
               <div style={{fontSize:15,fontWeight:800,color:c}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
@@ -2393,13 +2393,29 @@ function Inventarios({ inventario, setInventario, logBit }) {
         {(()=>{
           const mermaKg = getKg("Merma","—");
           return (
-            <div style={{background:"#fff8f0",borderRadius:8,padding:"10px 14px",border:`1px solid ${C.amber}44`,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}
+            <div style={{background:"#fff8f0",borderRadius:8,padding:"10px 14px",marginBottom:8,border:`1px solid ${C.amber}44`,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}
               onClick={()=>{ setEditCell({calibre:"Merma",ubicacion:"—"}); setKgInput(mermaKg>0?String(mermaKg):""); setShowModal(true); }}
               onMouseEnter={e=>e.currentTarget.style.background=C.amberL}
               onMouseLeave={e=>e.currentTarget.style.background="#fff8f0"}>
               <span style={{fontWeight:700,color:C.amber}}>⚠️ Merma</span>
               {mermaKg>0
                 ? <strong style={{color:C.amber,fontSize:16}}>{mermaKg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+                : <span style={{color:C.border,fontSize:22}}>+</span>}
+            </div>
+          );
+        })()}
+
+        {/* Mallas */}
+        {(()=>{
+          const mallas = getKg("Mallas","—");
+          return (
+            <div style={{background:"#f0f4ff",borderRadius:8,padding:"10px 14px",border:`1px solid ${C.blue}44`,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}
+              onClick={()=>{ setEditCell({calibre:"Mallas",ubicacion:"—"}); setKgInput(mallas>0?String(mallas):""); setShowModal(true); }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.blueL}
+              onMouseLeave={e=>e.currentTarget.style.background="#f0f4ff"}>
+              <span style={{fontWeight:700,color:C.blue}}>🕸️ Mallas</span>
+              {mallas>0
+                ? <strong style={{color:C.blue,fontSize:16}}>{Math.round(mallas).toLocaleString("es-MX")} mallas</strong>
                 : <span style={{color:C.border,fontSize:22}}>+</span>}
             </div>
           );
@@ -2417,12 +2433,14 @@ function Inventarios({ inventario, setInventario, logBit }) {
             <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`,display:"flex",gap:10,alignItems:"center"}}>
               {editCell.calibre==="Merma"
                 ? <span style={{fontWeight:700,color:C.amber}}>⚠️ Merma general</span>
+                : editCell.calibre==="Mallas"
+                ? <span style={{fontWeight:700,color:C.blue}}>🕸️ Mallas (cantidad)</span>
                 : <><span style={badge(C.blue,C.blueL)}>{editCell.calibre}</span>
                    <span style={{color:C.muted}}>→</span>
-                   <span style={{fontWeight:700}}>{editCell.ubicacion==="Frío"?"❄️":editCell.ubicacion==="Calor"?"🔥":"🌡️"} {editCell.ubicacion}</span></>
+                   <span style={{fontWeight:700}}>{editCell.ubicacion==="Frío"?"❄️":editCell.ubicacion==="Frío2"?"❄️":editCell.ubicacion==="Calor"?"🔥":"🌡️"} {editCell.ubicacion}</span></>
               }
             </div>
-            <label style={lbl}>KG actuales *</label>
+            <label style={lbl}>{editCell.calibre==="Mallas"?"Cantidad de mallas *":"KG actuales *"}</label>
             <input type="number" inputMode="decimal" style={inp} placeholder="0.00"
               value={kgInput} onChange={e=>setKgInput(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&guardar()} autoFocus/>
