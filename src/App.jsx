@@ -850,28 +850,28 @@ function Ventas({ ventas, setVentas, logBit }) {
               const normEstatusPago = v => { const s=String(v||"").toLowerCase(); return (s.includes("pagado")||s.includes("pago"))?"pagado":"pendiente"; };
               const normTipoPago = v => { const s=String(v||"").toLowerCase(); if(s.includes("frasavo")) return "Transferencia Frasavo"; if(s.includes("saji")) return "Transferencia SAJI"; if(s.includes("transfer")) return "Transferencia SAJI"; return "Efectivo"; };
               const importadas = rows.map((r,i)=>{
-                const fecha = excelToDate(r["Fecha entrega"]||r["Fecha"]);
+                const fecha = excelToDate(r["FECHA"]||r["Fecha entrega"]||r["Fecha"]);
                 return {
-                  pedidoId:    String(r["Pedido"]||r["#Pedido"]||`IMP-${i+1}`),
+                  pedidoId:    String(r["#PED"]||r["Pedido"]||r["#Pedido"]||`IMP-${i+1}`),
                   itemId:      `imp-${Date.now()}-${i}`,
-                  semana:      r["Semana"]!=null ? parseInt(r["Semana"]) : (fecha?weekOf(fecha):null),
-                  dia:         r["Día"]||r["Dia"]||(fecha?dayOf(fecha):""),
-                  mes:         r["Mes"]||(fecha?monthOf(fecha):""),
+                  semana:      r["SEM"]!=null ? parseInt(r["SEM"]) : r["Semana"]!=null ? parseInt(r["Semana"]) : (fecha?weekOf(fecha):null),
+                  dia:         r["DÍA"]||r["Día"]||r["Dia"]||(fecha?dayOf(fecha):""),
+                  mes:         r["MES"]||r["Mes"]||(fecha?monthOf(fecha):""),
                   fecha:       fecha,
-                  cliente:     String(r["Cliente"]||""),
-                  calibre:     String(r["Caibre"]||r["Calibre"]||""),
+                  cliente:     String(r["CLIENTE"]||r["Cliente"]||""),
+                  calibre:     String(r["CALIBRE"]||r["Caibre"]||r["Calibre"]||""),
                   cantidad:    parseFloat(r["KG"]||r["Cantidad"]||0),
                   precio:      parseFloat(r["$/KG"]||r["Precio"]||0),
-                  costoFruta:  parseFloat(r["Costo fruta"]||r["Costo Fruta"]||0)||null,
-                  total:       parseFloat(r["Total"]||0),
-                  estatusPago: normEstatusPago(r["Estatus Pago"]||r["Estatus"]),
-                  tipoPago:    normTipoPago(r["Tipo de pago"]||r["Tipo Pago"]),
-                  fechaPago:   excelToDate(r["Fecha de pago"]||r["Fecha Pago"]),
-                  factura:     String(r["Factura"]||""),
-                  facturaEmisor:String(r["Factura emisor"]||r["Factura Emisor"]||""),
-                  remision:    String(r["Remisión"]||r["Remision"]||""),
-                  fechaFactura:excelToDate(r["F. Factura"]||r["Fecha Factura"]),
-                  estatusFactura: (r["Factura"]&&String(r["Factura"]).trim()&&String(r["Factura"])!=="-") ? "factura_realizada" : "no_aplica",
+                  costoFruta:  parseFloat(r["COSTO FRUTA"]||r["Costo fruta"]||r["Costo Fruta"]||0)||null,
+                  total:       parseFloat(r["Total"]||r["TOTAL"]||0),
+                  estatusPago: normEstatusPago(r["ESTATUS PAGO"]||r["Estatus Pago"]||r["Estatus"]),
+                  tipoPago:    normTipoPago(r["TIPO DE PAGO"]||r["Tipo de pago"]||r["Tipo Pago"]),
+                  fechaPago:   excelToDate(r["F. PAGO"]||r["Fecha de pago"]||r["Fecha Pago"]),
+                  factura:     String(r["FACTURA"]||r["Factura"]||""),
+                  facturaEmisor:String(r["EMISOR"]||r["Factura emisor"]||r["Factura Emisor"]||""),
+                  remision:    String(r["REMISIÓN"]||r["Remisión"]||r["Remision"]||""),
+                  fechaFactura:excelToDate(r["F. FACTURA"]||r["F. Factura"]||r["Fecha Factura"]),
+                  estatusFactura: (r["FACTURA"]||r["Factura"])&&String(r["FACTURA"]||r["Factura"]).trim()&&String(r["FACTURA"]||r["Factura"])!=="-" ? "factura_realizada" : "no_aplica",
                   producto: "",
                 };
               }).filter(r=>r.cliente&&r.fecha);
