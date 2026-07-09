@@ -607,7 +607,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit, 
                     {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(sColor(p.estatus)),padding:"2px 6px",fontSize:10}}>{sLabel(p.estatus)}</span></td>}
                     {idx===0&&(
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
-                        {p.estatus==="pendiente"&&!esOperativo&&(
+                        {p.estatus==="pendiente"&&(
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
                             <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
                             <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
@@ -2853,10 +2853,8 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
       <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap", overflow:"hidden" }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0}}>
-          <button onClick={()=>window.location.reload()} style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center"}} title="Actualizar">
-            <SAJILogo s={34}/>
-          </button>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0,cursor:"pointer"}} onClick={()=>window.location.reload()} title="Actualizar">
+          <SAJILogo s={34}/>
           <div style={{lineHeight:1.15,minWidth:0}}>
             <div style={{fontWeight:800,fontSize:13,color:C.green,whiteSpace:"nowrap"}}>SAJI Group</div>
             <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
