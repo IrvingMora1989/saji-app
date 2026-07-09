@@ -2742,7 +2742,11 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
   const [rol,        setRol]        = useState(() => sessionStorage.getItem("saji_rol")||"admin");
-  const [canPedidos, setCanPedidos] = useState(() => sessionStorage.getItem("saji_pedidos")==="true");
+  const [canPedidos, setCanPedidos] = useState(() => {
+    const u = sessionStorage.getItem("saji_user")||"";
+    const found = USUARIOS.find(x=>x.user.toLowerCase()===u.toLowerCase());
+    return found?.pedidos||false;
+  });
 
   const [pedidos,    setPedidos,    loadedPed]  = useSupabase("pedidos",    []);
   const [ventas,     setVentas,     loadedVen]  = useSupabase("ventas",     []);
