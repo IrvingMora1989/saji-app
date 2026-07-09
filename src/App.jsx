@@ -471,7 +471,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }) {
+function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit, rol }) {
+  const esOperativo = rol==="operativo";
   const [show,         setShow]        = useState(false);
   const [filter,       setFilter]      = useState("pendiente");
   const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
@@ -533,7 +534,10 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
 
   const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
 
-  let lista = (filter==="todos" ? pedidos : pedidos.filter(p=>p.estatus===filter)).slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
+  let lista = (esOperativo
+    ? pedidos.filter(p=>p.estatus==="pendiente")
+    : (filter==="todos" ? pedidos : pedidos.filter(p=>p.estatus===filter))
+  ).slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
   // Apply period filter on fechaEntrega
   if(pedFilt.tipo==="hoy") lista = lista.filter(p=>p.fechaEntrega===todayStr());
   else if(pedFilt.tipo==="fecha") lista = pedFilt.valor ? lista.filter(p=>p.fechaEntrega===pedFilt.valor) : lista;
@@ -553,14 +557,14 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
         <h2 style={{...h2s,margin:0}}>📦 Pedidos</h2>
         <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          {["todos","pendiente","completado","cancelado"].map(f=>(
+          {!esOperativo && ["todos","pendiente","completado","cancelado"].map(f=>(
             <button key={f} style={nb(filter===f)} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
           ))}
           <button style={btn()} onClick={()=>setShow(true)}>+ Nuevo Pedido</button>
         </div>
       </div>
 
-      <FilterBar filter={pedFilt} setFilter={setPedFilt} count={lista.length}/>
+      {!esOperativo && <FilterBar filter={pedFilt} setFilter={setPedFilt} count={lista.length}/>}
 
       <div style={card}>
         <div style={{overflowX:"auto"}}>
@@ -603,7 +607,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit }
                     {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(sColor(p.estatus)),padding:"2px 6px",fontSize:10}}>{sLabel(p.estatus)}</span></td>}
                     {idx===0&&(
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
-                        {p.estatus==="pendiente"&&(
+                        {p.estatus==="pendiente"&&!esOperativo&&(
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
                             <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
                             <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
@@ -2883,7 +2887,7 @@ export default function App() {
 
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
         {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
         {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
         {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
