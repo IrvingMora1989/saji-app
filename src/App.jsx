@@ -129,7 +129,7 @@ const TIPOS_GASTO = {
   "Facturas": ["Cobro por factura"],
   "Impuestos": ["ISR","IVA"],
 };
-const METODOS_PAGO = ["Efectivo","Tarjeta BBVA","Tarjeta Costco","Tarjeta Plata","Tarjeta SAJI"];
+const METODOS_PAGO = ["Efectivo","Tarjeta Jasso","Tarjeta Irving","Tarjeta SAJI","Transferencia SAJI","Transferencia Jasso"];
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 function FilterBar({ filter, setFilter, count }) {
