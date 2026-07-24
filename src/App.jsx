@@ -765,7 +765,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, clientes, productos, logBit, 
 // ════════════════════════════════════════════════════════════════════════════════
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
-function Ventas({ ventas, setVentas, logBit }) {
+function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
   const [editing,    setEditing]    = useState(null);
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
@@ -1110,11 +1110,30 @@ function Ventas({ ventas, setVentas, logBit }) {
                   return;
                 }
                 const itemId = editing;
-                setVentas(vs=>vs.map(v=>v.itemId===itemId ? {
-                  ...form,
-                  cantidad:cant, precio:prec, total:cant*prec,
-                } : v));
-                logBit("Editó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt(cant*prec)}`);
+                const totalVenta = cant*prec;
+                const updatedVenta = { ...form, cantidad:cant, precio:prec, total:totalVenta };
+                setVentas(vs=>vs.map(v=>v.itemId===itemId ? updatedVenta : v));
+                // Si se marcó como pagado, crear abono en Pagos si no existe ya
+                if(updatedVenta.estatusPago==='pagado' && updatedVenta.fechaPago && totalVenta>0) {
+                  const yaExiste = pagos.some(p=>p.pedidoId===form.pedidoId && Math.abs(p.monto-totalVenta)<0.01);
+                  if(!yaExiste) {
+                    const nuevoPago = {
+                      id: Date.now(),
+                      semana: weekOf(updatedVenta.fechaPago),
+                      dia: dayOf(updatedVenta.fechaPago),
+                      mes: monthOf(updatedVenta.fechaPago),
+                      fecha: updatedVenta.fechaPago,
+                      cliente: updatedVenta.cliente,
+                      tipoPago: updatedVenta.tipoPago||'Efectivo',
+                      pedidoId: updatedVenta.pedidoId,
+                      monto: totalVenta,
+                      esAbono: false,
+                    };
+                    setPagos(ps=>[nuevoPago,...ps]);
+                    logBit('Abono auto',`#${form.pedidoId} · ${updatedVenta.cliente} · ${fmt(totalVenta)}`);
+                  }
+                }
+                logBit("Editó venta",`#${form.pedidoId} · ${form.cliente} · ${fmt(totalVenta)}`);
                 setEditing(null);
               }}>💾 Guardar</button>
             </div>
@@ -2886,7 +2905,7 @@ export default function App() {
       <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
         {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
         {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
         {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
         {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
