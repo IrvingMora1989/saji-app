@@ -122,7 +122,7 @@ const TIPOS_GASTO = {
   "Otros Gastos": ["Comida","Super Jasso","Super Irving","Super SAJI","Servicio Caddy","Servicio Duty","Servicio Auto Irving","Servicio Auto Jasso","Propina","Mantenimiento Cámara","Ferretería","Refaccionaria","Caja","Otras compras"],
   "Energías": ["Luz Casa","Luz Trifásica"],
   "Gastos de Viaje": ["Tag","Caseta","Gasolina Caddy","Gasolina Duty","Gasolina Jasso","Gasolina Irving"],
-  "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso"],
+  "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso","Nómina Aldair","Nómina Angel"],
   "Servicios Contratados": ["Internet","Agua","GPS Caddy","GPS Duty"],
   "Créditos": ["Santander"],
   "Crédito Automotriz": ["Caddy","Super Dutty"],
@@ -1312,11 +1312,12 @@ function Gastos({ gastos, setGastos, logBit }) {
 // PAGOS RECIBIDOS — con abonos parciales
 // ════════════════════════════════════════════════════════════════════════════════
 function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
-  const [show,      setShow]      = useState(false);
-  const [detalle,   setDetalle]   = useState(null);
-  const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [filtCli,   setFiltCli]   = useState(""); // filtro cliente en saldo
-  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"", cliente:"" });
+  const [show,          setShow]          = useState(false);
+  const [detalle,       setDetalle]       = useState(null);
+  const [detallePedido, setDetallePedido] = useState(null); // pedidoId para ver detalle ventas
+  const [filt,          setFilt]          = useState({tipo:"todo",valor:""});
+  const [filtCli,       setFiltCli]       = useState("");
+  const [form,          setForm]          = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"", cliente:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // Todos los pedidos que tienen ventas (completados)
@@ -1444,7 +1445,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                 return (
                   <Fragment key={p.pedidoId}>
                     <tr style={{background:p.saldo<=0?"#f0fff4":"#fff"}}>
-                      <td style={{...td,fontWeight:700,color:C.green}}>#{p.pedidoId}</td>
+                      <td style={{...td,fontWeight:700,color:C.green,cursor:"pointer",textDecoration:"underline",textDecorationStyle:"dotted"}} onClick={()=>setDetallePedido(detallePedido===p.pedidoId?null:p.pedidoId)} title="Ver detalle de ventas">#{p.pedidoId}</td>
                       <td style={{...td,fontWeight:700}}>{p.cliente}</td>
                       <td style={td}>{fmt(p.totalPedido)}</td>
                       <td style={td}>
@@ -1526,7 +1527,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
                   <td style={td}>{p.mes}</td><td style={td}>{fmtDate(p.fecha)}</td>
                   <td style={{...td,fontWeight:600}}>{p.cliente}</td>
                   <td style={td}>{p.tipoPago}</td>
-                  <td style={td}><span style={{fontWeight:700,color:C.green}}>#{p.pedidoId}</span></td>
+                  <td style={td}><span style={{fontWeight:700,color:C.green,cursor:"pointer",textDecoration:"underline",textDecorationStyle:"dotted"}} onClick={()=>setDetallePedido(detallePedido===p.pedidoId?null:p.pedidoId)} title="Ver detalle de ventas">#{p.pedidoId}</span></td>
                   <td style={td}><strong style={{color:C.green}}>{fmt(p.monto)}</strong></td>
                   <td style={td}><button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>setPagos(ps=>ps.filter(x=>x.id!==p.id))}>✕</button></td>
                 </tr>
@@ -1631,12 +1632,86 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
           </div>
         </div>
       )}
+      {/* Modal detalle de ventas por pedido */}
+      {detallePedido&&(()=>{
+        const ventasPed = ventas.filter(v=>v.pedidoId===detallePedido);
+        const cli = ventasPed[0]?.cliente||"";
+        const totalPed = ventasPed.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+        const resumen = getResumen(detallePedido);
+        return (
+          <div style={modal}>
+            <div style={{...mbox,maxWidth:640}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div>
+                  <h3 style={{margin:0,color:C.green}}>📋 Pedido #{detallePedido}</h3>
+                  <div style={{color:C.muted,fontSize:12,marginTop:2}}>{cli}</div>
+                </div>
+                <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setDetallePedido(null)}>×</button>
+              </div>
+              {/* Resumen financiero */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                {[
+                  {l:"Total pedido",v:fmt(resumen.totalPedido),c:C.text},
+                  {l:"Total abonado",v:fmt(resumen.totalAbonado),c:C.green},
+                  {l:"Saldo pendiente",v:resumen.saldo>0?fmt(resumen.saldo):"✅ Liquidado",c:resumen.saldo>0?C.red:C.green},
+                ].map(x=>(
+                  <div key={x.l} style={{background:C.bg,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`,textAlign:"center"}}>
+                    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{x.l}</div>
+                    <div style={{fontWeight:800,fontSize:14,color:x.c}}>{x.v}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Tabla ventas */}
+              <div style={{overflowX:"auto",marginBottom:14}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead><tr>{["Producto","Calibre","KG","$/KG","Total","Estatus Pago","Tipo Pago"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {ventasPed.map(v=>(
+                      <tr key={v.itemId}>
+                        <td style={td}>{v.producto||"—"}</td>
+                        <td style={td}><span style={badge(C.blue,C.blueL)}>{v.calibre||"—"}</span></td>
+                        <td style={td}>{v.cantidad} kg</td>
+                        <td style={td}>{fmt(v.precio)}</td>
+                        <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
+                        <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
+                        <td style={td}>{v.tipoPago||"—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Abonos del pedido */}
+              {(()=>{
+                const abonosPed = pagos.filter(p=>p.pedidoId===detallePedido);
+                return abonosPed.length>0&&(
+                  <div>
+                    <div style={{fontWeight:700,fontSize:12,color:C.muted,marginBottom:8}}>💳 Abonos registrados</div>
+                    {abonosPed.map((ab,i)=>(
+                      <div key={ab.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:C.bg,borderRadius:6,marginBottom:4,border:`1px solid ${C.border}`}}>
+                        <span style={{fontSize:12,color:C.muted}}>Abono {i+1} · {fmtDate(ab.fecha)} · {ab.tipoPago}</span>
+                        <strong style={{color:C.green,fontSize:13}}>{fmt(ab.monto)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:14,gap:8}}>
+                {resumen.saldo>0.01&&(
+                  <button style={btn(C.green)} onClick={()=>{
+                    setDetallePedido(null);
+                    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:detallePedido,monto:String(resumen.saldo.toFixed(2)),cliente:normCliente(cli)});
+                    setShow(true);
+                  }}>+ Abonar</button>
+                )}
+                <button style={btnO()} onClick={()=>setDetallePedido(null)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// FRUTA (Compras de inventario + pagos a proveedores)
 // ════════════════════════════════════════════════════════════════════════════════
 const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
