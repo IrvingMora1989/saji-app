@@ -1313,9 +1313,10 @@ function Gastos({ gastos, setGastos, logBit }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
   const [show,      setShow]      = useState(false);
-  const [detalle,   setDetalle]   = useState(null); // pedidoId con detalle abierto
+  const [detalle,   setDetalle]   = useState(null);
   const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
-  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"" });
+  const [filtCli,   setFiltCli]   = useState(""); // filtro cliente en saldo
+  const [form,      setForm]      = useState({ fecha:todayStr(), tipoPago:"Efectivo", pedidoId:"", monto:"", cliente:"" });
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // Todos los pedidos que tienen ventas (completados)
@@ -1333,12 +1334,13 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
   const pedidosPendientes = pedidosConVentas.filter(v=>getResumen(v.pedidoId).saldo>0.01);
 
   const guardar = () => {
+    if(!form.cliente) return alert("Selecciona un cliente");
     if(!form.pedidoId) return alert("Selecciona un pedido");
     const monto = parseFloat(form.monto||0);
     if(monto<=0) return alert("El monto debe ser mayor a 0");
     const { saldo } = getResumen(form.pedidoId);
     if(monto > saldo + 0.01) return alert(`El abono ($${monto}) no puede superar el saldo pendiente (${fmt(saldo)})`);
-    const cli = ventas.find(v=>v.pedidoId===form.pedidoId)?.cliente||"";
+    const cli = ventas.find(v=>v.pedidoId===form.pedidoId)?.cliente||form.cliente||"";
     const nuevoPago = {
       id:Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha),
       mes:monthOf(form.fecha), fecha:form.fecha, cliente:cli,
@@ -1353,7 +1355,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
     if(nuevoTotal >= totalPed - 0.01) {
       setVentas(vs=>vs.map(v=>v.pedidoId===form.pedidoId?{...v,estatusPago:"pagado",fechaPago:form.fecha,tipoPago:form.tipoPago}:v));
     }
-    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:"",monto:""});
+    setForm({fecha:todayStr(),tipoPago:"Efectivo",pedidoId:"",monto:"",cliente:""});
     setShow(false);
   };
 
@@ -1410,9 +1412,23 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
         </div>
       </div>
 
+      {/* Filtro por cliente */}
+      {(()=>{
+        const clientesUnicos = [...new Set(ventas.map(v=>normCliente(v.cliente)).filter(Boolean))].sort();
+        return (
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
+            <button style={nb(!filtCli)} onClick={()=>setFiltCli("")}>Todos</button>
+            {clientesUnicos.map(c=>(
+              <button key={c} style={nb(filtCli===c)} onClick={()=>setFiltCli(c)}>{c}</button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Saldo por pedido */}
       <div style={card}>
-        <div style={{fontWeight:800,fontSize:13,marginBottom:12}}>📋 Saldo por Pedido</div>
+        <div style={{fontWeight:800,fontSize:13,marginBottom:12}}>📋 Saldo por Pedido {filtCli&&<span style={{color:C.blue,fontWeight:400,fontSize:12}}>— {filtCli}</span>}</div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
             <thead>
@@ -1422,7 +1438,7 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
             </thead>
             <tbody>
               {pedidosUnicos.length===0&&<tr><td colSpan={7} style={{...td,textAlign:"center",color:C.muted,padding:24}}>Sin ventas registradas aún</td></tr>}
-              {pedidosUnicos.map(p=>{
+              {(filtCli ? pedidosUnicos.filter(p=>normCliente(p.cliente)===filtCli) : pedidosUnicos).map(p=>{
                 const abonosPed = pagos.filter(x=>x.pedidoId===p.pedidoId);
                 const pct = p.totalPedido>0 ? Math.min(100,Math.round(p.totalAbonado/p.totalPedido*100)) : 0;
                 return (
@@ -1528,73 +1544,89 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
               <h3 style={{margin:0,color:C.green}}>💳 Registrar Abono</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShow(false)}>×</button>
             </div>
-            {pedidosPendientes.length===0
-              ? <p style={{color:C.muted,textAlign:"center",padding:20}}>🎉 Todos los pedidos están liquidados</p>
-              : (
-                <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <div><label style={lbl}>#Pedido a abonar</label>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {/* 1. Seleccionar cliente */}
+              <div><label style={lbl}>1. Cliente *</label>
+                <select style={sel} value={form.cliente} onChange={e=>{
+                  sf("cliente",e.target.value);
+                  sf("pedidoId","");
+                  sf("monto","");
+                }}>
+                  <option value="">— Seleccionar cliente —</option>
+                  {[...new Set(pedidosPendientes.map(v=>normCliente(v.cliente)).filter(Boolean))].sort().map(c=>(
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Pedidos del cliente con saldo */}
+              {form.cliente&&(()=>{
+                const pedsCli = pedidosPendientes.filter(v=>normCliente(v.cliente)===form.cliente);
+                if(pedsCli.length===0) return <p style={{color:C.muted,fontSize:12,textAlign:"center"}}>Sin pedidos pendientes para este cliente</p>;
+                return (
+                  <div><label style={lbl}>2. Pedido a abonar *</label>
                     <select style={sel} value={form.pedidoId} onChange={e=>{
                       sf("pedidoId",e.target.value);
                       if(e.target.value) sf("monto", String(getResumen(e.target.value).saldo.toFixed(2)));
                     }}>
-                      <option value="">— Seleccionar —</option>
-                      {pedidosPendientes.map(v=>{
+                      <option value="">— Seleccionar pedido —</option>
+                      {pedsCli.map(v=>{
                         const r=getResumen(v.pedidoId);
-                        return <option key={v.pedidoId} value={v.pedidoId}>#{v.pedidoId} — {v.cliente} — Saldo: {fmt(r.saldo)}</option>;
+                        return <option key={v.pedidoId} value={v.pedidoId}>#{v.pedidoId} · Saldo: {fmt(r.saldo)}</option>;
                       })}
                     </select>
                   </div>
+                );
+              })()}
 
-                  {/* Saldo info */}
-                  {form.pedidoId&&(()=>{
-                    const r=getResumen(form.pedidoId);
-                    return (
-                      <div style={{background:C.bg,borderRadius:9,padding:"12px 14px",border:`1px solid ${C.border}`}}>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
-                          {[
-                            {l:"Total pedido",v:fmt(r.totalPedido),c:C.text},
-                            {l:"Ya abonado",v:fmt(r.totalAbonado),c:C.green},
-                            {l:"Saldo pendiente",v:fmt(r.saldo),c:C.red},
-                          ].map(x=>(
-                            <div key={x.l}>
-                              <div style={{fontSize:10,color:C.muted,marginBottom:2}}>{x.l}</div>
-                              <div style={{fontWeight:800,fontSize:14,color:x.c}}>{x.v}</div>
-                            </div>
-                          ))}
+              {/* Info saldo */}
+              {form.pedidoId&&(()=>{
+                const r=getResumen(form.pedidoId);
+                return (
+                  <div style={{background:C.bg,borderRadius:9,padding:"12px 14px",border:`1px solid ${C.border}`}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
+                      {[
+                        {l:"Total pedido",v:fmt(r.totalPedido),c:C.text},
+                        {l:"Ya abonado",v:fmt(r.totalAbonado),c:C.green},
+                        {l:"Saldo pendiente",v:fmt(r.saldo),c:C.red},
+                      ].map(x=>(
+                        <div key={x.l}>
+                          <div style={{fontSize:10,color:C.muted,marginBottom:2}}>{x.l}</div>
+                          <div style={{fontWeight:800,fontSize:14,color:x.c}}>{x.v}</div>
                         </div>
-                        {/* Progress */}
-                        <div style={{marginTop:10,height:8,background:C.border,borderRadius:4,overflow:"hidden"}}>
-                          <div style={{width:`${Math.min(100,Math.round(r.totalAbonado/r.totalPedido*100))}%`,height:"100%",background:C.amber,borderRadius:4}}/>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  <div style={g2}>
-                    <div><label style={lbl}>Monto del abono *</label>
-                      <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)}/>
-                      {form.pedidoId&&(
-                        <button style={{...btnO(C.green),padding:"4px 10px",fontSize:11,marginTop:5,color:C.green}}
-                          onClick={()=>sf("monto",String(getResumen(form.pedidoId).saldo.toFixed(2)))}>
-                          Liquidar todo ({fmt(getResumen(form.pedidoId).saldo)})
-                        </button>
-                      )}
+                      ))}
                     </div>
-                    <div><label style={lbl}>Tipo de pago</label>
-                      <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                        {["Transferencia Frasavo","Transferencia SAJI","Efectivo"].map(t=><option key={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div style={{gridColumn:"1/-1"}}><label style={lbl}>Fecha del abono</label>
-                      <input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
+                    <div style={{marginTop:10,height:8,background:C.border,borderRadius:4,overflow:"hidden"}}>
+                      <div style={{width:`${Math.min(100,Math.round(r.totalAbonado/r.totalPedido*100))}%`,height:"100%",background:C.amber,borderRadius:4}}/>
                     </div>
                   </div>
+                );
+              })()}
+
+              {/* Monto, tipo pago, fecha */}
+              <div style={g2}>
+                <div><label style={lbl}>3. Monto del abono *</label>
+                  <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)}/>
+                  {form.pedidoId&&(
+                    <button style={{...btnO(C.green),padding:"4px 10px",fontSize:11,marginTop:5,color:C.green}}
+                      onClick={()=>sf("monto",String(getResumen(form.pedidoId).saldo.toFixed(2)))}>
+                      Liquidar todo ({fmt(getResumen(form.pedidoId).saldo)})
+                    </button>
+                  )}
                 </div>
-              )
-            }
+                <div><label style={lbl}>4. Tipo de pago</label>
+                  <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
+                    {["Transferencia Frasavo","Transferencia SAJI","Efectivo"].map(t=><option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div style={{gridColumn:"1/-1"}}><label style={lbl}>5. Fecha del abono</label>
+                  <input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
+                </div>
+              </div>
+            </div>
             <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end"}}>
               <button style={btnO()} onClick={()=>setShow(false)}>Cancelar</button>
-              {pedidosPendientes.length>0&&<button style={btn()} onClick={guardar}>✅ Registrar Abono</button>}
+              {form.pedidoId&&<button style={btn()} onClick={guardar}>✅ Registrar Abono</button>}
             </div>
           </div>
         </div>
