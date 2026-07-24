@@ -1379,6 +1379,33 @@ function Pagos({ pagos, setPagos, ventas, setVentas, logBit }) {
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`pagos-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={btn(C.purple)} title="Crear abonos faltantes para ventas ya marcadas como Pagado" onClick={()=>{
+            // Buscar ventas marcadas como pagadas que no tienen abono en Pagos
+            const pedidosPagados = [...new Set(ventas.filter(v=>v.estatusPago==="pagado").map(v=>v.pedidoId))];
+            const nuevosAbonos = [];
+            pedidosPagados.forEach(pedidoId=>{
+              const totalPedido  = ventas.filter(v=>v.pedidoId===pedidoId).reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+              const totalAbonado = pagos.filter(p=>p.pedidoId===pedidoId).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+              const saldo = totalPedido - totalAbonado;
+              if(saldo > 0.01) {
+                const v = ventas.find(x=>x.pedidoId===pedidoId&&x.estatusPago==="pagado");
+                const fechaPago = v?.fechaPago || todayStr();
+                nuevosAbonos.push({
+                  id: Date.now() + nuevosAbonos.length,
+                  semana: weekOf(fechaPago), dia: dayOf(fechaPago), mes: monthOf(fechaPago),
+                  fecha: fechaPago, cliente: v?.cliente||"",
+                  tipoPago: v?.tipoPago||"Efectivo",
+                  pedidoId, monto: saldo, esAbono: false,
+                });
+              }
+            });
+            if(nuevosAbonos.length===0) return alert("✅ Todo está sincronizado. No hay abonos faltantes.");
+            if(window.confirm(`Se crearán ${nuevosAbonos.length} abono(s) faltante(s) para ventas ya marcadas como Pagado.\n\n¿Continuar?`)) {
+              setPagos(ps=>[...nuevosAbonos,...ps]);
+              logBit("Reconciliación Pagos",`${nuevosAbonos.length} abonos creados automáticamente`);
+              alert(`✅ ${nuevosAbonos.length} abono(s) creado(s) correctamente.`);
+            }
+          }}>🔄 Reconciliar</button>
           <button style={btn()} onClick={()=>setShow(true)}>+ Registrar Abono</button>
         </div>
       </div>
