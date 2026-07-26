@@ -75,68 +75,40 @@ const exportCSV = (rows, cols, fn) => {
   const a = document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+h+"\n"+b],{type:"text/csv;charset=utf-8;"})); a.download=fn; a.click();
 };
 
-// ─── Theme — LIGHT MODE ───────────────────────────────────────────────────────
+// ─── Theme — PREMIUM LIGHT ────────────────────────────────────────────────────
 const C = {
-  bg:"#f4f7f6", card:"#ffffff", border:"#dfe8e4",
-  green:"#146c43", greenL:"#eaf6f0", greenM:"#b8dfcd",
-  text:"#17231d", muted:"#6f8178",
-  red:"#d14343", redL:"#fff1f1",
-  amber:"#d17b0f", amberL:"#fff7e8",
+  bg:"#f8f9fc", card:"#ffffff", border:"#e8eaf0",
+  green:"#16a34a", greenL:"#f0fdf4", greenM:"#bbf7d0",
+  text:"#0f172a", muted:"#64748b", mutedL:"#94a3b8",
+  red:"#dc2626", redL:"#fef2f2",
+  amber:"#d97706", amberL:"#fffbeb",
   blue:"#2563eb", blueL:"#eff6ff",
   purple:"#7c3aed", purpleL:"#f5f3ff",
-  teal:"#0f8a9d", tealL:"#ecfeff",
-  orange:"#ee7a21", navy:"#10271d", navy2:"#17382a",
-  shadow:"0 8px 24px rgba(23,35,29,.06)",
-  shadowMd:"0 20px 50px rgba(16,39,29,.16)",
+  teal:"#0891b2", tealL:"#ecfeff",
+  indigo:"#4f46e5", indigoL:"#eef2ff",
+  shadow:"0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04)",
+  shadowMd:"0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.05)",
+  shadowLg:"0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04)",
+  sidebarW: 220,
 };
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:20, marginBottom:18, boxShadow:C.shadow };
-const h2s   = { margin:"0 0 18px", fontSize:21, fontWeight:800, color:C.text, letterSpacing:"-.35px" };
-const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 };
-const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 };
-const lbl   = { display:"block", marginBottom:3, fontSize:11, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:.5 };
-const inp   = { width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:11, padding:"11px 12px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none" };
-const sel   = { ...{width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:11, padding:"11px 12px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer"} };
-const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:700, fontSize:13, whiteSpace:"nowrap" });
-const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:600, fontSize:13 });
-const modal = { position:"fixed", inset:0, background:"rgba(8,25,17,.58)", backdropFilter:"blur(5px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:12, overflowY:"auto" };
-const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:22, padding:26, width:"100%", maxWidth:700, marginTop:16, marginBottom:16, boxShadow:C.shadowMd };
-const th    = { textAlign:"left", padding:"12px 12px", color:C.muted, fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:.4, borderBottom:`2px solid ${C.border}`, background:C.bg, whiteSpace:"nowrap" };
-const td    = { padding:"11px 12px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13 };
-const badge = (c, bg) => ({ background:bg||c+"18", color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-block", whiteSpace:"nowrap" });
-const totRow= { background:C.greenL, borderRadius:10, padding:"11px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
-const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"7px 12px", cursor:"pointer", fontWeight:a?700:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap" });
-
-const GlobalStyles = () => <style>{`
-  *{box-sizing:border-box}
-  html,body,#root{margin:0;min-height:100%;background:${C.bg}}
-  body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:${C.text}}
-  button,input,select,textarea{font:inherit}
-  button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
-  button:hover{transform:translateY(-1px)}
-  input:focus,select:focus,textarea:focus{border-color:${C.green}!important;box-shadow:0 0 0 3px ${C.green}18!important}
-  table{border-collapse:separate!important;border-spacing:0;width:100%}
-  tbody tr{transition:background .15s ease}
-  tbody tr:hover{background:#f7faf8}
-  .saji-shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
-  .saji-sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,${C.navy} 0%,${C.navy2} 100%);padding:22px 16px;display:flex;flex-direction:column;z-index:120;box-shadow:10px 0 35px rgba(16,39,29,.12)}
-  .saji-brand{display:flex;align-items:center;gap:12px;padding:4px 8px 22px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:18px}
-  .saji-nav{display:flex;flex-direction:column;gap:6px;overflow:auto;padding-right:2px}
-  .saji-nav-btn{width:100%;display:flex;align-items:center;gap:11px;text-align:left;border:1px solid transparent;border-radius:12px;padding:11px 12px;background:transparent;color:#c9d8d0;cursor:pointer;font-size:13px;font-weight:650}
-  .saji-nav-btn:hover{background:rgba(255,255,255,.07);color:white}
-  .saji-nav-btn.active{background:white;color:${C.navy};box-shadow:0 10px 25px rgba(0,0,0,.18)}
-  .saji-sidebar-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
-  .saji-workspace{min-width:0}
-  .saji-topbar{height:76px;background:rgba(255,255,255,.88);backdrop-filter:blur(14px);border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100}
-  .saji-main{padding:26px 28px 40px;max-width:1680px;margin:0 auto}
-  .saji-mobile-nav{display:none}
-  @media(max-width:900px){
-    .saji-shell{display:block}.saji-sidebar{display:none}.saji-topbar{height:auto;min-height:68px;padding:12px 14px}.saji-main{padding:16px 12px 90px}
-    .saji-mobile-nav{display:flex;position:fixed;left:8px;right:8px;bottom:8px;z-index:150;background:${C.navy};padding:8px;border-radius:16px;gap:5px;overflow-x:auto;box-shadow:0 16px 45px rgba(0,0,0,.3)}
-    .saji-mobile-nav button{min-width:70px;border:0;background:transparent;color:#cbd8d1;border-radius:10px;padding:8px 6px;font-size:10px}.saji-mobile-nav button.active{background:white;color:${C.navy}}
-  }
-`}</style>;
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:"20px", marginBottom:16, boxShadow:C.shadow };
+const h2s   = { margin:"0 0 20px", fontSize:20, fontWeight:700, color:C.text, letterSpacing:"-0.3px" };
+const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 };
+const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 };
+const lbl   = { display:"block", marginBottom:5, fontSize:11, color:C.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.6px" };
+const inp   = { width:"100%", background:"#f8f9fc", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .15s", fontFamily:"inherit" };
+const sel   = { width:"100%", background:"#f8f9fc", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer", fontFamily:"inherit", transition:"border-color .15s" };
+const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:10, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, whiteSpace:"nowrap", transition:"opacity .15s, transform .1s", fontFamily:"inherit", letterSpacing:"0.1px" });
+const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:10, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, fontFamily:"inherit", transition:"all .15s" });
+const modal = { position:"fixed", inset:0, background:"rgba(15,23,42,.45)", backdropFilter:"blur(4px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
+const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:20, padding:28, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowLg };
+const th    = { textAlign:"left", padding:"10px 12px", color:C.muted, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:"0.5px", borderBottom:`1.5px solid ${C.border}`, background:"#f8f9fc", whiteSpace:"nowrap" };
+const td    = { padding:"10px 12px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13, color:C.text };
+const badge = (c, bg) => ({ background:bg||(c+"15"), color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4, whiteSpace:"nowrap" });
+const totRow= { background:C.greenL, borderRadius:12, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
+const nb    = a => ({ background:a?C.indigo:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"6px 14px", cursor:"pointer", fontWeight:a?600:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", fontFamily:"inherit" });
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
@@ -2890,35 +2862,67 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:C.shadowMd}}>
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <SAJILogo s={64}/>
-          <div style={{fontWeight:800,fontSize:20,color:C.green,marginTop:12}}>SAJI Group</div>
-          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Sistema de Gestión Comercial</div>
-        </div>
-        <div style={{marginBottom:14}}>
-          <label style={lbl}>Usuario</label>
-          <input style={inp} placeholder="Tu nombre de usuario" value={user}
-            onChange={e=>{setUser(e.target.value);setError("");}}
-            onKeyDown={e=>e.key==="Enter"&&login()}/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={lbl}>Contraseña</label>
-          <div style={{position:"relative"}}>
-            <input style={{...inp,paddingRight:40}} type={show?"text":"password"}
-              placeholder="Tu contraseña" value={pass}
-              onChange={e=>{setPass(e.target.value);setError("");}}
-              onKeyDown={e=>e.key==="Enter"&&login()}/>
-            <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:16}}>
-              {show?"🙈":"👁️"}
+    <div style={{minHeight:"100vh",display:"flex",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+      {/* Left panel */}
+      <div style={{display:"none",flex:1,background:"linear-gradient(145deg,#0f172a 0%,#1e293b 50%,#0f2a1a 100%),url('data:image/svg+xml,<svg/>')",padding:"48px",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:"-20%",right:"-10%",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(22,163,74,.15) 0%,transparent 70%)"}}/>
+        <div style={{position:"absolute",bottom:"-10%",left:"-5%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(8,145,178,.1) 0%,transparent 70%)"}}/>
+      </div>
+      {/* Right panel - form */}
+      <div style={{flex:1,background:"#f8f9fc",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{width:"100%",maxWidth:380}}>
+          {/* Logo */}
+          <div style={{textAlign:"center",marginBottom:40}}>
+            <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(22,163,74,.3)",marginBottom:16}}>
+              <SAJILogo s={40}/>
+            </div>
+            <div style={{fontWeight:700,fontSize:24,color:"#0f172a",letterSpacing:"-0.5px"}}>Bienvenido</div>
+            <div style={{color:"#64748b",fontSize:14,marginTop:6}}>Inicia sesión en SAJI Group</div>
+          </div>
+
+          {/* Form */}
+          <div style={{background:"#fff",borderRadius:20,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,.06)",border:"1px solid #e8eaf0"}}>
+            <div style={{marginBottom:18}}>
+              <label style={{display:"block",marginBottom:6,fontSize:12,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.6px"}}>Usuario</label>
+              <input style={{width:"100%",background:"#f8f9fc",border:"1.5px solid #e8eaf0",borderRadius:12,padding:"12px 15px",color:"#0f172a",fontSize:15,boxSizing:"border-box",outline:"none",fontFamily:"inherit",transition:"border-color .15s"}}
+                placeholder="Tu nombre de usuario" value={user}
+                onChange={e=>{setUser(e.target.value);setError("");}}
+                onKeyDown={e=>e.key==="Enter"&&login()}
+                onFocus={e=>e.target.style.borderColor="#16a34a"}
+                onBlur={e=>e.target.style.borderColor="#e8eaf0"}/>
+            </div>
+            <div style={{marginBottom:24}}>
+              <label style={{display:"block",marginBottom:6,fontSize:12,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.6px"}}>Contraseña</label>
+              <div style={{position:"relative"}}>
+                <input style={{width:"100%",background:"#f8f9fc",border:"1.5px solid #e8eaf0",borderRadius:12,padding:"12px 44px 12px 15px",color:"#0f172a",fontSize:15,boxSizing:"border-box",outline:"none",fontFamily:"inherit",transition:"border-color .15s"}}
+                  type={show?"text":"password"} placeholder="Tu contraseña" value={pass}
+                  onChange={e=>{setPass(e.target.value);setError("");}}
+                  onKeyDown={e=>e.key==="Enter"&&login()}
+                  onFocus={e=>e.target.style.borderColor="#16a34a"}
+                  onBlur={e=>e.target.style.borderColor="#e8eaf0"}/>
+                <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:17,lineHeight:1}}>
+                  {show?"🙈":"👁️"}
+                </button>
+              </div>
+            </div>
+            {error&&(
+              <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",color:"#dc2626",fontSize:13,marginBottom:18,display:"flex",alignItems:"center",gap:8}}>
+                <span>⚠️</span>{error}
+              </div>
+            )}
+            <button
+              style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:12,padding:"13px 0",cursor:"pointer",fontWeight:600,fontSize:15,fontFamily:"inherit",letterSpacing:"0.1px",boxShadow:"0 4px 12px rgba(22,163,74,.35)",transition:"transform .1s, box-shadow .1s"}}
+              onClick={login}
+              onMouseEnter={e=>{e.target.style.transform="translateY(-1px)";e.target.style.boxShadow="0 6px 16px rgba(22,163,74,.45)";}}
+              onMouseLeave={e=>{e.target.style.transform="none";e.target.style.boxShadow="0 4px 12px rgba(22,163,74,.35)";}}>
+              Iniciar sesión →
             </button>
           </div>
+
+          <div style={{textAlign:"center",marginTop:20,fontSize:12,color:"#94a3b8"}}>
+            SAJI Group · Sistema de Gestión Comercial
+          </div>
         </div>
-        {error&&<div style={{background:C.redL,border:`1px solid ${C.red}33`,borderRadius:8,padding:"8px 12px",color:C.red,fontSize:12,marginBottom:14,textAlign:"center"}}>{error}</div>}
-        <button style={{...btn(),width:"100%",padding:"11px 0",fontSize:15}} onClick={login}>
-          Entrar →
-        </button>
       </div>
     </div>
   );
@@ -3020,91 +3024,142 @@ export default function App() {
 
   // Pantalla de carga mientras conecta con Supabase
   if(!todoCargado) return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
-      <SAJILogo s={64}/>
-      <div style={{fontWeight:800,fontSize:18,color:C.green}}>SAJI Group</div>
-      <div style={{color:C.muted,fontSize:13}}>Conectando con la base de datos…</div>
-      <div style={{width:180,height:4,background:C.border,borderRadius:2,overflow:"hidden",marginTop:8}}>
-        <div style={{height:"100%",background:C.green,borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
+    <div style={{minHeight:"100vh",background:"#0f172a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 32px rgba(22,163,74,.35)"}}>
+        <SAJILogo s={40}/>
+      </div>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:20,fontWeight:700,color:"#fff",letterSpacing:"-0.3px"}}>SAJI Group</div>
+        <div style={{fontSize:13,color:"rgba(255,255,255,.4)",marginTop:5}}>Cargando tu espacio de trabajo…</div>
+      </div>
+      <div style={{width:200,height:3,background:"rgba(255,255,255,.1)",borderRadius:2,overflow:"hidden"}}>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#16a34a,#0891b2)",borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
       </div>
       <style>{`
   @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
   @media(min-width:600px){.kpi-grid{grid-template-columns:repeat(5,1fr)!important}}
-  @media(max-width:599px){
-    .kpi-grid{grid-template-columns:repeat(2,1fr)!important}
-  }
+  @media(max-width:599px){.kpi-grid{grid-template-columns:repeat(2,1fr)!important}}
 `}</style>
     </div>
   );
 
-  const activeTab = TABS.find(t=>t.id===tab);
-  const iconOf = label => label.split(" ")[0];
-  const textOf = label => label.replace(/^\S+\s*/, "");
-
   return (
-    <>
-      <GlobalStyles/>
-      <div className="saji-shell">
-        <aside className="saji-sidebar">
-          <div className="saji-brand">
-            <div style={{background:"#fff",borderRadius:14,padding:5,display:"flex"}}><SAJILogo s={42}/></div>
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%", display:"flex" }}>
+
+      {/* ── SIDEBAR ─────────────────────────────────────────────────── */}
+      <aside style={{
+        width: C.sidebarW, minWidth: C.sidebarW, height:"100vh", position:"sticky", top:0,
+        background:"#0f172a", display:"flex", flexDirection:"column",
+        boxShadow:"4px 0 24px rgba(0,0,0,.12)", zIndex:50, overflowY:"auto", flexShrink:0
+      }}>
+        {/* Logo */}
+        <div style={{padding:"20px 16px 16px", borderBottom:"1px solid rgba(255,255,255,.08)", cursor:"pointer"}} onClick={()=>window.location.reload()}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <SAJILogo s={24}/>
+            </div>
             <div>
-              <div style={{fontWeight:850,fontSize:17,color:"#fff",letterSpacing:"-.3px"}}>SAJI Group</div>
-              <div style={{fontSize:10,color:"#9fb5aa",marginTop:2,textTransform:"uppercase",letterSpacing:"1px"}}>Gestión Comercial</div>
+              <div style={{fontWeight:700,fontSize:14,color:"#fff",letterSpacing:"-0.2px"}}>SAJI Group</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.4)",marginTop:1}}>Gestión Comercial</div>
             </div>
           </div>
-          <div style={{fontSize:10,color:"#789387",fontWeight:800,letterSpacing:"1.3px",padding:"0 10px 8px"}}>MENÚ PRINCIPAL</div>
-          <nav className="saji-nav">
-            {TABS.map(t=>(
-              <button key={t.id} className={`saji-nav-btn ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>
-                <span style={{fontSize:17,width:22,textAlign:"center"}}>{iconOf(t.label)}</span><span>{textOf(t.label)}</span>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{padding:"12px 10px",flex:1}}>
+          {TABS.map(t=>{
+            const active = tab===t.id;
+            const icons = {
+              dashboard:"🏠", pedidos:"📦", ventas:"💰", gastos:"💸",
+              pagos:"🧾", fruta:"🥑", caja:"💵", inventarios:"🏗️",
+              catalogos:"🗂️", bitacora:"📋"
+            };
+            return (
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                width:"100%", display:"flex", alignItems:"center", gap:10,
+                padding:"9px 12px", borderRadius:10, border:"none", cursor:"pointer",
+                marginBottom:2, textAlign:"left", transition:"all .15s",
+                background: active?"rgba(22,163,74,.2)":"transparent",
+                color: active?"#4ade80":"rgba(255,255,255,.55)",
+                fontWeight: active?600:400, fontSize:13, fontFamily:"inherit",
+              }}>
+                <span style={{fontSize:15, opacity: active?1:.7}}>{icons[t.id]||"📌"}</span>
+                <span>{t.label.replace(/^[^\s]+\s/,"")}</span>
+                {active&&<div style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:"#4ade80"}}/>}
               </button>
-            ))}
-          </nav>
-          <div className="saji-sidebar-foot">
-            <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px 14px"}}>
-              <div style={{width:36,height:36,borderRadius:12,background:"rgba(255,255,255,.12)",display:"grid",placeItems:"center",color:"#fff"}}>👤</div>
-              <div style={{minWidth:0}}><div style={{color:"#fff",fontWeight:750,fontSize:12,overflow:"hidden",textOverflow:"ellipsis"}}>{usuario}</div><div style={{color:"#8ea79b",fontSize:10,textTransform:"capitalize"}}>{rol}</div></div>
-            </div>
-            <button onClick={handleLogout} style={{width:"100%",background:"rgba(255,255,255,.06)",color:"#ffd5d5",border:"1px solid rgba(255,255,255,.1)",borderRadius:11,padding:"10px",cursor:"pointer",fontWeight:700}}>Cerrar sesión</button>
-          </div>
-        </aside>
-
-        <section className="saji-workspace">
-          <header className="saji-topbar">
-            <div>
-              <div style={{fontSize:11,fontWeight:800,color:C.green,textTransform:"uppercase",letterSpacing:"1px"}}>SAJI · Gestión Comercial</div>
-              <div style={{fontSize:24,fontWeight:850,color:C.text,letterSpacing:"-.6px",marginTop:2}}>{activeTab?textOf(activeTab.label):"Inicio"}</div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),background:C.card}}>📥 Importar</button>}
-              {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.green),boxShadow:`0 8px 18px ${C.green}30`}}>📤 Exportar</button>}
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:12}}>
-                <span style={{width:28,height:28,borderRadius:9,background:C.greenL,display:"grid",placeItems:"center"}}>👤</span>
-                <span style={{fontSize:12,fontWeight:750,color:C.text}}>{usuario}</span>
-              </div>
-            </div>
-          </header>
-
-          <main className="saji-main">
-            {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-            {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-            {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
-            {tab==="gastos"      && rol==="admin" && <Gastos gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
-            {tab==="pagos"       && rol==="admin" && <Pagos pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-            {tab==="fruta"       && rol==="admin" && <Fruta fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
-            {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
-            {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
-            {tab==="bitacora"    && rol==="admin" && <Bitacora bitacora={bitacora} setBitacora={setBitacora}/>}
-            {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
-          </main>
-        </section>
-
-        <nav className="saji-mobile-nav">
-          {TABS.map(t=><button key={t.id} className={tab===t.id?"active":""} onClick={()=>setTab(t.id)}><div style={{fontSize:17}}>{iconOf(t.label)}</div>{textOf(t.label)}</button>)}
+            );
+          })}
         </nav>
-        {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
+
+        {/* User section */}
+        <div style={{padding:"12px 10px 16px",borderTop:"1px solid rgba(255,255,255,.08)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.06)",marginBottom:8}}>
+            <div style={{width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>
+              {usuario.charAt(0).toUpperCase()}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{usuario}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.4)"}}>{rol==="admin"?"Administrador":"Operativo"}</div>
+            </div>
+          </div>
+          {rol==="admin"&&(
+            <div style={{display:"flex",gap:6,marginBottom:6}}>
+              <button onClick={()=>setShowImport(true)} style={{flex:1,background:"rgba(37,99,235,.25)",color:"#93c5fd",border:"1px solid rgba(37,99,235,.3)",borderRadius:8,padding:"6px 0",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📥 Importar</button>
+              <button onClick={exportExcel} style={{flex:1,background:"rgba(22,163,74,.25)",color:"#86efac",border:"1px solid rgba(22,163,74,.3)",borderRadius:8,padding:"6px 0",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📤 Exportar</button>
+            </div>
+          )}
+          <button onClick={handleLogout} style={{width:"100%",background:"rgba(220,38,38,.15)",color:"#fca5a5",border:"1px solid rgba(220,38,38,.2)",borderRadius:8,padding:"7px 0",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .15s"}}>
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+
+      {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
+      <div style={{flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:"100vh"}}>
+
+        {/* Top bar */}
+        <header style={{
+          background:C.card, borderBottom:`1px solid ${C.border}`,
+          padding:"0 24px", height:60, display:"flex", alignItems:"center",
+          justifyContent:"space-between", position:"sticky", top:0, zIndex:40,
+          boxShadow:C.shadow, flexShrink:0,
+        }}>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:C.text,letterSpacing:"-0.2px"}}>
+              {TABS.find(t=>t.id===tab)?.label.replace(/^[^\s]+\s/,"")||""}
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+              {new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})}
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {rol==="operativo"&&(
+              <span style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,border:"1px solid #fde68a"}}>
+                Operativo
+              </span>
+            )}
+            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",cursor:"default"}}>
+              {usuario.charAt(0).toUpperCase()}
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main style={{ padding:"24px", flex:1, overflow:"auto" }}>
+          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
+          {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
+          {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
+          {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+          {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+          {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+          {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
+          {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
+          {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
+          {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
+        </main>
       </div>
-    </>
+
+      {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
+    </div>
   );
 }
