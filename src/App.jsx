@@ -3044,120 +3044,72 @@ export default function App() {
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%", display:"flex" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
 
-      {/* ── SIDEBAR ─────────────────────────────────────────────────── */}
-      <aside style={{
-        width: C.sidebarW, minWidth: C.sidebarW, height:"100vh", position:"sticky", top:0,
-        background:"#0f172a", display:"flex", flexDirection:"column",
-        boxShadow:"4px 0 24px rgba(0,0,0,.12)", zIndex:50, overflowY:"auto", flexShrink:0
+      {/* ── HEADER + NAV ────────────────────────────────────────────── */}
+      <header style={{
+        background:"#0f172a", padding:"0 16px",
+        display:"flex", alignItems:"center", gap:8,
+        minHeight:56, position:"sticky", top:0, zIndex:100,
+        boxShadow:"0 2px 12px rgba(0,0,0,.2)", flexWrap:"wrap",
       }}>
         {/* Logo */}
-        <div style={{padding:"20px 16px 16px", borderBottom:"1px solid rgba(255,255,255,.08)", cursor:"pointer"}} onClick={()=>window.location.reload()}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <SAJILogo s={24}/>
-            </div>
-            <div>
-              <div style={{fontWeight:700,fontSize:14,color:"#fff",letterSpacing:"-0.2px"}}>SAJI Group</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,.4)",marginTop:1}}>Gestión Comercial</div>
-            </div>
+        <div style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",flexShrink:0,marginRight:8}} onClick={()=>window.location.reload()}>
+          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <SAJILogo s={22}/>
+          </div>
+          <div style={{lineHeight:1.2}}>
+            <div style={{fontWeight:700,fontSize:13,color:"#fff"}}>SAJI Group</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,.4)"}}>Gestión Comercial</div>
           </div>
         </div>
 
-        {/* Nav items */}
-        <nav style={{padding:"12px 10px",flex:1}}>
+        {/* Tabs */}
+        <nav style={{display:"flex",gap:2,flexWrap:"wrap",flex:"1 1 auto",alignItems:"center"}}>
           {TABS.map(t=>{
             const active = tab===t.id;
-            const icons = {
-              dashboard:"🏠", pedidos:"📦", ventas:"💰", gastos:"💸",
-              pagos:"🧾", fruta:"🥑", caja:"💵", inventarios:"🏗️",
-              catalogos:"🗂️", bitacora:"📋"
-            };
             return (
               <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                width:"100%", display:"flex", alignItems:"center", gap:10,
-                padding:"9px 12px", borderRadius:10, border:"none", cursor:"pointer",
-                marginBottom:2, textAlign:"left", transition:"all .15s",
-                background: active?"rgba(22,163,74,.2)":"transparent",
+                background: active?"rgba(22,163,74,.25)":"transparent",
                 color: active?"#4ade80":"rgba(255,255,255,.55)",
-                fontWeight: active?600:400, fontSize:13, fontFamily:"inherit",
-              }}>
-                <span style={{fontSize:15, opacity: active?1:.7}}>{icons[t.id]||"📌"}</span>
-                <span>{t.label.replace(/^[^\s]+\s/,"")}</span>
-                {active&&<div style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:"#4ade80"}}/>}
-              </button>
+                border: active?"1px solid rgba(22,163,74,.4)":"1px solid transparent",
+                borderRadius:8, padding:"5px 11px", cursor:"pointer",
+                fontWeight: active?600:400, fontSize:12,
+                whiteSpace:"nowrap", transition:"all .15s", fontFamily:"inherit",
+              }}>{t.label}</button>
             );
           })}
         </nav>
 
-        {/* User section */}
-        <div style={{padding:"12px 10px 16px",borderTop:"1px solid rgba(255,255,255,.08)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.06)",marginBottom:8}}>
-            <div style={{width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>
+        {/* Right actions */}
+        <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto",flexShrink:0}}>
+          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{background:"rgba(37,99,235,.25)",color:"#93c5fd",border:"1px solid rgba(37,99,235,.35)",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📥 Importar</button>}
+          {rol==="admin"&&<button onClick={exportExcel} style={{background:"rgba(22,163,74,.25)",color:"#86efac",border:"1px solid rgba(22,163,74,.35)",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📤 Exportar</button>}
+          <div style={{display:"flex",alignItems:"center",gap:7,paddingLeft:8,borderLeft:"1px solid rgba(255,255,255,.1)"}}>
+            {rol==="operativo"&&<span style={{background:"rgba(217,119,6,.2)",color:"#fcd34d",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,border:"1px solid rgba(217,119,6,.3)"}}>OPERATIVO</span>}
+            <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
               {usuario.charAt(0).toUpperCase()}
             </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{usuario}</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,.4)"}}>{rol==="admin"?"Administrador":"Operativo"}</div>
-            </div>
+            <button onClick={handleLogout} style={{background:"rgba(220,38,38,.2)",color:"#fca5a5",border:"1px solid rgba(220,38,38,.25)",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>
+              Salir
+            </button>
           </div>
-          {rol==="admin"&&(
-            <div style={{display:"flex",gap:6,marginBottom:6}}>
-              <button onClick={()=>setShowImport(true)} style={{flex:1,background:"rgba(37,99,235,.25)",color:"#93c5fd",border:"1px solid rgba(37,99,235,.3)",borderRadius:8,padding:"6px 0",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📥 Importar</button>
-              <button onClick={exportExcel} style={{flex:1,background:"rgba(22,163,74,.25)",color:"#86efac",border:"1px solid rgba(22,163,74,.3)",borderRadius:8,padding:"6px 0",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📤 Exportar</button>
-            </div>
-          )}
-          <button onClick={handleLogout} style={{width:"100%",background:"rgba(220,38,38,.15)",color:"#fca5a5",border:"1px solid rgba(220,38,38,.2)",borderRadius:8,padding:"7px 0",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .15s"}}>
-            Cerrar sesión
-          </button>
         </div>
-      </aside>
+      </header>
 
       {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
-      <div style={{flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:"100vh"}}>
-
-        {/* Top bar */}
-        <header style={{
-          background:C.card, borderBottom:`1px solid ${C.border}`,
-          padding:"0 24px", height:60, display:"flex", alignItems:"center",
-          justifyContent:"space-between", position:"sticky", top:0, zIndex:40,
-          boxShadow:C.shadow, flexShrink:0,
-        }}>
-          <div>
-            <div style={{fontWeight:700,fontSize:16,color:C.text,letterSpacing:"-0.2px"}}>
-              {TABS.find(t=>t.id===tab)?.label.replace(/^[^\s]+\s/,"")||""}
-            </div>
-            <div style={{fontSize:11,color:C.muted,marginTop:1}}>
-              {new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})}
-            </div>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            {rol==="operativo"&&(
-              <span style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,border:"1px solid #fde68a"}}>
-                Operativo
-              </span>
-            )}
-            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",cursor:"default"}}>
-              {usuario.charAt(0).toUpperCase()}
-            </div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main style={{ padding:"24px", flex:1, overflow:"auto" }}>
-          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-          {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-          {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
-          {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
-          {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-          {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
-          {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
-          {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
-          {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
-          {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
-        </main>
-      </div>
+      <main style={{ padding:"20px 16px", maxWidth:1500, margin:"0 auto" }}>
+        {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
+        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
+        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
+        {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+        {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+        {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+        {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
+        {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
+        {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
+        {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
+      </main>
 
       {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
     </div>
