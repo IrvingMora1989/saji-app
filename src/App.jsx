@@ -77,35 +77,37 @@ const exportCSV = (rows, cols, fn) => {
 
 // ─── Theme — LIGHT MODE ───────────────────────────────────────────────────────
 const C = {
-  bg:"#f5f7f5", card:"#ffffff", border:"#e2ece4",
-  green:"#2d7a47", greenL:"#eaf5ee", greenM:"#b8dfc4",
-  text:"#1a2b1e", muted:"#7a9a82",
-  red:"#d63b3b", redL:"#fff0f0",
-  amber:"#c47a0a", amberL:"#fffaeb",
-  blue:"#2563eb", blueL:"#eff6ff",
-  purple:"#7c3aed", purpleL:"#f5f3ff",
-  teal:"#0891b2", tealL:"#ecfeff",
-  shadow:"0 1px 4px rgba(0,0,0,.07)",
-  shadowMd:"0 4px 20px rgba(0,0,0,.11)",
+  bg:"#f3f6f8", card:"#ffffff", border:"#e3e8ec",
+  green:"#176b4d", greenL:"#eaf6f1", greenM:"#a9d8c6",
+  text:"#14231d", muted:"#6c7c75",
+  red:"#c9364f", redL:"#fff1f3",
+  amber:"#d97706", amberL:"#fff7e8",
+  blue:"#2563eb", blueL:"#eef4ff",
+  purple:"#7c3aed", purpleL:"#f4f0ff",
+  teal:"#0f8a83", tealL:"#eafaf8",
+  orange:"#f28c28", orangeL:"#fff4e8",
+  navy:"#10251e", navy2:"#17372c",
+  shadow:"0 2px 10px rgba(15,35,28,.06)",
+  shadowMd:"0 18px 45px rgba(15,35,28,.14)",
 };
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, marginBottom:14, boxShadow:C.shadow };
-const h2s   = { margin:"0 0 16px", fontSize:18, fontWeight:800, color:C.text };
-const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 };
-const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 };
-const lbl   = { display:"block", marginBottom:3, fontSize:11, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:.5 };
-const inp   = { width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:8, padding:"9px 11px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none" };
-const sel   = { ...{width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:8, padding:"9px 11px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer"} };
-const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:8, padding:"9px 16px", cursor:"pointer", fontWeight:700, fontSize:13, whiteSpace:"nowrap" });
-const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:8, padding:"9px 16px", cursor:"pointer", fontWeight:600, fontSize:13 });
-const modal = { position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:12, overflowY:"auto" };
-const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:22, width:"100%", maxWidth:700, marginTop:16, marginBottom:16, boxShadow:C.shadowMd };
-const th    = { textAlign:"left", padding:"9px 10px", color:C.muted, fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:.4, borderBottom:`2px solid ${C.border}`, background:C.bg, whiteSpace:"nowrap" };
-const td    = { padding:"8px 10px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13 };
-const badge = (c, bg) => ({ background:bg||c+"18", color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-block", whiteSpace:"nowrap" });
-const totRow= { background:C.greenL, borderRadius:10, padding:"11px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
-const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"7px 12px", cursor:"pointer", fontWeight:a?700:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap" });
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:20, marginBottom:16, boxShadow:C.shadow };
+const h2s   = { margin:"0 0 18px", fontSize:20, fontWeight:800, color:C.text, letterSpacing:"-.3px" };
+const g2    = { display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:14 };
+const g3    = { display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:14 };
+const lbl   = { display:"block", marginBottom:6, fontSize:10, color:C.muted, fontWeight:800, textTransform:"uppercase", letterSpacing:.8 };
+const inp   = { width:"100%", background:"#fbfcfc", border:`1px solid ${C.border}`, borderRadius:11, padding:"11px 13px", color:C.text, fontSize:15, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .18s, box-shadow .18s" };
+const sel   = { ...{width:"100%", background:"#fbfcfc", border:`1px solid ${C.border}`, borderRadius:11, padding:"11px 13px", color:C.text, fontSize:15, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer"} };
+const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:750, fontSize:13, whiteSpace:"nowrap", boxShadow:`0 7px 16px ${bg}22`, transition:"transform .15s, filter .15s" });
+const btnO  = (c) => ({ background:"#fff", color:c||C.muted, border:`1px solid ${c||C.border}`, borderRadius:11, padding:"10px 16px", cursor:"pointer", fontWeight:700, fontSize:13, transition:"background .15s, transform .15s" });
+const modal = { position:"fixed", inset:0, background:"rgba(10,25,20,.55)", backdropFilter:"blur(6px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
+const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:22, padding:24, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowMd };
+const th    = { textAlign:"left", padding:"12px 12px", color:C.muted, fontWeight:800, fontSize:10, textTransform:"uppercase", letterSpacing:.7, borderBottom:`1px solid ${C.border}`, background:"#f7f9f8", whiteSpace:"nowrap" };
+const td    = { padding:"11px 12px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13 };
+const badge = (c, bg) => ({ background:bg||c+"14", color:c, borderRadius:999, padding:"5px 10px", fontSize:10, fontWeight:800, display:"inline-block", whiteSpace:"nowrap", border:`1px solid ${c}20` });
+const totRow= { background:C.greenL, borderRadius:14, padding:"13px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:14, border:`1px solid ${C.greenM}` };
+const nb    = a => ({ background:a?C.green:"#fff", color:a?"#fff":C.muted, border:a?`1px solid ${C.green}`:`1px solid ${C.border}`, borderRadius:10, padding:"8px 13px", cursor:"pointer", fontWeight:a?750:600, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", boxShadow:a?`0 6px 14px ${C.green}25`:"none" });
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
@@ -2859,8 +2861,8 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:C.shadowMd}}>
+    <div style={{minHeight:"100vh",background:`radial-gradient(circle at 15% 10%, ${C.greenL} 0, transparent 34%), linear-gradient(135deg,#f8faf9 0%,#eef4f1 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"rgba(255,255,255,.94)",backdropFilter:"blur(18px)",border:`1px solid ${C.border}`,borderRadius:24,padding:34,width:"100%",maxWidth:380,boxShadow:C.shadowMd}}>
         <div style={{textAlign:"center",marginBottom:24}}>
           <SAJILogo s={64}/>
           <div style={{fontWeight:800,fontSize:20,color:C.green,marginTop:12}}>SAJI Group</div>
@@ -3007,8 +3009,30 @@ export default function App() {
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
-      <header style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"6px 12px", display:"flex", alignItems:"center", gap:10, minHeight:58, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap", overflow:"hidden" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
+      <style>{`
+        *{box-sizing:border-box}
+        html{background:${C.bg}}
+        body{margin:0;background:${C.bg}}
+        button,input,select,textarea{font:inherit}
+        button:hover{filter:brightness(.98);transform:translateY(-1px)}
+        input:focus,select:focus,textarea:focus{border-color:${C.green}!important;box-shadow:0 0 0 3px ${C.green}18!important}
+        table{border-collapse:separate!important;border-spacing:0!important;width:100%}
+        tbody tr{transition:background .15s}
+        tbody tr:hover{background:#f8faf9}
+        ::-webkit-scrollbar{width:10px;height:10px}
+        ::-webkit-scrollbar-thumb{background:#cfd9d4;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+        ::selection{background:${C.greenM};color:${C.text}}
+        @media(max-width:900px){
+          .saji-header{padding:9px 12px!important}
+          .saji-nav{justify-content:flex-start!important;overflow-x:auto!important;flex-wrap:nowrap!important;width:100%!important;padding-bottom:3px}
+          .saji-main{padding:16px 12px 30px!important}
+        }
+        @media(max-width:599px){
+          .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+        }
+      `}</style>
+      <header className="saji-header" style={{ background:"rgba(255,255,255,.94)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"10px 18px", display:"flex", alignItems:"center", gap:14, minHeight:68, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap" }}>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0,cursor:"pointer"}} onClick={()=>window.location.reload()} title="Actualizar">
           <SAJILogo s={34}/>
           <div style={{lineHeight:1.15,minWidth:0}}>
@@ -3016,15 +3040,15 @@ export default function App() {
             <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
           </div>
         </div>
-        <nav style={{ display:"flex", gap:3, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center", flex:"1 1 auto", minWidth:0 }}>
+        <nav className="saji-nav" style={{ display:"flex", gap:6, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center", flex:"1 1 auto", minWidth:0 }}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
               background:tab===t.id?C.green:"transparent",
               color:tab===t.id?"#fff":C.muted,
               border:tab===t.id?"none":`1px solid ${C.border}`,
-              borderRadius:7, padding:"5px 9px", cursor:"pointer",
-              fontWeight:tab===t.id?700:500, fontSize:11,
-              whiteSpace:"nowrap", transition:"all .15s"
+              borderRadius:10, padding:"8px 11px", cursor:"pointer",
+              fontWeight:tab===t.id?750:600, fontSize:11,
+              whiteSpace:"nowrap", transition:"all .18s", boxShadow:tab===t.id?`0 7px 16px ${C.green}25`:"none"
             }}>{t.label}</button>
           ))}
           {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>}
@@ -3039,7 +3063,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main style={{ padding:16, maxWidth:1500, margin:"0 auto" }}>
+      <main className="saji-main" style={{ padding:"24px 22px 40px", maxWidth:1540, margin:"0 auto" }}>
         {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
         {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
         {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
