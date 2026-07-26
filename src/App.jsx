@@ -2861,66 +2861,45 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
-      {/* Left panel */}
-      <div style={{display:"none",flex:1,background:"linear-gradient(145deg,#0f172a 0%,#1e293b 50%,#0f2a1a 100%),url('data:image/svg+xml,<svg/>')",padding:"48px",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",top:"-20%",right:"-10%",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(22,163,74,.15) 0%,transparent 70%)"}}/>
-        <div style={{position:"absolute",bottom:"-10%",left:"-5%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(8,145,178,.1) 0%,transparent 70%)"}}/>
-      </div>
-      {/* Right panel - form */}
-      <div style={{flex:1,background:"#f8f9fc",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-        <div style={{width:"100%",maxWidth:380}}>
-          {/* Logo */}
-          <div style={{textAlign:"center",marginBottom:40}}>
-            <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(22,163,74,.3)",marginBottom:16}}>
-              <SAJILogo s={40}/>
-            </div>
-            <div style={{fontWeight:700,fontSize:24,color:"#0f172a",letterSpacing:"-0.5px"}}>Bienvenido</div>
-            <div style={{color:"#64748b",fontSize:14,marginTop:6}}>Inicia sesión en SAJI Group</div>
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:"100%",maxWidth:360}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 6px 20px rgba(79,70,229,.25)",marginBottom:14}}>
+            <SAJILogo s={34}/>
           </div>
+          <div style={{fontWeight:700,fontSize:22,color:C.text,letterSpacing:"-0.3px"}}>SAJI Group</div>
+          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Sistema de Gestión Comercial</div>
+        </div>
 
-          {/* Form */}
-          <div style={{background:"#fff",borderRadius:20,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,.06)",border:"1px solid #e8eaf0"}}>
-            <div style={{marginBottom:18}}>
-              <label style={{display:"block",marginBottom:6,fontSize:12,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.6px"}}>Usuario</label>
-              <input style={{width:"100%",background:"#f8f9fc",border:"1.5px solid #e8eaf0",borderRadius:12,padding:"12px 15px",color:"#0f172a",fontSize:15,boxSizing:"border-box",outline:"none",fontFamily:"inherit",transition:"border-color .15s"}}
-                placeholder="Tu nombre de usuario" value={user}
-                onChange={e=>{setUser(e.target.value);setError("");}}
+        {/* Form */}
+        <div style={{background:C.card,borderRadius:16,padding:28,boxShadow:C.shadowMd,border:`1px solid ${C.border}`}}>
+          <div style={{marginBottom:16}}>
+            <label style={lbl}>Usuario</label>
+            <input style={inp} placeholder="Tu nombre de usuario" value={user}
+              onChange={e=>{setUser(e.target.value);setError("");}}
+              onKeyDown={e=>e.key==="Enter"&&login()}
+              onFocus={e=>e.target.style.borderColor=C.indigo}
+              onBlur={e=>e.target.style.borderColor=C.border}/>
+          </div>
+          <div style={{marginBottom:22}}>
+            <label style={lbl}>Contraseña</label>
+            <div style={{position:"relative"}}>
+              <input style={{...inp,paddingRight:42}} type={show?"text":"password"}
+                placeholder="Tu contraseña" value={pass}
+                onChange={e=>{setPass(e.target.value);setError("");}}
                 onKeyDown={e=>e.key==="Enter"&&login()}
-                onFocus={e=>e.target.style.borderColor="#16a34a"}
-                onBlur={e=>e.target.style.borderColor="#e8eaf0"}/>
+                onFocus={e=>e.target.style.borderColor=C.indigo}
+                onBlur={e=>e.target.style.borderColor=C.border}/>
+              <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:16,lineHeight:1}}>
+                {show?"🙈":"👁️"}
+              </button>
             </div>
-            <div style={{marginBottom:24}}>
-              <label style={{display:"block",marginBottom:6,fontSize:12,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.6px"}}>Contraseña</label>
-              <div style={{position:"relative"}}>
-                <input style={{width:"100%",background:"#f8f9fc",border:"1.5px solid #e8eaf0",borderRadius:12,padding:"12px 44px 12px 15px",color:"#0f172a",fontSize:15,boxSizing:"border-box",outline:"none",fontFamily:"inherit",transition:"border-color .15s"}}
-                  type={show?"text":"password"} placeholder="Tu contraseña" value={pass}
-                  onChange={e=>{setPass(e.target.value);setError("");}}
-                  onKeyDown={e=>e.key==="Enter"&&login()}
-                  onFocus={e=>e.target.style.borderColor="#16a34a"}
-                  onBlur={e=>e.target.style.borderColor="#e8eaf0"}/>
-                <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:17,lineHeight:1}}>
-                  {show?"🙈":"👁️"}
-                </button>
-              </div>
-            </div>
-            {error&&(
-              <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",color:"#dc2626",fontSize:13,marginBottom:18,display:"flex",alignItems:"center",gap:8}}>
-                <span>⚠️</span>{error}
-              </div>
-            )}
-            <button
-              style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:12,padding:"13px 0",cursor:"pointer",fontWeight:600,fontSize:15,fontFamily:"inherit",letterSpacing:"0.1px",boxShadow:"0 4px 12px rgba(22,163,74,.35)",transition:"transform .1s, box-shadow .1s"}}
-              onClick={login}
-              onMouseEnter={e=>{e.target.style.transform="translateY(-1px)";e.target.style.boxShadow="0 6px 16px rgba(22,163,74,.45)";}}
-              onMouseLeave={e=>{e.target.style.transform="none";e.target.style.boxShadow="0 4px 12px rgba(22,163,74,.35)";}}>
-              Iniciar sesión →
-            </button>
           </div>
-
-          <div style={{textAlign:"center",marginTop:20,fontSize:12,color:"#94a3b8"}}>
-            SAJI Group · Sistema de Gestión Comercial
-          </div>
+          {error&&<div style={{background:C.redL,border:`1px solid ${C.red}22`,borderRadius:8,padding:"9px 12px",color:C.red,fontSize:13,marginBottom:16,display:"flex",alignItems:"center",gap:7}}><span>⚠️</span>{error}</div>}
+          <button style={{...btn(C.indigo),width:"100%",padding:"12px 0",fontSize:14,borderRadius:10}} onClick={login}>
+            Iniciar sesión →
+          </button>
         </div>
       </div>
     </div>
@@ -3093,8 +3072,6 @@ export default function App() {
               Salir
             </button>
           </div>
-        </div>
-      </header>
         </div>
       </header>
 
