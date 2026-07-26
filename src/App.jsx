@@ -77,37 +77,66 @@ const exportCSV = (rows, cols, fn) => {
 
 // ─── Theme — LIGHT MODE ───────────────────────────────────────────────────────
 const C = {
-  bg:"#f3f6f8", card:"#ffffff", border:"#e3e8ec",
-  green:"#176b4d", greenL:"#eaf6f1", greenM:"#a9d8c6",
-  text:"#14231d", muted:"#6c7c75",
-  red:"#c9364f", redL:"#fff1f3",
-  amber:"#d97706", amberL:"#fff7e8",
-  blue:"#2563eb", blueL:"#eef4ff",
-  purple:"#7c3aed", purpleL:"#f4f0ff",
-  teal:"#0f8a83", tealL:"#eafaf8",
-  orange:"#f28c28", orangeL:"#fff4e8",
-  navy:"#10251e", navy2:"#17372c",
-  shadow:"0 2px 10px rgba(15,35,28,.06)",
-  shadowMd:"0 18px 45px rgba(15,35,28,.14)",
+  bg:"#f4f7f6", card:"#ffffff", border:"#dfe8e4",
+  green:"#146c43", greenL:"#eaf6f0", greenM:"#b8dfcd",
+  text:"#17231d", muted:"#6f8178",
+  red:"#d14343", redL:"#fff1f1",
+  amber:"#d17b0f", amberL:"#fff7e8",
+  blue:"#2563eb", blueL:"#eff6ff",
+  purple:"#7c3aed", purpleL:"#f5f3ff",
+  teal:"#0f8a9d", tealL:"#ecfeff",
+  orange:"#ee7a21", navy:"#10271d", navy2:"#17382a",
+  shadow:"0 8px 24px rgba(23,35,29,.06)",
+  shadowMd:"0 20px 50px rgba(16,39,29,.16)",
 };
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:20, marginBottom:16, boxShadow:C.shadow };
-const h2s   = { margin:"0 0 18px", fontSize:20, fontWeight:800, color:C.text, letterSpacing:"-.3px" };
-const g2    = { display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:14 };
-const g3    = { display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:14 };
-const lbl   = { display:"block", marginBottom:6, fontSize:10, color:C.muted, fontWeight:800, textTransform:"uppercase", letterSpacing:.8 };
-const inp   = { width:"100%", background:"#fbfcfc", border:`1px solid ${C.border}`, borderRadius:11, padding:"11px 13px", color:C.text, fontSize:15, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .18s, box-shadow .18s" };
-const sel   = { ...{width:"100%", background:"#fbfcfc", border:`1px solid ${C.border}`, borderRadius:11, padding:"11px 13px", color:C.text, fontSize:15, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer"} };
-const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:750, fontSize:13, whiteSpace:"nowrap", boxShadow:`0 7px 16px ${bg}22`, transition:"transform .15s, filter .15s" });
-const btnO  = (c) => ({ background:"#fff", color:c||C.muted, border:`1px solid ${c||C.border}`, borderRadius:11, padding:"10px 16px", cursor:"pointer", fontWeight:700, fontSize:13, transition:"background .15s, transform .15s" });
-const modal = { position:"fixed", inset:0, background:"rgba(10,25,20,.55)", backdropFilter:"blur(6px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
-const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:22, padding:24, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowMd };
-const th    = { textAlign:"left", padding:"12px 12px", color:C.muted, fontWeight:800, fontSize:10, textTransform:"uppercase", letterSpacing:.7, borderBottom:`1px solid ${C.border}`, background:"#f7f9f8", whiteSpace:"nowrap" };
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:20, marginBottom:18, boxShadow:C.shadow };
+const h2s   = { margin:"0 0 18px", fontSize:21, fontWeight:800, color:C.text, letterSpacing:"-.35px" };
+const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 };
+const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 };
+const lbl   = { display:"block", marginBottom:3, fontSize:11, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:.5 };
+const inp   = { width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:11, padding:"11px 12px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none" };
+const sel   = { ...{width:"100%", background:"#f9fbf9", border:`1.5px solid ${C.border}`, borderRadius:11, padding:"11px 12px", color:C.text, fontSize:16, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer"} };
+const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:700, fontSize:13, whiteSpace:"nowrap" });
+const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:11, padding:"10px 17px", cursor:"pointer", fontWeight:600, fontSize:13 });
+const modal = { position:"fixed", inset:0, background:"rgba(8,25,17,.58)", backdropFilter:"blur(5px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:12, overflowY:"auto" };
+const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:22, padding:26, width:"100%", maxWidth:700, marginTop:16, marginBottom:16, boxShadow:C.shadowMd };
+const th    = { textAlign:"left", padding:"12px 12px", color:C.muted, fontWeight:700, fontSize:11, textTransform:"uppercase", letterSpacing:.4, borderBottom:`2px solid ${C.border}`, background:C.bg, whiteSpace:"nowrap" };
 const td    = { padding:"11px 12px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13 };
-const badge = (c, bg) => ({ background:bg||c+"14", color:c, borderRadius:999, padding:"5px 10px", fontSize:10, fontWeight:800, display:"inline-block", whiteSpace:"nowrap", border:`1px solid ${c}20` });
-const totRow= { background:C.greenL, borderRadius:14, padding:"13px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:14, border:`1px solid ${C.greenM}` };
-const nb    = a => ({ background:a?C.green:"#fff", color:a?"#fff":C.muted, border:a?`1px solid ${C.green}`:`1px solid ${C.border}`, borderRadius:10, padding:"8px 13px", cursor:"pointer", fontWeight:a?750:600, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", boxShadow:a?`0 6px 14px ${C.green}25`:"none" });
+const badge = (c, bg) => ({ background:bg||c+"18", color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-block", whiteSpace:"nowrap" });
+const totRow= { background:C.greenL, borderRadius:10, padding:"11px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
+const nb    = a => ({ background:a?C.green:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"7px 12px", cursor:"pointer", fontWeight:a?700:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap" });
+
+const GlobalStyles = () => <style>{`
+  *{box-sizing:border-box}
+  html,body,#root{margin:0;min-height:100%;background:${C.bg}}
+  body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:${C.text}}
+  button,input,select,textarea{font:inherit}
+  button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+  button:hover{transform:translateY(-1px)}
+  input:focus,select:focus,textarea:focus{border-color:${C.green}!important;box-shadow:0 0 0 3px ${C.green}18!important}
+  table{border-collapse:separate!important;border-spacing:0;width:100%}
+  tbody tr{transition:background .15s ease}
+  tbody tr:hover{background:#f7faf8}
+  .saji-shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+  .saji-sidebar{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,${C.navy} 0%,${C.navy2} 100%);padding:22px 16px;display:flex;flex-direction:column;z-index:120;box-shadow:10px 0 35px rgba(16,39,29,.12)}
+  .saji-brand{display:flex;align-items:center;gap:12px;padding:4px 8px 22px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:18px}
+  .saji-nav{display:flex;flex-direction:column;gap:6px;overflow:auto;padding-right:2px}
+  .saji-nav-btn{width:100%;display:flex;align-items:center;gap:11px;text-align:left;border:1px solid transparent;border-radius:12px;padding:11px 12px;background:transparent;color:#c9d8d0;cursor:pointer;font-size:13px;font-weight:650}
+  .saji-nav-btn:hover{background:rgba(255,255,255,.07);color:white}
+  .saji-nav-btn.active{background:white;color:${C.navy};box-shadow:0 10px 25px rgba(0,0,0,.18)}
+  .saji-sidebar-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
+  .saji-workspace{min-width:0}
+  .saji-topbar{height:76px;background:rgba(255,255,255,.88);backdrop-filter:blur(14px);border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100}
+  .saji-main{padding:26px 28px 40px;max-width:1680px;margin:0 auto}
+  .saji-mobile-nav{display:none}
+  @media(max-width:900px){
+    .saji-shell{display:block}.saji-sidebar{display:none}.saji-topbar{height:auto;min-height:68px;padding:12px 14px}.saji-main{padding:16px 12px 90px}
+    .saji-mobile-nav{display:flex;position:fixed;left:8px;right:8px;bottom:8px;z-index:150;background:${C.navy};padding:8px;border-radius:16px;gap:5px;overflow-x:auto;box-shadow:0 16px 45px rgba(0,0,0,.3)}
+    .saji-mobile-nav button{min-width:70px;border:0;background:transparent;color:#cbd8d1;border-radius:10px;padding:8px 6px;font-size:10px}.saji-mobile-nav button.active{background:white;color:${C.navy}}
+  }
+`}</style>;
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
@@ -2861,8 +2890,8 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",background:`radial-gradient(circle at 15% 10%, ${C.greenL} 0, transparent 34%), linear-gradient(135deg,#f8faf9 0%,#eef4f1 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"rgba(255,255,255,.94)",backdropFilter:"blur(18px)",border:`1px solid ${C.border}`,borderRadius:24,padding:34,width:"100%",maxWidth:380,boxShadow:C.shadowMd}}>
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:C.shadowMd}}>
         <div style={{textAlign:"center",marginBottom:24}}>
           <SAJILogo s={64}/>
           <div style={{fontWeight:800,fontSize:20,color:C.green,marginTop:12}}>SAJI Group</div>
@@ -3008,75 +3037,74 @@ export default function App() {
     </div>
   );
 
+  const activeTab = TABS.find(t=>t.id===tab);
+  const iconOf = label => label.split(" ")[0];
+  const textOf = label => label.replace(/^\S+\s*/, "");
+
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
-      <style>{`
-        *{box-sizing:border-box}
-        html{background:${C.bg}}
-        body{margin:0;background:${C.bg}}
-        button,input,select,textarea{font:inherit}
-        button:hover{filter:brightness(.98);transform:translateY(-1px)}
-        input:focus,select:focus,textarea:focus{border-color:${C.green}!important;box-shadow:0 0 0 3px ${C.green}18!important}
-        table{border-collapse:separate!important;border-spacing:0!important;width:100%}
-        tbody tr{transition:background .15s}
-        tbody tr:hover{background:#f8faf9}
-        ::-webkit-scrollbar{width:10px;height:10px}
-        ::-webkit-scrollbar-thumb{background:#cfd9d4;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
-        ::selection{background:${C.greenM};color:${C.text}}
-        @media(max-width:900px){
-          .saji-header{padding:9px 12px!important}
-          .saji-nav{justify-content:flex-start!important;overflow-x:auto!important;flex-wrap:nowrap!important;width:100%!important;padding-bottom:3px}
-          .saji-main{padding:16px 12px 30px!important}
-        }
-        @media(max-width:599px){
-          .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-        }
-      `}</style>
-      <header className="saji-header" style={{ background:"rgba(255,255,255,.94)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"10px 18px", display:"flex", alignItems:"center", gap:14, minHeight:68, position:"sticky", top:0, zIndex:100, boxShadow:C.shadow, flexWrap:"wrap" }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,minWidth:0,cursor:"pointer"}} onClick={()=>window.location.reload()} title="Actualizar">
-          <SAJILogo s={34}/>
-          <div style={{lineHeight:1.15,minWidth:0}}>
-            <div style={{fontWeight:800,fontSize:13,color:C.green,whiteSpace:"nowrap"}}>SAJI Group</div>
-            <div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Gestión Comercial</div>
+    <>
+      <GlobalStyles/>
+      <div className="saji-shell">
+        <aside className="saji-sidebar">
+          <div className="saji-brand">
+            <div style={{background:"#fff",borderRadius:14,padding:5,display:"flex"}}><SAJILogo s={42}/></div>
+            <div>
+              <div style={{fontWeight:850,fontSize:17,color:"#fff",letterSpacing:"-.3px"}}>SAJI Group</div>
+              <div style={{fontSize:10,color:"#9fb5aa",marginTop:2,textTransform:"uppercase",letterSpacing:"1px"}}>Gestión Comercial</div>
+            </div>
           </div>
-        </div>
-        <nav className="saji-nav" style={{ display:"flex", gap:6, marginLeft:"auto", flexWrap:"wrap", justifyContent:"flex-end", alignItems:"center", flex:"1 1 auto", minWidth:0 }}>
-          {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              background:tab===t.id?C.green:"transparent",
-              color:tab===t.id?"#fff":C.muted,
-              border:tab===t.id?"none":`1px solid ${C.border}`,
-              borderRadius:10, padding:"8px 11px", cursor:"pointer",
-              fontWeight:tab===t.id?750:600, fontSize:11,
-              whiteSpace:"nowrap", transition:"all .18s", boxShadow:tab===t.id?`0 7px 16px ${C.green}25`:"none"
-            }}>{t.label}</button>
-          ))}
-          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),padding:"5px 10px",fontSize:11,marginLeft:4}}>📥 Importar</button>}
-          {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.green),padding:"5px 10px",fontSize:11}}>📤 Exportar</button>}
-          <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:6,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
-            <span style={{fontSize:11,color:C.muted}}>👤 {usuario}</span>
-            {rol==="operativo"&&<span style={{fontSize:9,background:C.amberL,color:C.amber,fontWeight:700,padding:"2px 6px",borderRadius:10,border:`1px solid ${C.amber}44`}}>OPERATIVO</span>}
-            <button onClick={handleLogout} style={{...btnO(C.red),padding:"4px 8px",fontSize:11,color:C.red}}>
-              Salir
-            </button>
+          <div style={{fontSize:10,color:"#789387",fontWeight:800,letterSpacing:"1.3px",padding:"0 10px 8px"}}>MENÚ PRINCIPAL</div>
+          <nav className="saji-nav">
+            {TABS.map(t=>(
+              <button key={t.id} className={`saji-nav-btn ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>
+                <span style={{fontSize:17,width:22,textAlign:"center"}}>{iconOf(t.label)}</span><span>{textOf(t.label)}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="saji-sidebar-foot">
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px 14px"}}>
+              <div style={{width:36,height:36,borderRadius:12,background:"rgba(255,255,255,.12)",display:"grid",placeItems:"center",color:"#fff"}}>👤</div>
+              <div style={{minWidth:0}}><div style={{color:"#fff",fontWeight:750,fontSize:12,overflow:"hidden",textOverflow:"ellipsis"}}>{usuario}</div><div style={{color:"#8ea79b",fontSize:10,textTransform:"capitalize"}}>{rol}</div></div>
+            </div>
+            <button onClick={handleLogout} style={{width:"100%",background:"rgba(255,255,255,.06)",color:"#ffd5d5",border:"1px solid rgba(255,255,255,.1)",borderRadius:11,padding:"10px",cursor:"pointer",fontWeight:700}}>Cerrar sesión</button>
           </div>
+        </aside>
+
+        <section className="saji-workspace">
+          <header className="saji-topbar">
+            <div>
+              <div style={{fontSize:11,fontWeight:800,color:C.green,textTransform:"uppercase",letterSpacing:"1px"}}>SAJI · Gestión Comercial</div>
+              <div style={{fontSize:24,fontWeight:850,color:C.text,letterSpacing:"-.6px",marginTop:2}}>{activeTab?textOf(activeTab.label):"Inicio"}</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.blue),background:C.card}}>📥 Importar</button>}
+              {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.green),boxShadow:`0 8px 18px ${C.green}30`}}>📤 Exportar</button>}
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:12}}>
+                <span style={{width:28,height:28,borderRadius:9,background:C.greenL,display:"grid",placeItems:"center"}}>👤</span>
+                <span style={{fontSize:12,fontWeight:750,color:C.text}}>{usuario}</span>
+              </div>
+            </div>
+          </header>
+
+          <main className="saji-main">
+            {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
+            {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
+            {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
+            {tab==="gastos"      && rol==="admin" && <Gastos gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
+            {tab==="pagos"       && rol==="admin" && <Pagos pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
+            {tab==="fruta"       && rol==="admin" && <Fruta fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
+            {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
+            {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
+            {tab==="bitacora"    && rol==="admin" && <Bitacora bitacora={bitacora} setBitacora={setBitacora}/>}
+            {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
+          </main>
+        </section>
+
+        <nav className="saji-mobile-nav">
+          {TABS.map(t=><button key={t.id} className={tab===t.id?"active":""} onClick={()=>setTab(t.id)}><div style={{fontSize:17}}>{iconOf(t.label)}</div>{textOf(t.label)}</button>)}
         </nav>
-      </header>
-
-      <main className="saji-main" style={{ padding:"24px 22px 40px", maxWidth:1540, margin:"0 auto" }}>
-        {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
-        {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
-        {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
-        {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
-        {tab==="caja"        && rol==="admin" && <Caja ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos} cajaMov={cajaMov} setCajaMov={setCajaMov} logBit={logBit}/>}
-        {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
-        {tab==="bitacora"    && rol==="admin" && <Bitacora  bitacora={bitacora} setBitacora={setBitacora}/>}
-        {tab==="catalogos"   && rol==="admin" && <Catalogos clientes={clientes} setClientes={setClientes} productos={productos} setProductos={setProductos} proveedores={proveedores} setProveedores={setProveedores}/>}
-      </main>
-
-      {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
-    </div>
+        {showImport&&<ImportModal onClose={()=>setShowImport(false)} setPedidos={setPedidos} setVentas={setVentas} setGastos={setGastos} setFruta={setFruta} setPagos={setPagos}/>}
+      </div>
+    </>
   );
 }
