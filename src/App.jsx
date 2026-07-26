@@ -77,35 +77,34 @@ const exportCSV = (rows, cols, fn) => {
 
 // ─── Theme — PREMIUM LIGHT ────────────────────────────────────────────────────
 const C = {
-  bg:"#f8f9fc", card:"#ffffff", border:"#e8eaf0",
+  bg:"#f6f6f7", card:"#ffffff", border:"#e5e7eb",
   green:"#16a34a", greenL:"#f0fdf4", greenM:"#bbf7d0",
-  text:"#0f172a", muted:"#64748b", mutedL:"#94a3b8",
+  text:"#111827", muted:"#6b7280", mutedL:"#9ca3af",
   red:"#dc2626", redL:"#fef2f2",
   amber:"#d97706", amberL:"#fffbeb",
   blue:"#2563eb", blueL:"#eff6ff",
   purple:"#7c3aed", purpleL:"#f5f3ff",
   teal:"#0891b2", tealL:"#ecfeff",
   indigo:"#4f46e5", indigoL:"#eef2ff",
-  shadow:"0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04)",
-  shadowMd:"0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.05)",
-  shadowLg:"0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04)",
-  sidebarW: 220,
+  shadow:"0 1px 2px rgba(0,0,0,.05)",
+  shadowMd:"0 4px 12px rgba(0,0,0,.07)",
+  shadowLg:"0 8px 24px rgba(0,0,0,.09)",
 };
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:"20px", marginBottom:16, boxShadow:C.shadow };
-const h2s   = { margin:"0 0 20px", fontSize:20, fontWeight:700, color:C.text, letterSpacing:"-0.3px" };
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"20px", marginBottom:14, boxShadow:C.shadow };
+const h2s   = { margin:"0 0 18px", fontSize:18, fontWeight:700, color:C.text, letterSpacing:"-0.2px" };
 const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 };
 const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 };
-const lbl   = { display:"block", marginBottom:5, fontSize:11, color:C.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.6px" };
-const inp   = { width:"100%", background:"#f8f9fc", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .15s", fontFamily:"inherit" };
-const sel   = { width:"100%", background:"#f8f9fc", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer", fontFamily:"inherit", transition:"border-color .15s" };
-const btn   = (bg=C.green) => ({ background:bg, color:"#fff", border:"none", borderRadius:10, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, whiteSpace:"nowrap", transition:"opacity .15s, transform .1s", fontFamily:"inherit", letterSpacing:"0.1px" });
-const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:10, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, fontFamily:"inherit", transition:"all .15s" });
-const modal = { position:"fixed", inset:0, background:"rgba(15,23,42,.45)", backdropFilter:"blur(4px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
-const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:20, padding:28, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowLg };
-const th    = { textAlign:"left", padding:"10px 12px", color:C.muted, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:"0.5px", borderBottom:`1.5px solid ${C.border}`, background:"#f8f9fc", whiteSpace:"nowrap" };
-const td    = { padding:"10px 12px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13, color:C.text };
+const lbl   = { display:"block", marginBottom:5, fontSize:11, color:C.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px" };
+const inp   = { width:"100%", background:"#fafafa", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .15s", fontFamily:"inherit" };
+const sel   = { width:"100%", background:"#fafafa", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer", fontFamily:"inherit", transition:"border-color .15s" };
+const btn   = (bg=C.indigo) => ({ background:bg, color:"#fff", border:"none", borderRadius:9, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, whiteSpace:"nowrap", transition:"all .15s", fontFamily:"inherit" });
+const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:9, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, fontFamily:"inherit", transition:"all .15s" });
+const modal = { position:"fixed", inset:0, background:"rgba(0,0,0,.3)", backdropFilter:"blur(3px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
+const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:28, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowLg };
+const th    = { textAlign:"left", padding:"10px 14px", color:C.muted, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:"0.5px", borderBottom:`1px solid ${C.border}`, background:"#fafafa", whiteSpace:"nowrap" };
+const td    = { padding:"10px 14px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13, color:C.text };
 const badge = (c, bg) => ({ background:bg||(c+"15"), color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4, whiteSpace:"nowrap" });
 const totRow= { background:C.greenL, borderRadius:12, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
 const nb    = a => ({ background:a?C.indigo:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"6px 14px", cursor:"pointer", fontWeight:a?600:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", fontFamily:"inherit" });
@@ -3024,16 +3023,16 @@ export default function App() {
 
   // Pantalla de carga mientras conecta con Supabase
   if(!todoCargado) return (
-    <div style={{minHeight:"100vh",background:"#0f172a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
-      <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 32px rgba(22,163,74,.35)"}}>
-        <SAJILogo s={40}/>
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(79,70,229,.25)"}}>
+        <SAJILogo s={34}/>
       </div>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:20,fontWeight:700,color:"#fff",letterSpacing:"-0.3px"}}>SAJI Group</div>
-        <div style={{fontSize:13,color:"rgba(255,255,255,.4)",marginTop:5}}>Cargando tu espacio de trabajo…</div>
+        <div style={{fontSize:18,fontWeight:700,color:C.text,letterSpacing:"-0.2px"}}>SAJI Group</div>
+        <div style={{fontSize:13,color:C.muted,marginTop:4}}>Cargando tu espacio de trabajo…</div>
       </div>
-      <div style={{width:200,height:3,background:"rgba(255,255,255,.1)",borderRadius:2,overflow:"hidden"}}>
-        <div style={{height:"100%",background:"linear-gradient(90deg,#16a34a,#0891b2)",borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
+      <div style={{width:180,height:3,background:C.border,borderRadius:2,overflow:"hidden"}}>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#16a34a,#4f46e5)",borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
       </div>
       <style>{`
   @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
@@ -3048,32 +3047,32 @@ export default function App() {
 
       {/* ── HEADER + NAV ────────────────────────────────────────────── */}
       <header style={{
-        background:"#0f172a", padding:"0 16px",
-        display:"flex", alignItems:"center", gap:8,
-        minHeight:56, position:"sticky", top:0, zIndex:100,
-        boxShadow:"0 2px 12px rgba(0,0,0,.2)", flexWrap:"wrap",
+        background:C.card, borderBottom:`1px solid ${C.border}`,
+        padding:"0 16px", display:"flex", alignItems:"center", gap:8,
+        minHeight:54, position:"sticky", top:0, zIndex:100,
+        boxShadow:C.shadow, flexWrap:"wrap",
       }}>
         {/* Logo */}
-        <div style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",flexShrink:0,marginRight:8}} onClick={()=>window.location.reload()}>
-          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#16a34a,#0891b2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <SAJILogo s={22}/>
+        <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginRight:12}} onClick={()=>window.location.reload()}>
+          <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <SAJILogo s={20}/>
           </div>
           <div style={{lineHeight:1.2}}>
-            <div style={{fontWeight:700,fontSize:13,color:"#fff"}}>SAJI Group</div>
-            <div style={{fontSize:9,color:"rgba(255,255,255,.4)"}}>Gestión Comercial</div>
+            <div style={{fontWeight:700,fontSize:13,color:C.text}}>SAJI Group</div>
+            <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
           </div>
         </div>
 
         {/* Tabs */}
-        <nav style={{display:"flex",gap:2,flexWrap:"wrap",flex:"1 1 auto",alignItems:"center"}}>
+        <nav style={{display:"flex",gap:1,flexWrap:"wrap",flex:"1 1 auto",alignItems:"center"}}>
           {TABS.map(t=>{
             const active = tab===t.id;
             return (
               <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                background: active?"rgba(22,163,74,.25)":"transparent",
-                color: active?"#4ade80":"rgba(255,255,255,.55)",
-                border: active?"1px solid rgba(22,163,74,.4)":"1px solid transparent",
-                borderRadius:8, padding:"5px 11px", cursor:"pointer",
+                background: active?C.indigoL:"transparent",
+                color: active?C.indigo:C.muted,
+                border:"none",
+                borderRadius:8, padding:"6px 12px", cursor:"pointer",
                 fontWeight: active?600:400, fontSize:12,
                 whiteSpace:"nowrap", transition:"all .15s", fontFamily:"inherit",
               }}>{t.label}</button>
@@ -3083,17 +3082,19 @@ export default function App() {
 
         {/* Right actions */}
         <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto",flexShrink:0}}>
-          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{background:"rgba(37,99,235,.25)",color:"#93c5fd",border:"1px solid rgba(37,99,235,.35)",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📥 Importar</button>}
-          {rol==="admin"&&<button onClick={exportExcel} style={{background:"rgba(22,163,74,.25)",color:"#86efac",border:"1px solid rgba(22,163,74,.35)",borderRadius:8,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>📤 Exportar</button>}
-          <div style={{display:"flex",alignItems:"center",gap:7,paddingLeft:8,borderLeft:"1px solid rgba(255,255,255,.1)"}}>
-            {rol==="operativo"&&<span style={{background:"rgba(217,119,6,.2)",color:"#fcd34d",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,border:"1px solid rgba(217,119,6,.3)"}}>OPERATIVO</span>}
-            <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#2563eb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
+          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}}>📥 Importar</button>}
+          {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.indigo),padding:"5px 11px",fontSize:11}}>📤 Exportar</button>}
+          <div style={{display:"flex",alignItems:"center",gap:7,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
+            {rol==="operativo"&&<span style={{background:"#fef3c7",color:"#92400e",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20}}>OPERATIVO</span>}
+            <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
               {usuario.charAt(0).toUpperCase()}
             </div>
-            <button onClick={handleLogout} style={{background:"rgba(220,38,38,.2)",color:"#fca5a5",border:"1px solid rgba(220,38,38,.25)",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit"}}>
+            <button onClick={handleLogout} style={{...btnO(C.red),padding:"5px 10px",fontSize:11,color:C.red}}>
               Salir
             </button>
           </div>
+        </div>
+      </header>
         </div>
       </header>
 
