@@ -970,10 +970,16 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
               </div>
             </div>
 
-            {/* Nivel 2 — Total */}
-            <div style={{background:C.greenL,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`,marginBottom:10}}>
-              <span style={{color:C.muted,fontSize:12}}>Total actualizado</span>
-              <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
+            {/* Nivel 2 — Total + Remisión */}
+            <div style={{...g2,marginBottom:10}}>
+              <div style={{background:C.greenL,borderRadius:8,padding:"10px 14px",display:"flex",flexDirection:"column",justifyContent:"center",border:`1px solid ${C.greenM}`}}>
+                <span style={{color:C.muted,fontSize:11,marginBottom:2}}>Total actualizado</span>
+                <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
+              </div>
+              <div>
+                <label style={lbl}>Remisión</label>
+                <input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/>
+              </div>
             </div>
 
             {/* Nivel 3 — Fecha y Calibre */}
