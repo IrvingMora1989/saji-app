@@ -114,9 +114,15 @@ const nb    = a => ({ background:a?C.indigo:"transparent", color:a?"#fff":C.mute
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
-  <img src="/saji-logo.png" width={s} height={s} alt="SAJI Group"
-    style={{objectFit:"contain",borderRadius:"50%"}}
-    onError={e=>{e.target.style.display="none";}}/>
+  <img src="/saji-logo.png" width={s} height={s} alt="SAJI"
+    style={{objectFit:"contain",borderRadius:4,display:"block",flexShrink:0}}
+    onError={e=>{
+      e.target.style.display="none";
+      const span=document.createElement("div");
+      span.style.cssText=`width:${s}px;height:${s}px;background:linear-gradient(135deg,#2d6a4f,#52b788);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:${s*.35}px;flex-shrink:0;`;
+      span.textContent="SG";
+      e.target.parentNode.insertBefore(span,e.target);
+    }}/>
 );
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
@@ -385,21 +391,16 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 : (
                   <div>
                     {conDeuda.map(({cli,totalVendido,totalCobrado,pendiente})=>(
-                      <div key={cli} style={{background:"#fff8f8",borderRadius:9,padding:"10px 13px",marginBottom:6,border:`1px solid ${C.red}22`}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                          <span style={{fontWeight:700,fontSize:13}}>{cli}</span>
-                          <span style={{color:C.red,fontWeight:800,fontSize:16}}>{fmt(pendiente)}</span>
+                      <div key={cli} style={{background:"#fff",borderRadius:8,padding:"8px 12px",marginBottom:4,border:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:13,color:C.text}}>{cli}</div>
+                          <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                            Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong>
+                            <span style={{margin:"0 6px"}}>·</span>
+                            Cobrado: <strong style={{color:C.green}}>{fmt(totalCobrado)}</strong>
+                          </div>
                         </div>
-                        <div style={{display:"flex",gap:16,fontSize:11,color:C.muted}}>
-                          <span>Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong></span>
-                          <span>Cobrado: <strong style={{color:C.green}}>{fmt(totalCobrado)}</strong></span>
-                        </div>
-                        <div style={{marginTop:7,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
-                          <div style={{width:`${totalVendido>0?Math.min(100,Math.round(totalCobrado/totalVendido*100)):0}%`,height:"100%",background:C.green,borderRadius:3}}/>
-                        </div>
-                        <div style={{fontSize:10,color:C.muted,marginTop:3,textAlign:"right"}}>
-                          {totalVendido>0?Math.round(totalCobrado/totalVendido*100):0}% cobrado
-                        </div>
+                        <span style={{color:C.red,fontWeight:700,fontSize:15,flexShrink:0,marginLeft:12}}>{fmt(pendiente)}</span>
                       </div>
                     ))}
                     <div style={{...totRow,background:C.redL,border:`1px solid ${C.red}33`,marginTop:4}}>
