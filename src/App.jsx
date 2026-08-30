@@ -391,16 +391,20 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
                 : (
                   <div>
                     {conDeuda.map(({cli,totalVendido,totalCobrado,pendiente})=>(
-                      <div key={cli} style={{background:"#fff",borderRadius:8,padding:"8px 12px",marginBottom:4,border:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div>
-                          <div style={{fontWeight:600,fontSize:13,color:C.text}}>{cli}</div>
-                          <div style={{fontSize:11,color:C.muted,marginTop:1}}>
-                            Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong>
-                            <span style={{margin:"0 6px"}}>·</span>
-                            Cobrado: <strong style={{color:C.green}}>{fmt(totalCobrado)}</strong>
+                      <div key={cli} style={{background:"#fff",borderRadius:8,padding:"10px 12px",marginBottom:4,border:`1px solid ${C.border}`}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:600,fontSize:14,color:C.text}}>{cli}</div>
+                            <div style={{fontSize:11,color:C.muted,marginTop:3,display:"flex",gap:10,flexWrap:"wrap"}}>
+                              <span>Vendido: <strong style={{color:C.text}}>{fmt(totalVendido)}</strong></span>
+                              <span style={{color:C.green,fontWeight:600}}>✓ Cobrado: {fmt(totalCobrado)}</span>
+                            </div>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                            <div style={{fontSize:10,color:C.red,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.3px"}}>Por cobrar</div>
+                            <div style={{color:C.red,fontWeight:700,fontSize:15}}>{fmt(pendiente)}</div>
                           </div>
                         </div>
-                        <span style={{color:C.red,fontWeight:700,fontSize:15,flexShrink:0,marginLeft:12}}>{fmt(pendiente)}</span>
                       </div>
                     ))}
                     <div style={{...totRow,background:C.redL,border:`1px solid ${C.red}33`,marginTop:4}}>
@@ -2958,9 +2962,7 @@ export default function App() {
       }}>
         {/* Logo */}
         <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginRight:12}} onClick={()=>window.location.reload()}>
-          <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <SAJILogo s={20}/>
-          </div>
+          <SAJILogo s={40}/>
           <div style={{lineHeight:1.2}}>
             <div style={{fontWeight:700,fontSize:13,color:C.text}}>SAJI Group</div>
             <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
