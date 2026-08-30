@@ -945,51 +945,78 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
       </div>
       {editing&&(
         <div style={modal}>
-          <div style={{...mbox,maxWidth:560}}>
+          <div style={{...mbox,maxWidth:500}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
               <h3 style={{margin:0,color:C.green}}>✏️ Editar Venta</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setEditing(null)}>×</button>
             </div>
-            {/* Info de la venta */}
             <div style={{background:C.bg,borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:C.muted}}>
               <strong style={{color:C.text}}>{form.cliente}</strong> · {form.producto} {form.calibre} · #{form.pedidoId}
             </div>
-            <div style={g2}>
-              {/* ── Cantidades ── */}
+
+            {/* Nivel 1 — Cantidades */}
+            <div style={{...g3,marginBottom:10}}>
               <div>
                 <label style={lbl}>KG reales</label>
-                <input type="number" inputMode="decimal" style={inp}
-                  value={form.cantidad||""}
-                  onChange={e=>sf("cantidad",e.target.value)}/>
+                <input type="number" inputMode="decimal" style={inp} value={form.cantidad||""} onChange={e=>sf("cantidad",e.target.value)}/>
               </div>
               <div>
                 <label style={lbl}>Precio $/kg</label>
-                <input type="number" inputMode="decimal" style={inp}
-                  value={form.precio||""}
-                  onChange={e=>sf("precio",e.target.value)}/>
+                <input type="number" inputMode="decimal" style={inp} value={form.precio||""} onChange={e=>sf("precio",e.target.value)}/>
               </div>
               <div>
                 <label style={lbl}>Costo fruta $/kg</label>
-                <input type="number" inputMode="decimal" style={inp}
-                  value={form.costoFruta||""}
-                  onChange={e=>sf("costoFruta",e.target.value)}/>
+                <input type="number" inputMode="decimal" style={inp} value={form.costoFruta||""} onChange={e=>sf("costoFruta",e.target.value)}/>
               </div>
-              {/* Total calculado */}
-              <div style={{gridColumn:"1/-1",background:C.greenL,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`}}>
-                <span style={{color:C.muted,fontSize:12}}>Total actualizado</span>
-                <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
-              </div>
-              {/* ── Fecha venta ── */}
+            </div>
+
+            {/* Nivel 2 — Total */}
+            <div style={{background:C.greenL,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${C.greenM}`,marginBottom:10}}>
+              <span style={{color:C.muted,fontSize:12}}>Total actualizado</span>
+              <strong style={{color:C.green,fontSize:16}}>{fmt((parseFloat(form.cantidad)||0)*(parseFloat(form.precio)||0))}</strong>
+            </div>
+
+            {/* Nivel 3 — Fecha y Calibre */}
+            <div style={{...g2,marginBottom:10}}>
               <div>
                 <label style={lbl}>Fecha de venta</label>
                 <input type="date" style={inp} value={form.fecha||""} onChange={e=>sf("fecha",e.target.value)}/>
               </div>
-              {/* ── Calibre ── */}
               <div>
                 <label style={lbl}>Calibre</label>
-                <input style={inp} placeholder="Calibre" value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)}/>
+                <select style={sel} value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  {["primera","extra","super","chico","segunda","tercera","mixto","xxx"].map(c=>(
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
-              {/* ── Pago ── */}
+            </div>
+
+            {/* Nivel 4 — Factura */}
+            <div style={{...g2,marginBottom:10}}>
+              <div>
+                <label style={lbl}>Factura #</label>
+                <input style={inp} placeholder="Número de factura" value={form.factura||""}
+                  onChange={e=>{ sf("factura",e.target.value); sf("estatusFactura", e.target.value.trim() ? "factura_realizada" : "pendiente_factura"); }}/>
+              </div>
+              <div>
+                <label style={lbl}>Fecha de factura</label>
+                <div style={{display:"flex",gap:4}}>
+                  <input type="date" style={{...inp,flex:1}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
+                  {form.fechaFactura&&<button style={{...btnO(C.red),padding:"8px 10px"}} onClick={()=>sf("fechaFactura","")}>✕</button>}
+                </div>
+              </div>
+            </div>
+
+            {/* Nivel 5 — Pago */}
+            <div style={{...g3,marginBottom:4}}>
+              <div>
+                <label style={lbl}>Tipo de pago</label>
+                <select style={sel} value={form.tipoPago||""} onChange={e=>sf("tipoPago",e.target.value)}>
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
               <div>
                 <label style={lbl}>Estatus pago</label>
                 <select style={sel} value={form.estatusPago||"pendiente"} onChange={e=>sf("estatusPago",e.target.value)}>
@@ -998,49 +1025,10 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
                 </select>
               </div>
               <div>
-                <label style={lbl}>Tipo de pago</label>
-                <select style={sel} value={form.tipoPago||""} onChange={e=>sf("tipoPago",e.target.value)}>
-                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{gridColumn:"1/-1"}}>
                 <label style={lbl}>Fecha de pago</label>
                 <div style={{display:"flex",gap:4}}>
                   <input type="date" style={{...inp,flex:1}} value={form.fechaPago||""} onChange={e=>sf("fechaPago",e.target.value)}/>
-                  {form.fechaPago&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaPago","")}>✕</button>}
-                </div>
-              </div>
-              {/* ── Factura ── */}
-              <div>
-                <label style={lbl}>Estatus factura</label>
-                <select style={sel} value={form.estatusFactura||"no_aplica"} onChange={e=>sf("estatusFactura",e.target.value)}>
-                  <option value="no_aplica">— No aplica</option>
-                  <option value="pendiente_factura">⏳ Pendiente de facturar</option>
-                  <option value="factura_realizada">✅ Factura realizada</option>
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Factura #</label>
-                <input style={inp} placeholder="Número de factura"
-                  value={form.factura||""}
-                  onChange={e=>{ sf("factura",e.target.value); sf("estatusFactura", e.target.value.trim() ? "factura_realizada" : "pendiente_factura"); }}/>
-              </div>
-              <div>
-                <label style={lbl}>Emisor factura</label>
-                <select style={sel} value={form.facturaEmisor||""} onChange={e=>sf("facturaEmisor",e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {["SAJI","FRASAVO","DAVID","OTRO"].map(em=><option key={em}>{em}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Remisión</label>
-                <input style={inp} placeholder="Número de remisión" value={form.remision||""} onChange={e=>sf("remision",e.target.value)}/>
-              </div>
-              <div style={{gridColumn:"1/-1"}}>
-                <label style={lbl}>Fecha de factura {(form.factura||"").trim()&&!(form.fechaFactura||"").trim()&&<span style={{color:C.red,fontWeight:700}}>* Requerida</span>}</label>
-                <div style={{display:"flex",gap:4}}>
-                  <input type="date" style={{...inp,flex:1,borderColor:(form.factura||"").trim()&&!(form.fechaFactura||"").trim()?C.red:C.border}} value={form.fechaFactura||""} onChange={e=>sf("fechaFactura",e.target.value)}/>
-                  {form.fechaFactura&&<button style={{...btnO(C.red),padding:"8px 12px"}} title="Borrar fecha" onClick={()=>sf("fechaFactura","")}>✕</button>}
+                  {form.fechaPago&&<button style={{...btnO(C.red),padding:"8px 10px"}} onClick={()=>sf("fechaPago","")}>✕</button>}
                 </div>
               </div>
             </div>
@@ -2962,7 +2950,7 @@ export default function App() {
       }}>
         {/* Logo */}
         <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginRight:12}} onClick={()=>window.location.reload()}>
-          <SAJILogo s={40}/>
+          <SAJILogo s={48}/>
           <div style={{lineHeight:1.2}}>
             <div style={{fontWeight:700,fontSize:13,color:C.text}}>SAJI Group</div>
             <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
