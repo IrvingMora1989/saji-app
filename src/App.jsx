@@ -1134,6 +1134,41 @@ function Gastos({ gastos, setGastos, logBit }) {
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+
+      {/* Resumen por tipo */}
+      {(()=>{
+        const totalGeneral = listaFecha.reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+        const porTipo = Object.keys(TIPOS_GASTO).map(tipo=>{
+          const suma = listaFecha.filter(g=>g.tipoGasto===tipo).reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+          return { tipo, suma };
+        }).filter(x=>x.suma>0).sort((a,b)=>b.suma-a.suma);
+        if(porTipo.length===0) return null;
+        return (
+          <div style={{...card,marginBottom:12,padding:"14px 16px"}}>
+            <div style={{fontWeight:700,fontSize:13,color:C.text,marginBottom:12}}>📊 Resumen por tipo de gasto</div>
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {porTipo.map(({tipo,suma})=>{
+                const pct = totalGeneral>0 ? (suma/totalGeneral*100).toFixed(1) : "0.0";
+                return (
+                  <div key={tipo} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setFiltTipo(filtTipo===tipo?"":tipo)}>
+                    <div style={{width:130,flexShrink:0,fontSize:12,fontWeight:filtTipo===tipo?700:400,color:filtTipo===tipo?C.indigo:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tipo}</div>
+                    <div style={{flex:1,height:6,background:C.border,borderRadius:3,overflow:"hidden"}}>
+                      <div style={{width:`${pct}%`,height:"100%",background:filtTipo===tipo?C.indigo:C.amber,borderRadius:3}}/>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:600,color:C.red,minWidth:90,textAlign:"right"}}>{fmt(suma)}</div>
+                    <div style={{fontSize:11,color:C.muted,minWidth:38,textAlign:"right"}}>{pct}%</div>
+                  </div>
+                );
+              })}
+              <div style={{borderTop:`1px solid ${C.border}`,marginTop:4,paddingTop:8,display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:12,fontWeight:700}}>Total</span>
+                <span style={{fontSize:14,fontWeight:800,color:C.red}}>{fmt(totalGeneral)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🏷️ Tipo:</span>
         <button style={nb(!filtTipo)} onClick={()=>setFiltTipo("")}>Todos</button>
