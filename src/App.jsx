@@ -425,7 +425,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, productos, logBit, rol }) {
+function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, productos, logBit, rol, setVentasCebolla, setVentasLimon }) {
   const esOperativo = rol==="operativo";
   const [show,         setShow]        = useState(false);
   const [filter,       setFilter]      = useState("pendiente");
@@ -476,13 +476,20 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
       itemId:`${p.id}-${it.producto}-${Math.random().toString(36).slice(2,5)}`,
       semana:weekOf(fechaVenta), dia:dayOf(fechaVenta), mes:monthOf(fechaVenta), fecha:fechaVenta,
       cliente:p.cliente, producto:it.producto, calibre:it.calibre,
+      negocio: it.producto==="Cebolla" ? "Cebolla" : it.producto==="Limón" ? "Limón" : "Aguacate",
       cantidad:it.cantidad, precio:parseFloat(it.precio),
       total:it.cantidad*parseFloat(it.precio),
       estatusPago:"pendiente", tipoPago:tipoPagoReal||p.tipoPago, fechaPago:"",
       factura:"", facturaEmisor:"", remision:remisionReal||"", fechaFactura:"",
       estatusFactura: p.factura==="si" ? "pendiente_factura" : "no_aplica",
     }));
-    setVentas(vs=>[...nuevasVentas,...vs]);
+    // Separar ventas por negocio y guardar en tabla correcta
+    const vAguacate = nuevasVentas.filter(v=>v.negocio==="Aguacate");
+    const vCebolla  = nuevasVentas.filter(v=>v.negocio==="Cebolla");
+    const vLimon    = nuevasVentas.filter(v=>v.negocio==="Limón");
+    if(vAguacate.length>0) setVentas(vs=>[...vAguacate,...vs]);
+    if(vCebolla.length>0)  setVentasCebolla&&setVentasCebolla(vs=>[...vCebolla,...vs]);
+    if(vLimon.length>0)    setVentasLimon&&setVentasLimon(vs=>[...vLimon,...vs]);
     setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal,fechaEntrega:fechaVenta}:x));
     logBit("Completó pedido",`#${p.id} · ${p.cliente} · ${fmt(totalReal)}`);
     setCompletando(null);
@@ -697,7 +704,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
 // ════════════════════════════════════════════════════════════════════════════════
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
-function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
+function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate", titulo="🥑 Ventas Aguacate" }) {
   const [editing,    setEditing]    = useState(null);
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
@@ -779,7 +786,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
         <div>
-          <h2 style={{...h2s,margin:0}}>💰 Ventas</h2>
+          <h2 style={{...h2s,margin:0}}>{titulo}</h2>
           <div style={{color:C.muted,fontSize:12,marginTop:2}}>
             {lista.length} registros · 
             <strong style={{color:C.green}}> {fmt(totalLista)}</strong> · 
@@ -828,7 +835,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit }) {
                   facturaEmisor:String(r["EMISOR"]||r["Factura emisor"]||r["Factura Emisor"]||""),
                   remision:    String(r["REMISIÓN"]||r["Remisión"]||r["Remision"]||""),
                   fechaFactura:excelToDate(r["F. FACTURA"]||r["F. Factura"]||r["Fecha Factura"]),
-                  estatusFactura: (r["FACTURA"]||r["Factura"])&&String(r["FACTURA"]||r["Factura"]).trim()&&String(r["FACTURA"]||r["Factura"])!=="-" ? "factura_realizada" : "no_aplica",
+                  negocio:     negocio,
                   producto: "",
                 };
               }).filter(r=>r.cliente&&r.fecha);
@@ -2869,7 +2876,9 @@ export default function App() {
   });
 
   const [pedidos,    setPedidos,    loadedPed]  = useSupabase("pedidos",    []);
-  const [ventas,     setVentas,     loadedVen]  = useSupabase("ventas",     []);
+  const [ventas,        setVentas,        loadedVen]  = useSupabase("ventas",        []);
+  const [ventasCebolla, setVentasCebolla, loadedVenC] = useSupabase("ventas_cebolla",[]);
+  const [ventasLimon,   setVentasLimon,   loadedVenL] = useSupabase("ventas_limon",  []);
   const [gastos,     setGastos,     loadedGas]  = useSupabase("gastos",     []);
   const [pagos,      setPagos,      loadedPag]  = useSupabase("pagos",      []);
   const [fruta,      setFruta,      loadedFru]  = useSupabase("fruta",      []);
@@ -2880,7 +2889,7 @@ export default function App() {
   const [inventario, setInventario, loadedInv]  = useSupabase("inventario", []);
   const [cajaMov,    setCajaMov,    loadedCaj]  = useSupabase("caja_mov", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv && loadedCaj;
+  const todoCargado = loadedPed && loadedVen && loadedVenC && loadedVenL && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv && loadedCaj;
 
   const logBit = (accion, detalle="") => {
     const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
@@ -2930,14 +2939,16 @@ export default function App() {
   if(!usuario) return <LoginScreen onLogin={handleLogin}/>;
 
   const TABS_ADMIN = [
-    { id:"dashboard",   label:"🏠 Inicio"      },
-    { id:"pedidos",     label:"📦 Pedidos"     },
-    { id:"ventas",      label:"💰 Ventas"      },
-    { id:"gastos",      label:"💸 Gastos"      },
-    { id:"fruta",       label:"🥑 Fruta"       },
-    { id:"inventarios", label:"📦 Inventarios" },
-    { id:"catalogos",   label:"🗂️ Catálogos"  },
-    { id:"bitacora",    label:"📋 Bitácora"    },
+    { id:"dashboard",      label:"🏠 Inicio"      },
+    { id:"pedidos",        label:"📦 Pedidos"     },
+    { id:"ventas",         label:"🥑 Aguacate"    },
+    { id:"ventas_cebolla", label:"🧅 Cebolla"     },
+    { id:"ventas_limon",   label:"🍋 Limón"       },
+    { id:"gastos",         label:"💸 Gastos"      },
+    { id:"fruta",          label:"🥑 Fruta"       },
+    { id:"inventarios",    label:"📦 Inventarios" },
+    { id:"catalogos",      label:"🗂️ Catálogos"  },
+    { id:"bitacora",       label:"📋 Bitácora"    },
   ];
   const TABS_OPERATIVO = [
     ...(canPedidos ? [{ id:"pedidos", label:"📦 Pedidos" }] : []),
@@ -3020,9 +3031,11 @@ export default function App() {
 
       {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
       <main style={{ padding:"20px 16px", maxWidth:1500, margin:"0 auto" }}>
-        {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
-        {tab==="pedidos"     && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-        {tab==="ventas"      && rol==="admin" && <Ventas    ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit}/>}
+        {tab==="dashboard"      && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
+        {tab==="pedidos"        && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol} setVentasCebolla={setVentasCebolla} setVentasLimon={setVentasLimon}/>}
+        {tab==="ventas"         && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Aguacate" titulo="🥑 Ventas Aguacate"/>}
+        {tab==="ventas_cebolla" && rol==="admin" && <Ventas ventas={ventasCebolla} setVentas={setVentasCebolla} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Cebolla" titulo="🧅 Ventas Cebolla"/>}
+        {tab==="ventas_limon"   && rol==="admin" && <Ventas ventas={ventasLimon}   setVentas={setVentasLimon}   pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Limón"   titulo="🍋 Ventas Limón"/>}
         {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
         {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
         {tab==="fruta"       && rol==="admin" && <Fruta     fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
