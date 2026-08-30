@@ -9,7 +9,10 @@ if (typeof document !== "undefined") {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const genId     = () => Math.floor(100000 + Math.random() * 900000).toString();
+const genId = (pedidos=[]) => {
+  const nums = pedidos.map(p=>parseInt(p.id||0)).filter(n=>!isNaN(n));
+  return nums.length>0 ? String(Math.max(...nums)+1) : "1001";
+};
 const todayStr  = () => new Date().toISOString().split("T")[0];
 const DIAS      = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 const MESES     = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -111,7 +114,7 @@ const nb    = a => ({ background:a?C.indigo:"transparent", color:a?"#fff":C.mute
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
-  <img src="/saji-logo.jpeg" width={s} height={s} alt="SAJI Group"
+  <img src="/saji-logo.png" width={s} height={s} alt="SAJI Group"
     style={{objectFit:"contain",borderRadius:"50%"}}
     onError={e=>{e.target.style.display="none";}}/>
 );
@@ -265,59 +268,19 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
 
   return (
     <div>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,background:C.card,borderRadius:12,padding:"12px 16px",boxShadow:C.shadow,border:`1px solid ${C.border}`}}>
-        <SAJILogo s={44}/>
-        <div>
-          <div style={{fontSize:18,fontWeight:800,color:C.green}}>SAJI Group</div>
-          <div style={{color:C.muted,fontSize:11}}>Sistema de Gestión Comercial 🥑🧅</div>
-        </div>
-      </div>
-
-      {/* Period filter for KPIs */}
+      {/* Period filter */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-          <span style={{color:C.muted,fontSize:12,fontWeight:700}}>📊 Indicadores —</span>
+          <span style={{color:C.muted,fontSize:12,fontWeight:700}}>📊 Período —</span>
           {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"},{k:"rango",l:"📅 Rango"}].map(f=>(
             <button key={f.k} style={nb(dashFilt.tipo===f.k)} onClick={()=>setDashFilt({tipo:f.k,valor:"",desde:"",hasta:""})}>{f.l}</button>
           ))}
           <span style={{marginLeft:"auto",color:C.green,fontWeight:700,fontSize:12}}>{periodoLabel()}</span>
         </div>
-        {dashFilt.tipo==="semana"&&(
-          <div style={{marginTop:8}}>
-            <input type="number" style={{...inp,width:220,padding:"7px 10px",fontSize:14}}
-              placeholder={`Semana # (actual: ${weekOf(todayStr())})`} min="1" max="53"
-              value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/>
-          </div>
-        )}
-        {dashFilt.tipo==="mes"&&(
-          <div style={{marginTop:8}}>
-            <select style={{...sel,width:200,padding:"7px 10px",fontSize:14}} value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}>
-              <option value="">— Seleccionar mes —</option>
-              {MESES.map((m,i)=><option key={m} value={String(i+1)}>{m}</option>)}
-            </select>
-          </div>
-        )}
-        {dashFilt.tipo==="fecha"&&(
-          <div style={{marginTop:8}}>
-            <input type="date" style={{...inp,width:200,padding:"7px 10px",fontSize:14}}
-              value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/>
-          </div>
-        )}
-        {dashFilt.tipo==="rango"&&(
-          <div style={{marginTop:8,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{...lbl,margin:0}}>Desde</span>
-              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
-                value={dashFilt.desde||""} onChange={e=>setDashFilt(f=>({...f,desde:e.target.value}))}/>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{...lbl,margin:0}}>Hasta</span>
-              <input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}}
-                value={dashFilt.hasta||""} onChange={e=>setDashFilt(f=>({...f,hasta:e.target.value}))}/>
-            </div>
-          </div>
-        )}
+        {dashFilt.tipo==="semana"&&<div style={{marginTop:8}}><input type="number" style={{...inp,width:220,padding:"7px 10px",fontSize:14}} placeholder={`Semana # (actual: ${weekOf(todayStr())})`} min="1" max="53" value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/></div>}
+        {dashFilt.tipo==="mes"&&<div style={{marginTop:8}}><select style={{...sel,width:200,padding:"7px 10px",fontSize:14}} value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}><option value="">— Seleccionar mes —</option>{MESES.map((m,i)=><option key={m} value={String(i+1)}>{m}</option>)}</select></div>}
+        {dashFilt.tipo==="fecha"&&<div style={{marginTop:8}}><input type="date" style={{...inp,width:200,padding:"7px 10px",fontSize:14}} value={dashFilt.valor} onChange={e=>setDashFilt(f=>({...f,valor:e.target.value}))}/></div>}
+        {dashFilt.tipo==="rango"&&<div style={{marginTop:8,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{...lbl,margin:0}}>Desde</span><input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}} value={dashFilt.desde||""} onChange={e=>setDashFilt(f=>({...f,desde:e.target.value}))}/></div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{...lbl,margin:0}}>Hasta</span><input type="date" style={{...inp,width:160,padding:"7px 10px",fontSize:14}} value={dashFilt.hasta||""} onChange={e=>setDashFilt(f=>({...f,hasta:e.target.value}))}/></div></div>}
       </div>
 
       {/* ── Estado de Resultados ─────────────────────────────────────── */}
@@ -330,13 +293,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
         const uOperat   = uBruta - gastosOp;
         const uNeta     = uOperat - totalImp;
         const pct = (n) => totalVentas===0?"0%":`${((n/totalVentas)*100).toFixed(1)}%`;
-        const kpis = [
-          { label:"Ventas $",           v:fmt(totalVentas),   c:C.green,  icon:"📈" },
-          { label:"Ventas KG",          v:totalKgVendidos.toLocaleString("es-MX")+" kg", c:C.blue, icon:"⚖️" },
-          { label:"Gastos",             v:fmt(gastosOp),      c:C.red,    icon:"💸" },
-          { label:"Impuestos (ISR+IVA)",v:fmt(totalImp),      c:C.purple, icon:"🏛️" },
-          { label:"Utilidad neta",      v:fmt(uNeta),         c:uNeta>=0?C.green:C.red, icon:uNeta>=0?"🏆":"⚠️", destacado:true },
-        ];
         const filas = [
           { concepto:"Ventas totales",              monto:totalVentas,      c:C.green,                 bold:true,  icon:"📈", sep:false },
           { concepto:"(-) Costo de ventas (fruta)", monto:costoVentasFruta, c:C.muted,                 bold:false, icon:"🥑", sep:false },
@@ -351,15 +307,6 @@ function Dashboard({ pedidos, ventas, gastos, fruta, pagos }) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <div style={{fontWeight:800,fontSize:13,color:C.text}}>📊 Estado de Resultados</div>
               <span style={{background:C.greenL,color:C.green,fontWeight:700,fontSize:11,padding:"3px 12px",borderRadius:20,border:`1px solid ${C.greenM}`}}>{periodoLabel()}</span>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}} className="kpi-grid">
-              {kpis.map(k=>(
-                <div key={k.label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${k.c}`,borderRadius:10,padding:"11px 12px",boxShadow:C.shadow,outline:k.destacado?`1.5px solid ${k.c}44`:"none"}}>
-                  <div style={{fontSize:18,marginBottom:3}}>{k.icon}</div>
-                  <div style={{fontSize:14,fontWeight:800,color:k.c,lineHeight:1.2,fontFamily:"monospace"}}>{k.v}</div>
-                  <div style={{color:C.muted,fontSize:10,marginTop:3}}>{k.label}</div>
-                </div>
-              ))}
             </div>
             <div style={{borderRadius:9,border:`1px solid ${C.border}`,overflow:"hidden"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -498,7 +445,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   const guardar = () => {
     if(!form.cliente||!form.fechaEntrega) return alert("Completa cliente y fecha de entrega");
     if(form.items.some(it=>!it.producto||!it.cantidad||!it.precio)) return alert("Completa todos los productos");
-    const np={id:genId(),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
+    const np={id:genId(pedidos),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
     setPedidos(ps=>[np,...ps]);
     logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
     setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
@@ -515,6 +462,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   };
   const confirmarCompletar = () => {
     const p=completando; if(!p) return;
+    if(!remisionReal.trim()) return alert("⚠️ Debes ingresar el número de remisión para completar el pedido.");
     const fechaVenta = fechaEntregaReal || p.fechaEntrega || todayStr();
     const items = (p.items||[]).map((it,i)=>({...it, cantidad: parseFloat(kgsReales[i]||it.cantidad)||parseFloat(it.cantidad) }));
     const totalReal = items.reduce((s,it)=>s+(it.cantidad*parseFloat(it.precio)),0);
@@ -535,87 +483,60 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
     setCompletando(null);
   };
 
-  const [pedFilt, setPedFilt] = useState({tipo:"todo",valor:""});
-
-  let lista = (esOperativo
-    ? pedidos.filter(p=>p.estatus==="pendiente")
-    : (filter==="todos" ? pedidos : pedidos.filter(p=>p.estatus===filter))
-  ).slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
-  // Apply period filter on fechaEntrega
-  if(pedFilt.tipo==="hoy") lista = lista.filter(p=>p.fechaEntrega===todayStr());
-  else if(pedFilt.tipo==="fecha") lista = pedFilt.valor ? lista.filter(p=>p.fechaEntrega===pedFilt.valor) : lista;
-  else if(pedFilt.tipo==="semana") {
-    const w = pedFilt.valor ? parseInt(pedFilt.valor) : weekOf(todayStr());
-    lista = lista.filter(p=>p.fechaEntrega&&weekOf(p.fechaEntrega)===w);
-  } else if(pedFilt.tipo==="mes") {
-    const mo = pedFilt.valor ? parseInt(pedFilt.valor) : (new Date().getMonth()+1);
-    lista = lista.filter(p=>p.fechaEntrega&&new Date(p.fechaEntrega+"T12:00:00").getMonth()+1===mo);
-  }
-
-  const sColor = s => s==="pendiente"?C.amber:s==="completado"?C.green:C.red;
-  const sLabel = s => s==="pendiente"?"⏳ Pendiente":s==="completado"?"✅ Completado":"❌ Cancelado";
+  // Always show only pending pedidos
+  const lista = pedidos.filter(p=>p.estatus==="pendiente")
+    .slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
-        <h2 style={{...h2s,margin:0}}>📦 Pedidos</h2>
-        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          {!esOperativo && ["todos","pendiente","completado","cancelado"].map(f=>(
-            <button key={f} style={nb(filter===f)} onClick={()=>setFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
-          ))}
-          <button style={btn()} onClick={()=>setShow(true)}>+ Nuevo Pedido</button>
-        </div>
+        <h2 style={{...h2s,margin:0}}>📦 Pedidos Pendientes</h2>
+        <button style={btn()} onClick={()=>setShow(true)}>+ Nuevo Pedido</button>
       </div>
-
-      {!esOperativo && <FilterBar filter={pedFilt} setFilter={setPedFilt} count={lista.length}/>}
 
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed",minWidth:600}}>
             <colgroup>
-              <col style={{width:90}}/>{/* Cliente */}
+              <col style={{width:100}}/>{/* Cliente */}
               <col style={{width:90}}/>{/* Producto */}
-              <col style={{width:52}}/>{/* KG */}
               <col style={{width:60}}/>{/* Calibre */}
-              <col style={{width:62}}/>{/* $/kg */}
-              <col style={{width:72}}/>{/* Subtotal */}
-              <col style={{width:56}}/>{/* #Ped */}
+              <col style={{width:55}}/>{/* KG */}
+              <col style={{width:65}}/>{/* $/kg */}
+              <col style={{width:75}}/>{/* Subtotal */}
               <col style={{width:72}}/>{/* F.Entrega */}
-              <col style={{width:56}}/>{/* Pago */}
-              <col style={{width:38}}/>{/* Fact */}
-              <col style={{width:78}}/>{/* Estatus */}
-              <col style={{width:88}}/>{/* Acciones */}
+              <col style={{width:40}}/>{/* Factura */}
+              <col style={{width:80}}/>{/* Pago */}
+              <col style={{width:60}}/>{/* #Pedido */}
+              <col style={{width:90}}/>{/* Acciones */}
             </colgroup>
             <thead>
-              <tr>{["Cliente","Producto","KG","Calibre","$/kg","Subtotal","#Ped","F.Entrega","Pago","Fact.","Estatus",""].map(h=>(
+              <tr>{["Cliente","Producto","Calibre","KG","$/kg","Subtotal","F.Entrega","Fact.","Pago","#Ped",""].map(h=>(
                 <th key={h} style={{...th,padding:"7px 6px",fontSize:10}}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
-              {lista.length===0&&<tr><td colSpan={12} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin pedidos</td></tr>}
+              {lista.length===0&&<tr><td colSpan={11} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin pedidos pendientes</td></tr>}
               {lista.map(p=>{
                 const items=p.items||[];
                 return items.map((it,idx)=>(
                   <tr key={`${p.id}-${idx}`} style={{background:idx%2===0?"#fff":"#f9fcfa"}}>
                     {idx===0&&<td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} rowSpan={items.length}>{p.cliente}</td>}
                     <td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}}>{pEmoji(it.producto)} {it.producto}</td>
-                    <td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px"}}>{it.cantidad}kg</td>
                     <td style={{...td,padding:"7px 6px"}}><span style={{...badge(C.blue,C.blueL),padding:"2px 6px",fontSize:10}}>{it.calibre}</span></td>
+                    <td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px"}}>{it.cantidad}kg</td>
                     <td style={{...td,fontSize:12,padding:"7px 6px"}}>{fmt(it.precio)}</td>
                     <td style={{...td,padding:"7px 6px"}}><strong style={{color:C.green,fontSize:12}}>{fmt(parseFloat(it.cantidad||0)*parseFloat(it.precio||0))}</strong></td>
-                    {idx===0&&<td style={{...td,color:C.muted,fontSize:10,padding:"7px 6px"}} rowSpan={items.length}>#{p.id}</td>}
                     {idx===0&&<td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}} rowSpan={items.length}>{fmtDate(p.fechaEntrega)}</td>}
-                    {idx===0&&<td style={{...td,fontSize:11,padding:"7px 6px"}} rowSpan={items.length}>{p.tipoPago}</td>}
                     {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(p.factura==="si"?C.green:C.muted),padding:"2px 6px",fontSize:10}}>{p.factura==="si"?"✅":"—"}</span></td>}
-                    {idx===0&&<td style={{...td,padding:"7px 6px"}} rowSpan={items.length}><span style={{...badge(sColor(p.estatus)),padding:"2px 6px",fontSize:10}}>{sLabel(p.estatus)}</span></td>}
+                    {idx===0&&<td style={{...td,fontSize:11,padding:"7px 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} rowSpan={items.length}>{p.tipoPago}</td>}
+                    {idx===0&&<td style={{...td,color:C.muted,fontSize:10,padding:"7px 6px"}} rowSpan={items.length}>#{p.id}</td>}
                     {idx===0&&(
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
-                        {p.estatus==="pendiente"&&(
-                          <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
-                            <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
-                          </div>
-                        )}
+                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
+                          <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -697,7 +618,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
               <h3 style={{margin:0,color:C.green,fontSize:16}}>📦 Nuevo Pedido</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShow(false)}>×</button>
             </div>
-            <div style={g3}>
+            <div style={g2}>
               <div><label style={lbl}>Cliente *</label>
                 <select style={sel} value={form.cliente} onChange={e=>sf("cliente",e.target.value)}>
                   <option value="">— Seleccionar —</option>
@@ -707,14 +628,17 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
               <div><label style={lbl}>Fecha de entrega *</label>
                 <input type="date" style={inp} value={form.fechaEntrega} onChange={e=>sf("fechaEntrega",e.target.value)}/>
               </div>
-              <div><label style={lbl}>Tipo de pago</label>
-                <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
-                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
+              <div><label style={lbl}>Requiere factura</label>
+                <select style={sel} value={form.factura} onChange={e=>{
+                  sf("factura",e.target.value);
+                  if(e.target.value==="si") sf("tipoPago","Transferencia SAJI");
+                }}>
+                  <option value="no">No</option><option value="si">Sí</option>
                 </select>
               </div>
-              <div><label style={lbl}>Requiere factura</label>
-                <select style={sel} value={form.factura} onChange={e=>sf("factura",e.target.value)}>
-                  <option value="no">No</option><option value="si">Sí</option>
+              <div><label style={lbl}>Tipo de pago {form.factura==="si"&&<span style={{color:C.amber,fontSize:10}}>(auto: Transferencia)</span>}</label>
+                <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
+                  {["Efectivo","Transferencia Frasavo","Transferencia SAJI"].map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
             </div>
