@@ -1123,13 +1123,6 @@ function Gastos({ gastos, setGastos, logBit }) {
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
-          <button style={{...btnO(C.amber),color:C.amber}} onClick={()=>{
-            const tarjetas = gastos.filter(g=>g.metodoPago&&g.metodoPago.toLowerCase().includes("tarjeta")&&g.estatusPago==="pagado");
-            if(tarjetas.length===0) return alert("No hay gastos con tarjeta marcados como pagado.");
-            if(!window.confirm(`¿Cambiar ${tarjetas.length} gasto(s) con tarjeta a "Por pagar"?\n\nPodrás revisarlos y marcarlos como pagados uno a uno.`)) return;
-            setGastos(gs=>gs.map(g=>g.metodoPago&&g.metodoPago.toLowerCase().includes("tarjeta")&&g.estatusPago==="pagado"?{...g,estatusPago:"porpagar"}:g));
-            logBit("Migración gastos tarjeta","Cambió gastos con tarjeta a Por pagar");
-          }}>💳 Tarjeta → Por pagar</button>
           <button style={btn(C.red)} onClick={openNew}>+ Nuevo Gasto</button>
         </div>
       </div>
@@ -1150,13 +1143,10 @@ function Gastos({ gastos, setGastos, logBit }) {
               {porTipo.map(({tipo,suma})=>{
                 const pct = totalGeneral>0 ? (suma/totalGeneral*100).toFixed(1) : "0.0";
                 return (
-                  <div key={tipo} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setFiltTipo(filtTipo===tipo?"":tipo)}>
-                    <div style={{width:130,flexShrink:0,fontSize:12,fontWeight:filtTipo===tipo?700:400,color:filtTipo===tipo?C.indigo:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tipo}</div>
-                    <div style={{flex:1,height:6,background:C.border,borderRadius:3,overflow:"hidden"}}>
-                      <div style={{width:`${pct}%`,height:"100%",background:filtTipo===tipo?C.indigo:C.amber,borderRadius:3}}/>
-                    </div>
-                    <div style={{fontSize:12,fontWeight:600,color:C.red,minWidth:90,textAlign:"right"}}>{fmt(suma)}</div>
-                    <div style={{fontSize:11,color:C.muted,minWidth:38,textAlign:"right"}}>{pct}%</div>
+                  <div key={tipo} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"4px 0"}} onClick={()=>setFiltTipo(filtTipo===tipo?"":tipo)}>
+                    <div style={{flex:1,fontSize:13,fontWeight:filtTipo===tipo?700:400,color:filtTipo===tipo?C.indigo:C.text}}>{tipo}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.red}}>{fmt(suma)}</div>
+                    <div style={{fontSize:12,color:C.muted,minWidth:42,textAlign:"right"}}>{pct}%</div>
                   </div>
                 );
               })}
@@ -1179,9 +1169,9 @@ function Gastos({ gastos, setGastos, logBit }) {
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Sem","Día","Mes","Fecha","Descripción","Tipo Gasto","Método Pago","Estatus","Total",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Sem","Día","Mes","Fecha","Descripción","Tipo Gasto","Método Pago","Total",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
-              {lista.length===0&&<tr><td colSpan={10} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin gastos en este período 💸</td></tr>}
+              {lista.length===0&&<tr><td colSpan={9} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin gastos en este período 💸</td></tr>}
               {lista.map(g=>(
                 <tr key={g.id}>
                   <td style={td}>{g.semana}</td><td style={td}>{g.dia}</td><td style={td}>{g.mes}</td>
@@ -1189,7 +1179,6 @@ function Gastos({ gastos, setGastos, logBit }) {
                   <td style={{...td,fontWeight:600}}>{g.gasto}</td>
                   <td style={td}><span style={badge(C.amber,C.amberL)}>{g.tipoGasto}</span></td>
                   <td style={{...td,fontSize:12}}>{g.metodoPago}</td>
-                  <td style={td}><span style={badge(g.estatusPago==="pagado"?C.green:C.amber)}>{g.estatusPago==="pagado"?"✅ Pagado":"⏳ Por pagar"}</span></td>
                   <td style={td}><strong style={{color:C.red}}>{fmt(g.monto)}</strong></td>
                   <td style={td}>
                     <div style={{display:"flex",gap:4}}>
@@ -2945,9 +2934,7 @@ export default function App() {
     { id:"pedidos",     label:"📦 Pedidos"     },
     { id:"ventas",      label:"💰 Ventas"      },
     { id:"gastos",      label:"💸 Gastos"      },
-    { id:"pagos",       label:"🧾 Pagos"       },
     { id:"fruta",       label:"🥑 Fruta"       },
-    { id:"caja",        label:"💵 Caja"        },
     { id:"inventarios", label:"📦 Inventarios" },
     { id:"catalogos",   label:"🗂️ Catálogos"  },
     { id:"bitacora",    label:"📋 Bitácora"    },
