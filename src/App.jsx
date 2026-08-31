@@ -704,7 +704,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
 // ════════════════════════════════════════════════════════════════════════════════
 // VENTAS
 // ════════════════════════════════════════════════════════════════════════════════
-function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate", titulo="🥑 Ventas Aguacate" }) {
+function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate", titulo="🥑 Ventas Aguacate", cebollaOps=[], setCebollaOps }) {
   const [editing,    setEditing]    = useState(null);
   const [form,       setForm]       = useState({});
   const [filt,       setFilt]       = useState({tipo:"todo",valor:""});
@@ -763,7 +763,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
   const tieneCosto = negocio !== "Cebolla";
 
   const cols = [
-    {l:"Pedido",k:"pedidoId"},{l:"SEM",k:"semana"},{l:"DÍA",k:"dia"},{l:"MES",k:"mes"},{l:"FECHA",k:"fecha"},
+    {l:"Pedido",k:"pedidoId"},{l:"Lote",k:"lote"},{l:"SEM",k:"semana"},{l:"DÍA",k:"dia"},{l:"MES",k:"mes"},{l:"FECHA",k:"fecha"},
     {l:"CLIENTE",k:"cliente"},{l:"CALIBRE",k:"calibre"},{l:"KG",k:"cantidad"},
     {l:"PRECIO KG",k:"precio"},{l:"Total",k:"total"},
     ...(tieneCosto?[{l:"COSTO KG",k:"costoFruta"}]:[]),
@@ -817,9 +817,11 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
               const data = JSON.parse(await file.text());
               const arr = Array.isArray(data)?data:(data[negocio]||Object.values(data)[0]||[]);
               if(!arr.length) return alert("No se encontraron registros.");
-              if(window.confirm(`¿Importar ${arr.length} ventas de ${negocio}?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)){
-                setVentas(arr); logBit("Importó JSON",`${arr.length} ventas ${negocio}`);
-                alert(`✅ ${arr.length} ventas importadas.`);
+              // Assign lote 1 if not present
+              const conLote = arr.map(r=>({...r, lote:r.lote||"1"}));
+              if(window.confirm(`¿Importar ${conLote.length} ventas de ${negocio}?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)){
+                setVentas(conLote); logBit("Importó JSON",`${conLote.length} ventas ${negocio}`);
+                alert(`✅ ${conLote.length} ventas importadas.`);
               }
             } catch(err){ alert("Error: "+err.message); }
           }}/>
@@ -984,7 +986,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Pedido","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","Precio KG","Total",...(tieneCosto?["Costo KG"]:[]),"Tipo Pago","Estatus Pago","F.Pago","Remisión","Factura","F.Factura","Días Pend.","Emisor",""].map(h=>(
+            <thead><tr>{["Pedido","Lote","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","Precio KG","Total",...(tieneCosto?["Costo KG"]:[]),"Tipo Pago","Estatus Pago","F.Pago","Remisión","Factura","F.Factura","Días Pend.","Emisor",""].map(h=>(
               <th key={h} style={th}>{h}</th>
             ))}</tr></thead>
             <tbody>
@@ -1004,6 +1006,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
                         setEditing(v.itemId);
                         setForm({...v, tipoPago: normTipo(v.tipoPago)});
                       }}>#{v.pedidoId}</span></td>
+                  <td style={td}><span style={badge(C.purple,C.purpleL)}>{v.lote||"1"}</span></td>
                   <td style={td}>{v.semana}</td>
                   <td style={td}>{v.dia}</td>
                   <td style={td}>{v.mes}</td>
@@ -1055,6 +1058,10 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
 
             {/* Nivel 1 — Cantidades */}
             <div style={{...g3,marginBottom:10}}>
+              <div>
+                <label style={lbl}>Lote</label>
+                <input style={inp} placeholder="Ej. 1" value={form.lote||"1"} onChange={e=>sf("lote",e.target.value)}/>
+              </div>
               <div>
                 <label style={lbl}>KG reales</label>
                 <input type="number" inputMode="decimal" style={inp} value={form.cantidad||""} onChange={e=>sf("cantidad",e.target.value)}/>
@@ -1167,12 +1174,136 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           </div>
         </div>
       )}
+      {/* ── Cebolla Ops: Entradas, Merma, Basura ─────────────────── */}
+      {negocio==="Cebolla"&&<CebollaOpsSection cebollaOps={cebollaOps} setCebollaOps={setCebollaOps} logBit={logBit}/>}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// GASTOS
+// CEBOLLA OPS — Entradas, Merma, Basura diarias
+// ════════════════════════════════════════════════════════════════════════════════
+function CebollaOpsSection({ cebollaOps, setCebollaOps, logBit }) {
+  const [subTab, setSubTab] = useState("entrada");
+  const [showModal, setShowModal] = useState(false);
+  const [tipoModal, setTipoModal] = useState("entrada");
+  const [form, setForm] = useState({ fecha:todayStr(), kg:"", precio:"", lote:"1", notas:"" });
+  const sf = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const tipos = {
+    entrada: { label:"📥 Entradas",  color:C.green,  icon:"📥", desc:"KG recibidos del proveedor" },
+    merma:   { label:"⚠️ Merma",     color:C.amber,  icon:"⚠️", desc:"KG no aptos, regresan al proveedor" },
+    basura:  { label:"🗑️ Basura",   color:C.red,    icon:"🗑️", desc:"KG de cascara/polos desechados" },
+  };
+
+  const guardar = () => {
+    if(!form.kg||!form.fecha) return alert("Completa fecha y KG");
+    const kg = parseFloat(form.kg);
+    const precio = parseFloat(form.precio)||0;
+    const reg = { id:Date.now(), tipo:tipoModal, fecha:form.fecha, kg, precio, total:kg*precio, lote:form.lote||"1", notas:form.notas };
+    setCebollaOps(ops=>[reg,...(ops||[])]);
+    logBit(`Cebolla ${tipoModal}`, `${kg}kg · ${fmtDate(form.fecha)} · Lote ${form.lote||"1"}`);
+    setForm({fecha:todayStr(),kg:"",precio:"",lote:form.lote,notas:""});
+    setShowModal(false);
+  };
+
+  const lista = (cebollaOps||[]).filter(r=>r.tipo===subTab).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const totalKg = lista.reduce((s,r)=>s+(parseFloat(r.kg)||0),0);
+  const totalMonto = lista.reduce((s,r)=>s+(parseFloat(r.total)||0),0);
+
+  return (
+    <div style={{marginTop:24}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <h3 style={{margin:0,fontSize:15,fontWeight:700}}>🧅 Operaciones Diarias</h3>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {Object.entries(tipos).map(([tipo,{label,color}])=>(
+            <button key={tipo} style={btn(color)} onClick={()=>{setTipoModal(tipo);setShowModal(true);}}>+ {label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumen cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
+        {Object.entries(tipos).map(([tipo,{label,color,icon,desc}])=>{
+          const kg = (cebollaOps||[]).filter(r=>r.tipo===tipo).reduce((s,r)=>s+(parseFloat(r.kg)||0),0);
+          const monto = (cebollaOps||[]).filter(r=>r.tipo===tipo).reduce((s,r)=>s+(parseFloat(r.total)||0),0);
+          return (
+            <div key={tipo} style={{...card,padding:"14px",borderLeft:`4px solid ${color}`,cursor:"pointer",background:subTab===tipo?`${color}08`:C.card}} onClick={()=>setSubTab(tipo)}>
+              <div style={{fontWeight:700,fontSize:13,color,marginBottom:6}}>{icon} {label}</div>
+              <div style={{fontSize:18,fontWeight:800}}>{kg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</div>
+              {monto>0&&<div style={{fontSize:12,color:C.muted,marginTop:2}}>{fmt(monto)}</div>}
+              <div style={{fontSize:10,color:C.muted,marginTop:4}}>{desc}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tabla */}
+      <div style={card}>
+        <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+          {Object.entries(tipos).map(([tipo,{label}])=>(
+            <button key={tipo} style={nb(subTab===tipo)} onClick={()=>setSubTab(tipo)}>{label}</button>
+          ))}
+          <span style={{marginLeft:"auto",fontSize:12,color:C.muted}}>
+            Total: <strong style={{color:tipos[subTab].color}}>{totalKg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg</strong>
+            {totalMonto>0&&<> · <strong style={{color:C.green}}>{fmt(totalMonto)}</strong></>}
+          </span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["Fecha","Lote","KG",...(subTab==="entrada"?["Precio KG","Total"]:[]),"Notas",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {lista.length===0&&<tr><td colSpan={7} style={{...td,textAlign:"center",color:C.muted,padding:24}}>Sin registros de {tipos[subTab].label}</td></tr>}
+              {lista.map(r=>(
+                <tr key={r.id}>
+                  <td style={td}>{fmtDate(r.fecha)}</td>
+                  <td style={td}><span style={badge(C.purple,C.purpleL)}>Lote {r.lote||"1"}</span></td>
+                  <td style={td}><strong style={{color:tipos[subTab].color}}>{parseFloat(r.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} kg</strong></td>
+                  {subTab==="entrada"&&<><td style={td}>{r.precio?fmt(r.precio):"—"}</td><td style={td}>{r.total?<strong style={{color:C.green}}>{fmt(r.total)}</strong>:"—"}</td></>}
+                  <td style={td}>{r.notas||"—"}</td>
+                  <td style={td}><button style={{...btn(C.red),padding:"3px 8px",fontSize:11}} onClick={()=>{if(window.confirm("¿Eliminar?"))setCebollaOps(ops=>(ops||[]).filter(x=>x.id!==r.id));}}>🗑️</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showModal&&(
+        <div style={modal}>
+          <div style={{...mbox,maxWidth:380}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,color:tipos[tipoModal].color}}>{tipos[tipoModal].icon} {tipos[tipoModal].label}</h3>
+              <button style={{background:"none",border:"none",cursor:"pointer",fontSize:24,color:C.muted}} onClick={()=>setShowModal(false)}>×</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={g2}>
+                <div><label style={lbl}>Fecha *</label><input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/></div>
+                <div><label style={lbl}>Lote</label><input style={inp} placeholder="1" value={form.lote} onChange={e=>sf("lote",e.target.value)}/></div>
+              </div>
+              <div style={g2}>
+                <div><label style={lbl}>KG *</label><input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.kg} onChange={e=>sf("kg",e.target.value)} autoFocus/></div>
+                {tipoModal==="entrada"&&<div><label style={lbl}>Precio KG</label><input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/></div>}
+              </div>
+              {tipoModal==="entrada"&&form.kg&&form.precio&&(
+                <div style={{background:C.greenL,borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",border:`1px solid ${C.greenM}`}}>
+                  <span style={{fontSize:12,color:C.muted}}>Total</span>
+                  <strong style={{color:C.green}}>{fmt(parseFloat(form.kg||0)*parseFloat(form.precio||0))}</strong>
+                </div>
+              )}
+              <div><label style={lbl}>Notas</label><input style={inp} placeholder="Opcional" value={form.notas} onChange={e=>sf("notas",e.target.value)}/></div>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setShowModal(false)}>Cancelar</button>
+              <button style={btn(tipos[tipoModal].color)} onClick={guardar}>💾 Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
 const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
@@ -2971,6 +3102,7 @@ export default function App() {
   const [ventas,        setVentas,        loadedVen]  = useSupabase("ventas",        []);
   const [ventasCebolla, setVentasCebolla, loadedVenC] = useSupabase("ventas_cebolla",[]);
   const [ventasLimon,   setVentasLimon,   loadedVenL] = useSupabase("ventas_limon",  []);
+  const [cebollaOps,    setCebollaOps,    loadedCOps] = useSupabase("cebolla_ops",   []);
   const [gastos,     setGastos,     loadedGas]  = useSupabase("gastos",     []);
   const [pagos,      setPagos,      loadedPag]  = useSupabase("pagos",      []);
   const [fruta,      setFruta,      loadedFru]  = useSupabase("fruta",      []);
@@ -2981,7 +3113,7 @@ export default function App() {
   const [inventario, setInventario, loadedInv]  = useSupabase("inventario", []);
   const [cajaMov,    setCajaMov,    loadedCaj]  = useSupabase("caja_mov", []);
 
-  const todoCargado = loadedPed && loadedVen && loadedVenC && loadedVenL && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv && loadedCaj;
+  const todoCargado = loadedPed && loadedVen && loadedVenC && loadedVenL && loadedCOps && loadedGas && loadedPag && loadedFru && loadedCli && loadedPro && loadedProv && loadedBit && loadedInv && loadedCaj;
 
   const logBit = (accion, detalle="") => {
     const reg = { id:Date.now(), fecha:todayStr(), hora:new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}), usuario, accion, detalle };
@@ -3126,7 +3258,7 @@ export default function App() {
         {tab==="dashboard"      && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
         {tab==="pedidos"        && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol} setVentasCebolla={setVentasCebolla} setVentasLimon={setVentasLimon}/>}
         {tab==="ventas"         && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Aguacate" titulo="🥑 Ventas Aguacate"/>}
-        {tab==="ventas_cebolla" && rol==="admin" && <Ventas ventas={ventasCebolla} setVentas={setVentasCebolla} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Cebolla" titulo="🧅 Ventas Cebolla"/>}
+        {tab==="ventas_cebolla" && rol==="admin" && <Ventas ventas={ventasCebolla} setVentas={setVentasCebolla} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Cebolla" titulo="🧅 Ventas Cebolla" cebollaOps={cebollaOps} setCebollaOps={setCebollaOps}/>}
         {tab==="ventas_limon"   && rol==="admin" && <Ventas ventas={ventasLimon}   setVentas={setVentasLimon}   pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Limón"   titulo="🍋 Ventas Limón"/>}
         {tab==="gastos"      && rol==="admin" && <Gastos    gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
         {tab==="pagos"       && rol==="admin" && <Pagos     pagos={pagos} setPagos={setPagos} ventas={ventas} setVentas={setVentas} logBit={logBit}/>}
