@@ -792,7 +792,8 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
   const quienMeDebe = [...new Set(ventas.map(v=>normCliente(v.cliente)).filter(Boolean))].sort().map(cli=>{
     const vsCli = ventas.filter(v=>normCliente(v.cliente)===cli);
     const totalV = vsCli.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
-    const pendiente = vsCli.filter(v=>(v.estatusPago||"").toLowerCase()!=="pagado").reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+    const esPagado = v => (v.estatusPago||"").toLowerCase().trim()==="pagado";
+    const pendiente = vsCli.filter(v=>!esPagado(v)).reduce((s,v)=>s+(parseFloat(v.total)||0),0);
     return { cli, totalV, cobrado: totalV-pendiente, pendiente };
   }).filter(x=>x.pendiente>0.01).sort((a,b)=>b.pendiente-a.pendiente);
   const totalPendiente = quienMeDebe.reduce((s,x)=>s+x.pendiente,0);
@@ -828,19 +829,25 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
               const normTipoPago = v => { const s=String(v||"").toLowerCase(); if(s.includes("frasavo")) return "Transferencia Frasavo"; if(s.includes("saji")) return "Transferencia SAJI"; if(s.includes("transfer")) return "Transferencia SAJI"; return "Efectivo"; };
               const importadas = rows.map((r,i)=>{
                 const fecha = excelToDate(r["FECHA"]||r["Fecha entrega"]||r["Fecha"]);
+                const kg    = parseFloat(r["KG"]||r["Cantidad"]||0);
+                const precio = parseFloat(r["PRECIO KG"]||r["Precio KG"]||r["$/KG"]||r["Precio"]||0);
+                const costo  = parseFloat(r["COSTO KG"]||r["COSTO FRUTA"]||r["Costo fruta"]||r["Costo Fruta"]||0)||null;
+                // Total siempre calculado desde KG × Precio (la fórmula del Excel da 0 en SheetJS)
+                const total  = kg * precio;
                 return {
-                  pedidoId:    String(r["#PED"]||r["Pedido"]||r["#Pedido"]||`IMP-${i+1}`),
+                  pedidoId:    String(r["Pedido"]||r["#PED"]||r["#Pedido"]||`IMP-${i+1}`),
                   itemId:      `imp-${Date.now()}-${i}`,
-                  semana:      r["SEM"]!=null ? parseInt(r["SEM"]) : r["Semana"]!=null ? parseInt(r["Semana"]) : (fecha?weekOf(fecha):null),
-                  dia:         r["DÍA"]||r["Día"]||r["Dia"]||(fecha?dayOf(fecha):""),
-                  mes:         r["MES"]||r["Mes"]||(fecha?monthOf(fecha):""),
-                  fecha:       fecha,
-                  cliente:     String(r["CLIENTE"]||r["Cliente"]||""),
+                  // SEM/DÍA/MES son fórmulas en Excel — siempre recalcular desde fecha
+                  semana:      fecha ? weekOf(fecha) : null,
+                  dia:         fecha ? dayOf(fecha) : "",
+                  mes:         fecha ? monthOf(fecha) : "",
+                  fecha,
+                  cliente:     String(r["CLIENTE"]||r["Cliente"]||"").trim(),
                   calibre:     String(r["CALIBRE"]||r["Caibre"]||r["Calibre"]||""),
-                  cantidad:    parseFloat(r["KG"]||r["Cantidad"]||0),
-                  precio:      parseFloat(r["PRECIO KG"]||r["Precio KG"]||r["$/KG"]||r["Precio"]||0),
-                  costoFruta:  parseFloat(r["COSTO KG"]||r["COSTO FRUTA"]||r["Costo fruta"]||r["Costo Fruta"]||0)||null,
-                  total:       parseFloat(r["Total"]||r["TOTAL"]||0),
+                  cantidad:    kg,
+                  precio,
+                  costoFruta:  costo,
+                  total,
                   estatusPago: normEstatusPago(r["ESTATUS PAGO"]||r["Estatus Pago"]||r["Estatus"]),
                   tipoPago:    normTipoPago(r["TIPO DE PAGO"]||r["Tipo de pago"]||r["Tipo Pago"]),
                   fechaPago:   excelToDate(r["F. PAGO"]||r["Fecha de pago"]||r["Fecha Pago"]),
@@ -848,10 +855,11 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
                   facturaEmisor:String(r["EMISOR"]||r["Factura emisor"]||r["Factura Emisor"]||""),
                   remision:    String(r["REMISIÓN"]||r["Remisión"]||r["Remision"]||""),
                   fechaFactura:excelToDate(r["F. FACTURA"]||r["F. Factura"]||r["Fecha Factura"]),
-                  negocio:     negocio,
+                  estatusFactura: (r["FACTURA"]||r["Factura"])&&String(r["FACTURA"]||r["Factura"]).trim()&&String(r["FACTURA"]||r["Factura"])!=="-" ? "factura_realizada" : "no_aplica",
+                  negocio,
                   producto: "",
                 };
-              }).filter(r=>r.cliente&&r.fecha);
+              }).filter(r=>r.cliente&&r.fecha&&r.total>0);
               if(importadas.length===0) return alert("No se encontraron filas válidas en el Excel.\n\nVerifica que las columnas coincidan con el formato esperado.");
               if(window.confirm(`¿Importar ${importadas.length} ventas del archivo "${file.name}"?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)) {
                 setVentas(importadas);
