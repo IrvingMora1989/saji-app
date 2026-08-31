@@ -816,24 +816,37 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
             try {
               const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs");
               const buf = await file.arrayBuffer();
-              const wb = XLSX.read(buf,{type:"array",cellDates:true});
+              const wb = XLSX.read(buf,{type:"array",cellDates:true,cellFormula:false,cellNF:false});
               const ws = wb.Sheets[wb.SheetNames[0]];
-              const rows = XLSX.utils.sheet_to_json(ws,{defval:""});
+              const rows = XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
               const excelToDate = v => {
                 if(!v) return "";
                 if(v instanceof Date) { const d=v; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
                 if(typeof v==="number") { const d=new Date(Math.round((v-25569)*86400*1000)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`; }
-                return String(v).split("T")[0]||"";
+                // raw:false returns dates as "M/D/YYYY" or "DD/MM/YYYY" strings
+                const s = String(v).trim();
+                // Try ISO
+                if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+                // Try MM/DD/YYYY or M/D/YYYY
+                const parts = s.split("/");
+                if(parts.length===3) {
+                  const [a,b,c] = parts;
+                  const y = c.length===4?c:(c.length===2?"20"+c:c);
+                  return `${y}-${a.padStart(2,"0")}-${b.padStart(2,"0")}`;
+                }
+                return "";
               };
               const normEstatusPago = v => { const s=String(v||"").toLowerCase(); return (s.includes("pagado")||s.includes("pago"))?"pagado":"pendiente"; };
               const normTipoPago = v => { const s=String(v||"").toLowerCase(); if(s.includes("frasavo")) return "Transferencia Frasavo"; if(s.includes("saji")) return "Transferencia SAJI"; if(s.includes("transfer")) return "Transferencia SAJI"; return "Efectivo"; };
               const importadas = rows.map((r,i)=>{
                 const fecha = excelToDate(r["FECHA"]||r["Fecha entrega"]||r["Fecha"]);
-                const kg    = parseFloat(r["KG"]||r["Cantidad"]||0);
-                const precio = parseFloat(r["PRECIO KG"]||r["Precio KG"]||r["$/KG"]||r["Precio"]||0);
-                const costo  = parseFloat(r["COSTO KG"]||r["COSTO FRUTA"]||r["Costo fruta"]||r["Costo Fruta"]||0)||null;
-                // Total siempre calculado desde KG × Precio (la fórmula del Excel da 0 en SheetJS)
-                const total  = kg * precio;
+                const pf = v => parseFloat(String(v||"").replace(/,/g,""))||0;
+                const kg    = pf(r["KG"]||r["Cantidad"]);
+                const precio = pf(r["PRECIO KG"]||r["Precio KG"]||r["$/KG"]||r["Precio"]);
+                const costo  = pf(r["COSTO KG"]||r["COSTO FRUTA"]||r["Costo fruta"]||r["Costo Fruta"])||null;
+                const totalExcel = pf(r["Total"]||r["TOTAL"]);
+                // Use Excel total if available and >0, else calculate
+                const total = totalExcel>0 ? totalExcel : kg*precio;
                 return {
                   pedidoId:    String(r["Pedido"]||r["#PED"]||r["#Pedido"]||`IMP-${i+1}`),
                   itemId:      `imp-${Date.now()}-${i}`,
