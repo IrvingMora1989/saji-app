@@ -760,12 +760,17 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
     return { label:"⏳ Pend. facturar", color:C.amber };
   };
 
+  // Columns vary by negocio — Cebolla has no costoFruta
+  const tieneCosto = negocio !== "Cebolla";
+
   const cols = [
-    {l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
-    {l:"Cliente",k:"cliente"},{l:"Calibre",k:"calibre"},{l:"Cantidad KG",k:"cantidad"},
-    {l:"Precio $/KG",k:"precio"},{l:"Costo Fruta",k:"costoFruta"},{l:"Total",k:"total"},
-    {l:"Estatus Pago",k:"estatusPago"},{l:"Tipo Pago",k:"tipoPago"},{l:"Fecha Pago",k:"fechaPago"},
-    {l:"Factura",k:"factura"},{l:"Factura Emisor",k:"facturaEmisor"},{l:"Remision",k:"remision"},{l:"Fecha Factura",k:"fechaFactura"},
+    {l:"#Pedido",k:"pedidoId"},{l:"Semana",k:"semana"},{l:"Día",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
+    {l:"Cliente",k:"cliente"},{l:"Calibre",k:"calibre"},{l:"KG",k:"cantidad"},
+    {l:"Precio KG",k:"precio"},
+    ...(tieneCosto?[{l:"Costo KG",k:"costoFruta"}]:[]),
+    {l:"Total",k:"total"},
+    {l:"Tipo Pago",k:"tipoPago"},{l:"Estatus Pago",k:"estatusPago"},{l:"F. Pago",k:"fechaPago"},
+    {l:"Remisión",k:"remision"},{l:"Factura",k:"factura"},{l:"F. Factura",k:"fechaFactura"},{l:"Emisor",k:"facturaEmisor"},
   ];
 
   const listaFecha = applyFilter(ventas, filt);
@@ -779,8 +784,19 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
     if(filtNumFactura.trim())    l = l.filter(v=>(v.factura||"").toLowerCase().includes(filtNumFactura.trim().toLowerCase()));
     return l.slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   })();
-  const totalLista = lista.reduce((s,v)=>s+v.total,0);
-  const totalKg    = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
+  const totalLista  = lista.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+  const totalKg     = lista.reduce((s,v)=>s+(parseFloat(v.cantidad)||0),0);
+  const totalCosto  = lista.reduce((s,v)=>s+((parseFloat(v.costoFruta)||0)*(parseFloat(v.cantidad)||0)),0);
+  const utilidad    = totalLista - totalCosto;
+
+  // Quién me debe — por cliente
+  const quienMeDebe = clientes_unicos.map(cli=>{
+    const vsCli = ventas.filter(v=>normCliente(v.cliente)===cli);
+    const totalV = vsCli.reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+    const pendiente = vsCli.filter(v=>(v.estatusPago||"").toLowerCase()!=="pagado").reduce((s,v)=>s+(parseFloat(v.total)||0),0);
+    return { cli, totalV, cobrado: totalV-pendiente, pendiente };
+  }).filter(x=>x.pendiente>0.01).sort((a,b)=>b.pendiente-a.pendiente);
+  const totalPendiente = quienMeDebe.reduce((s,x)=>s+x.pendiente,0);
 
   return (
     <div>
@@ -788,15 +804,13 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
         <div>
           <h2 style={{...h2s,margin:0}}>{titulo}</h2>
           <div style={{color:C.muted,fontSize:12,marginTop:2}}>
-            {lista.length} registros · 
-            <strong style={{color:C.green}}> {fmt(totalLista)}</strong> · 
-            <strong style={{color:C.blue}}> {totalKg.toLocaleString("es-MX")} kg</strong>
+            {lista.length} registros · <strong style={{color:C.green}}>{fmt(totalLista)}</strong> · <strong style={{color:C.blue}}>{totalKg.toLocaleString("es-MX")} kg</strong>
           </div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${todayStr()}.csv`)}>⬇ Exportar CSV/Excel</button>
-          <button style={btn(C.green)} onClick={()=>document.getElementById("importVentasXLSX").click()}>⬆ Importar Excel</button>
-          <input id="importVentasXLSX" type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={async e=>{
+          <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${negocio.toLowerCase()}-${todayStr()}.csv`)}>⬇ Exportar</button>
+          <button style={btn(C.green)} onClick={()=>document.getElementById(`importVentas_${negocio}`).click()}>⬆ Importar</button>
+          <input id={`importVentas_${negocio}`} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={async e=>{
             const file=e.target.files[0]; if(!file) return;
             e.target.value="";
             try {
@@ -854,6 +868,57 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           }}>🔄 Recalcular semanas</button>
         </div>
       </div>
+
+      {/* ── Estado de Resultados + Quién me debe ──────────────────── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+        <div style={card}>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>📊 Estado de Resultados</div>
+          {[
+            {l:"Ventas totales",   v:totalLista, c:C.green, bold:true},
+            ...(tieneCosto?[{l:"(-) Costo (fruta)", v:totalCosto, c:C.muted, bold:false}]:[]),
+            {l:tieneCosto?"= Utilidad":"Total ventas", v:tieneCosto?utilidad:totalLista, c:utilidad>=0?C.teal:C.red, bold:true},
+          ].map(r=>(
+            <div key={r.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
+              <span style={{fontSize:12,color:C.muted}}>{r.l}</span>
+              <span style={{fontSize:13,fontWeight:r.bold?700:400,color:r.c}}>{fmt(r.v)}</span>
+            </div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
+            <span style={{fontSize:12,color:C.muted}}>KG vendidos</span>
+            <span style={{fontSize:13,fontWeight:600,color:C.blue}}>{totalKg.toLocaleString("es-MX")} kg</span>
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontWeight:700,fontSize:13}}>🔴 ¿Quién me debe?</div>
+            <span style={{fontSize:10,color:C.muted}}>solo pendientes</span>
+          </div>
+          {quienMeDebe.length===0
+            ? <p style={{color:C.green,fontSize:12,textAlign:"center",padding:12,fontWeight:600}}>🎉 Todo al corriente</p>
+            : <>
+                {quienMeDebe.map(({cli,cobrado,pendiente})=>(
+                  <div key={cli} style={{background:"#fff",borderRadius:8,padding:"8px 10px",marginBottom:4,border:`1px solid ${C.border}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:600,fontSize:13}}>{cli}</div>
+                        <div style={{fontSize:11,color:C.green,marginTop:1}}>✓ Cobrado: {fmt(cobrado)}</div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                        <div style={{fontSize:10,color:C.red,fontWeight:600}}>Por cobrar</div>
+                        <div style={{color:C.red,fontWeight:700,fontSize:14}}>{fmt(pendiente)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{...totRow,marginTop:8}}>
+                  <span style={{fontWeight:700,fontSize:12,color:C.red}}>TOTAL</span>
+                  <span style={{fontWeight:800,fontSize:15,color:C.red}}>{fmt(totalPendiente)}</span>
+                </div>
+              </>
+          }
+        </div>
+      </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
@@ -886,7 +951,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
       <div style={card}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","$/kg","Costo Fruta","Total","Estatus Pago","Estatus Factura","Tipo Pago","F.Pago","Factura","Emisor","Remisión","F.Factura","Días Pend.",""].map(h=>(
+            <thead><tr>{["#Ped","Sem","Día","Mes","Fecha","Cliente","Calibre","KG","Precio KG",...(tieneCosto?["Costo KG"]:[]),"Total","Tipo Pago","Estatus Pago","F.Pago","Remisión","Factura","F.Factura","Emisor","Días Pend.",""].map(h=>(
               <th key={h} style={th}>{h}</th>
             ))}</tr></thead>
             <tbody>
@@ -914,10 +979,8 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{v.calibre}</span></td>
                   <td style={td}>{v.cantidad} kg</td>
                   <td style={td}>{fmt(v.precio)}</td>
-                  <td style={td}><span style={{color:C.red}}>{v.costoFruta!=null?fmt(v.costoFruta):"—"}</span></td>
+                  {tieneCosto&&<td style={td}><span style={{color:C.red}}>{v.costoFruta!=null?fmt(v.costoFruta):"—"}</span></td>}
                   <td style={td}><strong style={{color:C.green}}>{fmt(v.total)}</strong></td>
-                  <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
-                  <td style={td}>{(()=>{const ef=estatusFacturaLabel(v);return <span style={badge(ef.color)}>{ef.label}</span>;})()}</td>
                   <td style={{...td,opacity:v.estatus==="cancelada"?0.4:1}}>{(()=>{
                     const t = v.tipoPago||"";
                     const tl = t.toLowerCase().trim();
@@ -927,11 +990,12 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
                     if(tl.includes("transfer")) return "Transferencia SAJI";
                     return t||"Efectivo";
                   })()}</td>
+                  <td style={td}><span style={badge(v.estatusPago==="pagado"?C.green:C.amber)}>{v.estatusPago==="pagado"?"✅ Pagado":"⏳ Pendiente"}</span></td>
                   <td style={td}>{fmtDate(v.fechaPago)||"—"}</td>
-                  <td style={td}>{v.factura||"—"}</td>
-                  <td style={td}>{v.facturaEmisor||"—"}</td>
                   <td style={td}>{v.remision||"—"}</td>
+                  <td style={td}>{v.factura||"—"}</td>
                   <td style={td}>{fmtDate(v.fechaFactura)||"—"}</td>
+                  <td style={td}>{v.facturaEmisor||"—"}</td>
                   <td style={td}>{(()=>{
                     const d = diasPendiente(v);
                     if(d==="—") return <span style={{color:C.muted}}>—</span>;
@@ -940,9 +1004,7 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
                     return <span style={{color,fontWeight:700}}>{d}</span>;
                   })()}</td>
                   <td style={td}>
-                    <div style={{display:"flex",gap:3}}>
-                      <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} title="Eliminar venta" onClick={()=>{ if(window.confirm(`¿Eliminar esta venta?\n\n#${v.pedidoId} · ${v.cliente}\n${v.producto} ${v.calibre} · ${fmt(v.total)}\n\nEsta acción no se puede deshacer.`)) { setVentas(vs=>vs.filter(x=>x.itemId!==v.itemId)); logBit("Eliminó venta",`#${v.pedidoId} · ${v.cliente} · ${v.producto} ${v.calibre} · ${fmt(v.total)}`); } }}>🗑️</button>
-                    </div>
+                    <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>{ if(window.confirm(`¿Eliminar esta venta?\n\n#${v.pedidoId} · ${v.cliente}\n${fmt(v.total)}\n\nEsta acción no se puede deshacer.`)) { setVentas(vs=>vs.filter(x=>x.itemId!==v.itemId)); logBit("Eliminó venta",`#${v.pedidoId} · ${v.cliente} · ${fmt(v.total)}`); } }}>🗑️</button>
                   </td>
                 </tr>
               ))}
