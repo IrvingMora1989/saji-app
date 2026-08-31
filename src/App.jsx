@@ -809,7 +809,20 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`ventas-${negocio.toLowerCase()}-${todayStr()}.csv`)}>⬇ Exportar</button>
-          <button style={btn(C.green)} onClick={()=>document.getElementById(`importVentas_${negocio}`).click()}>⬆ Importar</button>
+          <button style={btn(C.green)} onClick={()=>document.getElementById(`importVentas_${negocio}`).click()}>⬆ Importar Excel</button>
+          <button style={btn(C.teal)} onClick={()=>document.getElementById(`importJSON_${negocio}`).click()}>⬆ Importar JSON</button>
+          <input id={`importJSON_${negocio}`} type="file" accept=".json" style={{display:"none"}} onChange={async e=>{
+            const file=e.target.files[0]; if(!file) return; e.target.value="";
+            try {
+              const data = JSON.parse(await file.text());
+              const arr = Array.isArray(data)?data:(data[negocio]||Object.values(data)[0]||[]);
+              if(!arr.length) return alert("No se encontraron registros.");
+              if(window.confirm(`¿Importar ${arr.length} ventas de ${negocio}?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)){
+                setVentas(arr); logBit("Importó JSON",`${arr.length} ventas ${negocio}`);
+                alert(`✅ ${arr.length} ventas importadas.`);
+              }
+            } catch(err){ alert("Error: "+err.message); }
+          }}/>
           <input id={`importVentas_${negocio}`} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={async e=>{
             const file=e.target.files[0]; if(!file) return;
             e.target.value="";
