@@ -815,13 +815,17 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
             const file=e.target.files[0]; if(!file) return; e.target.value="";
             try {
               const data = JSON.parse(await file.text());
-              const arr = Array.isArray(data)?data:(data[negocio]||Object.values(data)[0]||[]);
+              const arr = Array.isArray(data)?data:(data[negocio]||Object.values(data).find(v=>Array.isArray(v))||[]);
               if(!arr.length) return alert("No se encontraron registros.");
-              // Assign lote 1 if not present
               const conLote = arr.map(r=>({...r, lote:r.lote||"1"}));
-              if(window.confirm(`¿Importar ${conLote.length} ventas de ${negocio}?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)){
-                setVentas(conLote); logBit("Importó JSON",`${conLote.length} ventas ${negocio}`);
-                alert(`✅ ${conLote.length} ventas importadas.`);
+              // Check for cebollaOps in the JSON
+              const opsData = !Array.isArray(data) ? (data.cebollaOps||data.ops||null) : null;
+              const confirmMsg = `¿Importar ${conLote.length} ventas de ${negocio}?${opsData?`\n+ ${opsData.length} registros de operaciones diarias`:""}\n\n⚠️ Esto REEMPLAZARÁ los datos actuales.`;
+              if(window.confirm(confirmMsg)){
+                setVentas(conLote);
+                if(opsData&&setCebollaOps) setCebollaOps(opsData);
+                logBit("Importó JSON",`${conLote.length} ventas ${negocio}${opsData?` + ${opsData.length} ops`:""}`);
+                alert(`✅ ${conLote.length} ventas importadas.${opsData?`\n✅ ${opsData.length} operaciones importadas.`:""}`);
               }
             } catch(err){ alert("Error: "+err.message); }
           }}/>
@@ -954,9 +958,11 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           }
         </div>
       </div>
+
+      {/* ── Cebolla Ops arriba de las ventas ── */}
+      {negocio==="Cebolla"&&<CebollaOpsSection cebollaOps={cebollaOps} setCebollaOps={setCebollaOps} logBit={logBit}/>}
+
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
         <button style={nb(!filtCliente)} onClick={()=>setFiltCliente("")}>Todos</button>
         {clientes_unicos.map(c=>(
           <button key={c} style={nb(filtCliente===c)} onClick={()=>setFiltCliente(c)}>{c}</button>
@@ -1174,8 +1180,6 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           </div>
         </div>
       )}
-      {/* ── Cebolla Ops: Entradas, Merma, Basura ─────────────────── */}
-      {negocio==="Cebolla"&&<CebollaOpsSection cebollaOps={cebollaOps} setCebollaOps={setCebollaOps} logBit={logBit}/>}
     </div>
   );
 }
