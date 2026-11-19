@@ -80,37 +80,37 @@ const exportCSV = (rows, cols, fn) => {
 
 // ─── Theme — PREMIUM LIGHT ────────────────────────────────────────────────────
 const C = {
-  bg:"#f6f6f7", card:"#ffffff", border:"#e5e7eb",
+  bg:"#f4f6f3", card:"#ffffff", border:"#e7ebe5",
   green:"#16a34a", greenL:"#f0fdf4", greenM:"#bbf7d0",
-  text:"#111827", muted:"#6b7280", mutedL:"#9ca3af",
+  text:"#14201a", muted:"#6b7a71", mutedL:"#9aa89f",
   red:"#dc2626", redL:"#fef2f2",
   amber:"#d97706", amberL:"#fffbeb",
   blue:"#2563eb", blueL:"#eff6ff",
   purple:"#7c3aed", purpleL:"#f5f3ff",
   teal:"#0891b2", tealL:"#ecfeff",
-  indigo:"#4f46e5", indigoL:"#eef2ff",
-  shadow:"0 1px 2px rgba(0,0,0,.05)",
-  shadowMd:"0 4px 12px rgba(0,0,0,.07)",
-  shadowLg:"0 8px 24px rgba(0,0,0,.09)",
+  indigo:"#15803d", indigoL:"#e8f6ed",
+  shadow:"0 1px 2px rgba(20,32,26,.04), 0 1px 3px rgba(20,32,26,.04)",
+  shadowMd:"0 6px 18px rgba(20,32,26,.07)",
+  shadowLg:"0 16px 40px rgba(20,32,26,.12)",
 };
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"20px", marginBottom:14, boxShadow:C.shadow };
-const h2s   = { margin:"0 0 18px", fontSize:18, fontWeight:700, color:C.text, letterSpacing:"-0.2px" };
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:"22px", marginBottom:16, boxShadow:C.shadow };
+const h2s   = { margin:"0 0 18px", fontSize:20, fontWeight:700, color:C.text, letterSpacing:"-0.4px" };
 const g2    = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 };
 const g3    = { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 };
 const lbl   = { display:"block", marginBottom:5, fontSize:11, color:C.muted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px" };
-const inp   = { width:"100%", background:"#fafafa", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .15s", fontFamily:"inherit" };
-const sel   = { width:"100%", background:"#fafafa", border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer", fontFamily:"inherit", transition:"border-color .15s" };
-const btn   = (bg=C.indigo) => ({ background:bg, color:"#fff", border:"none", borderRadius:9, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, whiteSpace:"nowrap", transition:"all .15s", fontFamily:"inherit" });
-const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:9, padding:"9px 18px", cursor:"pointer", fontWeight:600, fontSize:13, fontFamily:"inherit", transition:"all .15s" });
-const modal = { position:"fixed", inset:0, background:"rgba(0,0,0,.3)", backdropFilter:"blur(3px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
-const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:28, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowLg };
-const th    = { textAlign:"left", padding:"10px 14px", color:C.muted, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:"0.5px", borderBottom:`1px solid ${C.border}`, background:"#fafafa", whiteSpace:"nowrap" };
-const td    = { padding:"10px 14px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle", fontSize:13, color:C.text };
+const inp   = { width:"100%", background:"#fff", border:`1.5px solid ${C.border}`, borderRadius:12, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", transition:"border-color .15s", fontFamily:"inherit" };
+const sel   = { width:"100%", background:"#fff", border:`1.5px solid ${C.border}`, borderRadius:12, padding:"10px 13px", color:C.text, fontSize:14, boxSizing:"border-box", outline:"none", WebkitAppearance:"none", cursor:"pointer", fontFamily:"inherit", transition:"border-color .15s" };
+const btn   = (bg=C.indigo) => ({ background:bg, color:"#fff", border:"none", borderRadius:12, padding:"10px 18px", cursor:"pointer", fontWeight:600, fontSize:13, whiteSpace:"nowrap", transition:"all .18s", fontFamily:"inherit", boxShadow:"0 1px 2px rgba(20,32,26,.12)" });
+const btnO  = (c) => ({ background:"transparent", color:c||C.muted, border:`1.5px solid ${c||C.border}`, borderRadius:12, padding:"10px 18px", cursor:"pointer", fontWeight:600, fontSize:13, fontFamily:"inherit", transition:"all .18s" });
+const modal = { position:"fixed", inset:0, background:"rgba(20,32,26,.35)", backdropFilter:"blur(6px)", animation:"sajiFade .18s ease", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" };
+const mbox  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:24, padding:28, width:"100%", maxWidth:700, marginTop:20, marginBottom:20, boxShadow:C.shadowLg };
+const th    = { textAlign:"left", padding:"10px 14px", color:C.mutedL, fontWeight:600, fontSize:11, textTransform:"uppercase", letterSpacing:"0.6px", borderBottom:`1px solid ${C.border}`, background:"transparent", whiteSpace:"nowrap" };
+const td    = { padding:"10px 14px", borderBottom:`1px solid #f0f2ee`, verticalAlign:"middle", fontSize:13, color:C.text };
 const badge = (c, bg) => ({ background:bg||(c+"15"), color:c, borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4, whiteSpace:"nowrap" });
 const totRow= { background:C.greenL, borderRadius:12, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, border:`1px solid ${C.greenM}` };
-const nb    = a => ({ background:a?C.indigo:"transparent", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:8, padding:"6px 14px", cursor:"pointer", fontWeight:a?600:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", fontFamily:"inherit" });
+const nb    = a => ({ background:a?C.indigo:"#fff", color:a?"#fff":C.muted, border:a?"none":`1px solid ${C.border}`, borderRadius:999, padding:"6px 14px", cursor:"pointer", fontWeight:a?600:500, fontSize:12, transition:"all .15s", whiteSpace:"nowrap", fontFamily:"inherit" });
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const SAJILogo = ({ s=36 }) => (
@@ -124,6 +124,51 @@ const SAJILogo = ({ s=36 }) => (
       e.target.parentNode.insertBefore(span,e.target);
     }}/>
 );
+
+
+// ─── Icons (estilo Lucide, SVG inline) ────────────────────────────────────────
+const ICONS = {
+  home:"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  box:"M21 8 12 3 3 8m18 0-9 5m9-5v8l-9 5m0-8L3 8m9 5v8M3 8v8l9 5",
+  leaf:"M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10zM2 21c0-3 1.9-5.4 5.4-6.6",
+  circle:"M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 5V3",
+  sun:"M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8 1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
+  wallet:"M20 7H5a2 2 0 0 1 0-4h13v4zm0 0v13H5a2 2 0 0 1-2-2V5m14 8h.01",
+  truck:"M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm13 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  layers:"m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
+  book:"M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM20 17v5H6.5A2.5 2.5 0 0 1 4 19.5",
+  list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  down:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  up:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  out:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+};
+const Icon = ({ n, s=16, c="currentColor" }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d={ICONS[n]}/></svg>
+);
+
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6f3;font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+@keyframes sajiFade{from{opacity:0}to{opacity:1}}
+@keyframes sajiUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.saji-view{animation:sajiUp .22s ease}
+.saji-nav{scrollbar-width:none;-ms-overflow-style:none}
+.saji-nav::-webkit-scrollbar{display:none}
+.saji-tab{transition:all .18s ease}
+.saji-tab:hover{background:#eef3ec!important;color:#14201a!important}
+button{transition:transform .15s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease}
+button:active{transform:scale(.97)}
+input:focus,select:focus,textarea:focus{border-color:#15803d!important;box-shadow:0 0 0 3px rgba(21,128,61,.12)}
+table{border-collapse:separate;border-spacing:0}
+tbody tr{transition:background .15s ease}
+tbody tr:hover{background:#f7faf6}
+@media(max-width:700px){
+  .saji-main{padding:14px 12px 96px!important}
+  .saji-hide-sm{display:none!important}
+  .saji-nav-wrap{position:fixed!important;bottom:10px;left:10px;right:10px;top:auto!important;border-radius:20px!important;box-shadow:0 10px 30px rgba(20,32,26,.18)!important;border:1px solid #e7ebe5!important}
+}
+`;
 
 const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón":"🍋","Tomate":"🍅","Chile":"🌶️"}[n]||"📦");
 
@@ -815,21 +860,13 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
             const file=e.target.files[0]; if(!file) return; e.target.value="";
             try {
               const data = JSON.parse(await file.text());
-              // Support: plain array, {Negocio: []}, or {Aguacate:[], Cebolla:[], Limón:[], cebollaOps:[]}
-              let arr;
-              if(Array.isArray(data)) arr = data;
-              else if(Array.isArray(data[negocio])) arr = data[negocio];
-              else arr = [];
-              if(!arr.length) return alert(`No se encontraron registros para "${negocio}" en el archivo.`);
+              const arr = Array.isArray(data)?data:(data[negocio]||Object.values(data)[0]||[]);
+              if(!arr.length) return alert("No se encontraron registros.");
+              // Assign lote 1 if not present
               const conLote = arr.map(r=>({...r, lote:r.lote||"1"}));
-              // Check for cebollaOps in the JSON
-              const opsData = !Array.isArray(data) ? (data.cebollaOps||data.ops||null) : null;
-              const confirmMsg = `¿Importar ${conLote.length} ventas de ${negocio}?${opsData?`\n+ ${opsData.length} registros de operaciones diarias`:""}\n\n⚠️ Esto REEMPLAZARÁ los datos actuales.`;
-              if(window.confirm(confirmMsg)){
-                setVentas(conLote);
-                if(opsData&&setCebollaOps) setCebollaOps(opsData);
-                logBit("Importó JSON",`${conLote.length} ventas ${negocio}${opsData?` + ${opsData.length} ops`:""}`);
-                alert(`✅ ${conLote.length} ventas importadas.${opsData?`\n✅ ${opsData.length} operaciones importadas.`:""}`);
+              if(window.confirm(`¿Importar ${conLote.length} ventas de ${negocio}?\n\n⚠️ Esto REEMPLAZARÁ todas las ventas actuales.`)){
+                setVentas(conLote); logBit("Importó JSON",`${conLote.length} ventas ${negocio}`);
+                alert(`✅ ${conLote.length} ventas importadas.`);
               }
             } catch(err){ alert("Error: "+err.message); }
           }}/>
@@ -962,10 +999,6 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           }
         </div>
       </div>
-
-      {/* ── Cebolla Ops arriba de las ventas ── */}
-      {negocio==="Cebolla"&&<CebollaOpsSection cebollaOps={cebollaOps} setCebollaOps={setCebollaOps} logBit={logBit}/>}
-
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{color:C.muted,fontSize:12,fontWeight:700}}>👤 Cliente:</span>
@@ -1186,6 +1219,8 @@ function Ventas({ ventas, setVentas, pagos, setPagos, logBit, negocio="Aguacate"
           </div>
         </div>
       )}
+      {/* ── Cebolla Ops: Entradas, Merma, Basura ─────────────────── */}
+      {negocio==="Cebolla"&&<CebollaOpsSection cebollaOps={cebollaOps} setCebollaOps={setCebollaOps} logBit={logBit}/>}
     </div>
   );
 }
@@ -3052,7 +3087,7 @@ function LoginScreen({ onLogin }) {
       <div style={{width:"100%",maxWidth:360}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 6px 20px rgba(79,70,229,.25)",marginBottom:14}}>
+          <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#22c55e,#15803d)",display:"inline-flex",alignItems:"center",justifyContent:"center",boxShadow:"0 6px 20px rgba(21,128,61,.25)",marginBottom:14}}>
             <SAJILogo s={34}/>
           </div>
           <div style={{fontWeight:700,fontSize:22,color:C.text,letterSpacing:"-0.3px"}}>SAJI Group</div>
@@ -3173,27 +3208,27 @@ export default function App() {
   if(!usuario) return <LoginScreen onLogin={handleLogin}/>;
 
   const TABS_ADMIN = [
-    { id:"dashboard",      label:"🏠 Inicio"      },
-    { id:"pedidos",        label:"📦 Pedidos"     },
-    { id:"ventas",         label:"🥑 Aguacate"    },
-    { id:"ventas_cebolla", label:"🧅 Cebolla"     },
-    { id:"ventas_limon",   label:"🍋 Limón"       },
-    { id:"gastos",         label:"💸 Gastos"      },
-    { id:"fruta",          label:"🚚 Proveedor"   },
-    { id:"inventarios",    label:"📦 Inventarios" },
-    { id:"catalogos",      label:"🗂️ Catálogos"  },
-    { id:"bitacora",       label:"📋 Bitácora"    },
+    { id:"dashboard",      label:"Inicio",      icon:"home"   },
+    { id:"pedidos",        label:"Pedidos",     icon:"list"   },
+    { id:"ventas",         label:"Aguacate",    icon:"leaf"   },
+    { id:"ventas_cebolla", label:"Cebolla",     icon:"circle" },
+    { id:"ventas_limon",   label:"Limón",       icon:"sun"    },
+    { id:"gastos",         label:"Gastos",      icon:"wallet" },
+    { id:"fruta",          label:"Proveedor",   icon:"truck"  },
+    { id:"inventarios",    label:"Inventarios", icon:"box"    },
+    { id:"catalogos",      label:"Catálogos",   icon:"layers" },
+    { id:"bitacora",       label:"Bitácora",    icon:"book"   },
   ];
   const TABS_OPERATIVO = [
-    ...(canPedidos ? [{ id:"pedidos", label:"📦 Pedidos" }] : []),
-    { id:"inventarios", label:"📦 Inventarios" },
+    ...(canPedidos ? [{ id:"pedidos", label:"Pedidos", icon:"list" }] : []),
+    { id:"inventarios", label:"Inventarios", icon:"box" },
   ];
   const TABS = rol==="operativo" ? TABS_OPERATIVO : TABS_ADMIN;
 
   // Pantalla de carga mientras conecta con Supabase
   if(!todoCargado) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
-      <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(79,70,229,.25)"}}>
+      <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#22c55e,#15803d)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 8px 24px rgba(21,128,61,.25)"}}>
         <SAJILogo s={34}/>
       </div>
       <div style={{textAlign:"center"}}>
@@ -3201,7 +3236,7 @@ export default function App() {
         <div style={{fontSize:13,color:C.muted,marginTop:4}}>Cargando tu espacio de trabajo…</div>
       </div>
       <div style={{width:180,height:3,background:C.border,borderRadius:2,overflow:"hidden"}}>
-        <div style={{height:"100%",background:"linear-gradient(90deg,#16a34a,#4f46e5)",borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#16a34a,#15803d)",borderRadius:2,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
       </div>
       <style>{`
   @keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
@@ -3214,57 +3249,46 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", fontSize:14, WebkitTextSizeAdjust:"100%" }}>
 
-      {/* ── HEADER + NAV ────────────────────────────────────────────── */}
-      <header style={{
-        background:C.card, borderBottom:`1px solid ${C.border}`,
-        padding:"0 16px", display:"flex", alignItems:"center", gap:8,
-        minHeight:54, position:"sticky", top:0, zIndex:100,
-        boxShadow:C.shadow, flexWrap:"wrap",
-      }}>
-        {/* Logo */}
-        <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0,marginRight:12}} onClick={()=>window.location.reload()}>
+      <style>{GLOBAL_CSS}</style>
+      {/* ── TOP BAR ─────────────────────────────────────────────────── */}
+      <header style={{background:"rgba(255,255,255,.85)",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:"10px 20px",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>window.location.reload()}>
           <SAJILogo s={48}/>
-          <div style={{lineHeight:1.2}}>
-            <div style={{fontWeight:700,fontSize:13,color:C.text}}>SAJI Group</div>
-            <div style={{fontSize:9,color:C.muted}}>Gestión Comercial</div>
+          <div style={{lineHeight:1.15}}>
+            <div style={{fontWeight:800,fontSize:15,color:C.text,letterSpacing:"-0.3px"}}>SAJI Group</div>
+            <div style={{fontSize:11,color:C.muted}}>Gestión Comercial</div>
           </div>
         </div>
-
-        {/* Tabs */}
-        <nav style={{display:"flex",gap:1,flexWrap:"wrap",flex:"1 1 auto",alignItems:"center"}}>
-          {TABS.map(t=>{
-            const active = tab===t.id;
-            return (
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                background: active?C.indigoL:"transparent",
-                color: active?C.indigo:C.muted,
-                border:"none",
-                borderRadius:8, padding:"6px 12px", cursor:"pointer",
-                fontWeight: active?600:400, fontSize:12,
-                whiteSpace:"nowrap", transition:"all .15s", fontFamily:"inherit",
-              }}>{t.label}</button>
-            );
-          })}
-        </nav>
-
-        {/* Right actions */}
-        <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto",flexShrink:0}}>
-          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}}>📥 Importar</button>}
-          {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.indigo),padding:"5px 11px",fontSize:11}}>📤 Exportar</button>}
-          <div style={{display:"flex",alignItems:"center",gap:7,paddingLeft:8,borderLeft:`1px solid ${C.border}`}}>
-            {rol==="operativo"&&<span style={{background:"#fef3c7",color:"#92400e",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20}}>OPERATIVO</span>}
-            <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#16a34a,#4f46e5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
-              {usuario.charAt(0).toUpperCase()}
-            </div>
-            <button onClick={handleLogout} style={{...btnO(C.red),padding:"5px 10px",fontSize:11,color:C.red}}>
-              Salir
-            </button>
-          </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+          {rol==="admin"&&<button onClick={()=>setShowImport(true)} style={{...btnO(C.muted),padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="down" s={14}/><span className="saji-hide-sm">Importar</span></button>}
+          {rol==="admin"&&<button onClick={exportExcel} style={{...btn(C.indigo),padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon n="up" s={14}/><span className="saji-hide-sm">Exportar</span></button>}
+          {rol==="operativo"&&<span style={{background:"#fef3c7",color:"#92400e",fontSize:10,fontWeight:700,padding:"3px 9px",borderRadius:20}}>OPERATIVO</span>}
+          <div title={usuario} style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#22c55e,#15803d)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff"}}>{usuario.charAt(0).toUpperCase()}</div>
+          <button onClick={handleLogout} title="Salir" style={{...btnO(C.muted),padding:"7px 10px",display:"flex",alignItems:"center",gap:6,fontSize:12}}><Icon n="out" s={14}/><span className="saji-hide-sm">Salir</span></button>
         </div>
       </header>
 
+      {/* ── NAV (pastillas; en celular barra flotante inferior) ─────── */}
+      <div className="saji-nav-wrap" style={{position:"sticky",top:0,zIndex:100,background:"rgba(255,255,255,.92)",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`}}>
+        <nav className="saji-nav" style={{display:"flex",gap:4,padding:"8px 16px",overflowX:"auto",maxWidth:1500,margin:"0 auto"}}>
+          {TABS.map(t=>{
+            const active = tab===t.id;
+            return (
+              <button key={t.id} className="saji-tab" onClick={()=>setTab(t.id)} style={{
+                background: active?C.indigo:"transparent",
+                color: active?"#fff":C.muted,
+                border:"none", borderRadius:999, padding:"8px 14px", cursor:"pointer",
+                fontWeight: active?600:500, fontSize:13, display:"flex", alignItems:"center", gap:7,
+                whiteSpace:"nowrap", fontFamily:"inherit", flexShrink:0,
+                boxShadow: active?"0 4px 12px rgba(21,128,61,.28)":"none",
+              }}><Icon n={t.icon} s={16}/>{t.label}</button>
+            );
+          })}
+        </nav>
+      </div>
+
       {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
-      <main style={{ padding:"20px 16px", maxWidth:1500, margin:"0 auto" }}>
+      <main className="saji-main saji-view" key={tab} style={{ padding:"24px 20px", maxWidth:1500, margin:"0 auto" }}>
         {tab==="dashboard"      && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} pagos={pagos}/>}
         {tab==="pedidos"        && <Pedidos   pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol} setVentasCebolla={setVentasCebolla} setVentasLimon={setVentasLimon}/>}
         {tab==="ventas"         && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} pagos={pagos} setPagos={setPagos} logBit={logBit} negocio="Aguacate" titulo="🥑 Ventas Aguacate"/>}
