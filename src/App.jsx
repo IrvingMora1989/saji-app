@@ -230,6 +230,28 @@ const TIPOS_GASTO = {
 const METODOS_PAGO = ["Efectivo","Tarjeta Jasso","Tarjeta Irving","Tarjeta SAJI","Transferencia SAJI","Transferencia Jasso"];
 
 
+// ─── Clientes: pueden ser texto plano o un objeto con datos fiscales ─────────
+const cliNom  = c => typeof c === "string" ? c : (c?.nombre || "");
+const cliFisc = (clientes, nombre) => {
+  const c = (clientes||[]).find(x => cliNom(x) === nombre);
+  return (c && typeof c === "object") ? c : { nombre };
+};
+
+// ─── Claves del SAT por producto (se pueden cambiar en Catálogos) ────────────
+const CLAVES_SAT = {
+  "aguacate":        { clave:"50401736", desc:"Aguacate Hass" },
+  "cebolla":         { clave:"50405300", desc:"Cebolla Blanca" },
+  "limón":           { clave:"50304100", desc:"Limones" },
+  "limon":           { clave:"50304100", desc:"Limones" },
+  "limón persa":     { clave:"50304100", desc:"Limones" },
+};
+const satDe = (productos, nombre) => {
+  const p = (productos||[]).find(x => x.nombre === nombre);
+  if (p?.claveSAT) return { clave:p.claveSAT, desc:p.descSAT || nombre };
+  const d = CLAVES_SAT[String(nombre||"").toLowerCase().trim()];
+  return d || { clave:"", desc:nombre||"" };
+};
+
 // ─── Unidad de medida por producto ───────────────────────────────────────────
 // Los jugos se venden por litro; todo lo demás por kilogramo.
 const PROD_LITROS = /jugo/i;
@@ -708,7 +730,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
               <div><label style={lbl}>Cliente *</label>
                 <select style={sel} value={form.cliente} onChange={e=>sf("cliente",e.target.value)}>
                   <option value="">— Seleccionar —</option>
-                  {[...new Set([...(clientes||[]), form.cliente].filter(Boolean))].map(c=><option key={c}>{c}</option>)}
+                  {[...new Set([...(clientes||[]).map(cliNom), form.cliente].filter(Boolean))].map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Fecha de entrega *</label>
@@ -768,6 +790,167 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
               <button style={btnO()} onClick={limpiar}>Cancelar</button>
               <button style={btn()} onClick={guardar}>💾 {editId!==null?"Guardar cambios":"Guardar Pedido"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// FACTURACIÓN — arma el mensaje para el contador
+// ════════════════════════════════════════════════════════════════════════════════
+function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
+  const [cli,   setCli]   = useState("");
+  const [sel,   setSel]   = useState({});     // { remision: true }
+  const [verPedidas, setVerPedidas] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  const porFacturar = v =>
+    String(v.tipoPago||"").toLowerCase() !== "efectivo" &&
+    ["", "pedir", ...(verPedidas?["pedida"]:[])].includes(String(v.factura||"").toLowerCase().trim());
+
+  const candidatas = ventas.filter(porFacturar);
+  const clientesCon = [...new Set(candidatas.map(v=>normCliente(v.cliente)))].sort();
+
+  // Remisiones del cliente elegido
+  const delCliente = candidatas.filter(v=>normCliente(v.cliente)===cli);
+  const remisiones = Object.values(delCliente.reduce((acc,v)=>{
+    const k = String(v.pedido||"").trim() || "(sin remisión)";
+    if(!acc[k]) acc[k] = { rem:k, fecha:v.fecha, items:[], total:0 };
+    acc[k].items.push(v); acc[k].total += num(v.total);
+    if((v.fecha||"") < (acc[k].fecha||"")) acc[k].fecha = v.fecha;
+    return acc;
+  },{})).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));
+
+  const elegidas = remisiones.filter(r=>sel[r.rem]);
+  const lineas = Object.values(elegidas.flatMap(r=>r.items).reduce((acc,v)=>{
+    // Un renglón por combinación de producto y precio
+    const k = `${v.producto}__${num(v.precio)}`;
+    if(!acc[k]) acc[k] = { producto:v.producto, precio:num(v.precio), kg:0, total:0 };
+    acc[k].kg += num(v.kg); acc[k].total += num(v.total);
+    return acc;
+  },{})).sort((a,b)=> a.producto.localeCompare(b.producto) || a.precio-b.precio);
+
+  const totalMsg = lineas.reduce((s,l)=>s+l.total,0);
+  const f = cliFisc(clientes, cli);
+  const nf  = n => n.toLocaleString("es-MX",{maximumFractionDigits:2});                         // cantidades
+  const nfM = n => n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2}); // dinero
+  const sinClave = lineas.filter(l=>!satDe(productos,l.producto).clave).map(l=>l.producto);
+
+  const mensaje = () => {
+    if(!cli || !lineas.length) return "";
+    const L = [];
+    L.push("Buenas tardes, me ayudan con esta factura por favor");
+    L.push("");
+    L.push(`Cliente: ${f.razonSocial || cli}${f.razonSocial ? ` (${cli})` : ""}`);
+    if(f.rfc)       L.push(`RFC: ${f.rfc}`);
+    if(f.cp)        L.push(`CP: ${f.cp}`);
+    if(f.regimen)   L.push(`Régimen: ${f.regimen}`);
+    if(f.usoCFDI)   L.push(`Uso: ${f.usoCFDI}`);
+    if(f.formaPago) L.push(`Forma de pago: ${f.formaPago}`);
+    L.push("");
+    lineas.forEach((l,i)=>{
+      const sat = satDe(productos,l.producto);
+      L.push(`Producto ${i+1}: ${sat.clave ? sat.clave+" " : ""}${sat.desc}`);
+      L.push(`${nf(l.kg)} ${uni(l.producto)} x $${nfM(l.precio)} = $${nfM(l.total)}`);
+      L.push("");
+    });
+    L.push(`Total = $${nfM(totalMsg)}`);
+    L.push("");
+    L.push(`${elegidas.length>1?"En observaciones poner: Remisiones":"Remisión:"} ${elegidas.map(r=>r.rem).join(", ")}`);
+    return L.join("\n");
+  };
+  const texto = mensaje();
+
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(texto); }
+    catch { const t=document.createElement("textarea"); t.value=texto; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    setCopiado(true); setTimeout(()=>setCopiado(false),2200);
+  };
+  const porWhats = () => window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
+
+  const marcarPedidas = () => {
+    const rems = new Set(elegidas.map(r=>r.rem));
+    if(!rems.size) return;
+    if(!window.confirm(`¿Marcar como "Pedida" la factura de ${rems.size} remisión(es)?`)) return;
+    setVentas(vs=>vs.map(v=>(rems.has(String(v.pedido||"").trim()) && normCliente(v.cliente)===cli && porFacturar(v))
+      ? {...v, factura:"Pedida"} : v));
+    logBit("Pidió factura",`${cli} · remisiones ${[...rems].join(", ")} · ${fmt(totalMsg)}`);
+    setSel({});
+  };
+
+  const togglePick = c => { setCli(c); setSel({}); };
+  const todas  = () => setSel(Object.fromEntries(remisiones.map(r=>[r.rem,true])));
+  const ningun = () => setSel({});
+
+  return (
+    <div>
+      <PageHead titulo="Facturación" sub="Arma el mensaje con las remisiones que tu contador debe facturar"/>
+
+      <div style={{...card,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
+          <h3 style={{...h3s,margin:0}}>Clientes con facturas por pedir</h3>
+          <label style={{fontSize:12,color:C.muted,display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
+            <input type="checkbox" checked={verPedidas} onChange={e=>{setVerPedidas(e.target.checked);setSel({});}}/>
+            Incluir las ya pedidas
+          </label>
+        </div>
+        {clientesCon.length===0
+          ? <p style={{color:C.green,textAlign:"center",padding:"18px 0",margin:0,fontWeight:600}}>No hay facturas pendientes de pedir</p>
+          : <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              {clientesCon.map(c=>{
+                const n = candidatas.filter(v=>normCliente(v.cliente)===c).reduce((s,v)=>s+num(v.total),0);
+                return <button key={c} style={nb(cli===c)} onClick={()=>togglePick(c)}>{c} · {fmt(n)}</button>;
+              })}
+            </div>}
+      </div>
+
+      {cli&&(
+        <div className="saji-cols">
+          <div style={card}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
+              <h3 style={{...h3s,margin:0}}>Remisiones de {cli}</h3>
+              <div style={{display:"flex",gap:6}}>
+                <button style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}} onClick={todas}>Todas</button>
+                <button style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}} onClick={ningun}>Ninguna</button>
+              </div>
+            </div>
+            {remisiones.map(r=>(
+              <label key={r.rem} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 6px",borderBottom:"1px solid #f0f2ee",cursor:"pointer"}}>
+                <input type="checkbox" style={{marginTop:3}} checked={!!sel[r.rem]} onChange={e=>setSel(s=>({...s,[r.rem]:e.target.checked}))}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                    <strong style={{fontSize:13.5}}>{r.rem}</strong>
+                    <strong style={{fontSize:13.5}}>{fmt(r.total)}</strong>
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    {fmtDate(r.fecha)} · Sem {weekOf(r.fecha)} · {r.items.map(i=>`${i.producto} ${num(i.kg)}${uni(i.producto)}`).join(" · ")}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          <div style={card}>
+            <h3 style={h3s}>Mensaje para el contador</h3>
+            {!f.rfc&&(
+              <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.amber,marginBottom:10}}>
+                Este cliente no tiene datos fiscales. Captúralos en Catálogos → Clientes.
+              </div>
+            )}
+            {sinClave.length>0&&(
+              <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.amber,marginBottom:10}}>
+                Sin clave SAT: {[...new Set(sinClave)].join(", ")}. Agrégala en Catálogos → Productos.
+              </div>
+            )}
+            <textarea readOnly value={texto||"Selecciona al menos una remisión."} style={{...inp,height:330,fontFamily:"ui-monospace,Menlo,monospace",fontSize:12.5,lineHeight:1.55,resize:"vertical"}}/>
+            <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+              <button style={btn(C.indigo)} disabled={!texto} onClick={copiar}>{copiado?"✓ Copiado":"Copiar mensaje"}</button>
+              <button style={btnO(C.green)} disabled={!texto} onClick={porWhats}>WhatsApp</button>
+              <button style={btnO(C.amber)} disabled={!elegidas.length} onClick={marcarPedidas}>Marcar como pedidas</button>
             </div>
           </div>
         </div>
@@ -983,7 +1166,7 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
             <div style={{...g2,marginTop:12}}>
               <div><label style={lbl}>Cliente</label>
                 <input style={inp} list="cli-list" value={form.cliente} onChange={e=>sf("cliente",e.target.value)}/>
-                <datalist id="cli-list">{[...new Set([...(clientes||[]),...ventas.map(v=>v.cliente)])].filter(Boolean).map(c=><option key={c} value={c}/>)}</datalist>
+                <datalist id="cli-list">{[...new Set([...(clientes||[]).map(cliNom),...ventas.map(v=>v.cliente)])].filter(Boolean).map(c=><option key={c} value={c}/>)}</datalist>
               </div>
               <div><label style={lbl}>Producto</label>
                 <input style={inp} list="prod-list" value={form.producto} onChange={e=>sf("producto",e.target.value)}/>
@@ -1539,7 +1722,14 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
   const [nProd, setNProd] = useState({ nombre:"", calibres:"" });
   const [editP, setEditP] = useState(null);
 
-  const addCli  = () => { const v=nCli.trim(); if(v&&!clientes.includes(v)){setClientes(c=>[...c,v]);setNCli("");} };
+  const [editC, setEditC] = useState(null);   // datos fiscales en edición
+  const nombres = (clientes||[]).map(cliNom);
+  const addCli  = () => { const v=nCli.trim(); if(v&&!nombres.includes(v)){setClientes(c=>[...c,{nombre:v}]);setNCli("");} };
+  const abrirFisc = nom => { const f=cliFisc(clientes,nom); setEditC({nombre:nom,razonSocial:f.razonSocial||"",rfc:f.rfc||"",cp:f.cp||"",regimen:f.regimen||"",usoCFDI:f.usoCFDI||"",formaPago:f.formaPago||""}); };
+  const guardarFisc = () => {
+    setClientes(cs=>cs.map(c=>cliNom(c)===editC.nombre?{...editC}:c));
+    setEditC(null);
+  };
   const addProv = () => { const v=nProv.trim(); if(v&&!proveedores.includes(v)){setProveedores(p=>[...p,v]);setNProv("");} };
   const addProd = () => {
     if(!nProd.nombre.trim()) return;
@@ -1550,7 +1740,7 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
   };
   const saveProd = () => {
     const cals=editP.calibresStr.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
-    setProductos(ps=>ps.map(p=>p.nombre===editP.orig?{...p,calibres:cals}:p));
+    setProductos(ps=>ps.map(p=>p.nombre===editP.orig?{...p,calibres:cals,claveSAT:(editP.claveSAT||"").trim(),descSAT:(editP.descSAT||"").trim()}:p));
     setEditP(null);
   };
   return (
@@ -1565,12 +1755,20 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
             <button style={btn()} onClick={addCli}>+ Agregar</button>
           </div>
           {clientes.length===0&&<p style={{color:C.muted,fontSize:12,textAlign:"center"}}>Sin clientes</p>}
-          {clientes.map(c=>(
-            <div key={c} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.bg,borderRadius:9,padding:"9px 13px",marginBottom:6,border:`1px solid ${C.border}`}}>
-              <span>👤 {c}</span>
-              <button style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:20,fontWeight:700}} onClick={()=>setClientes(cs=>cs.filter(x=>x!==c))}>×</button>
+          {(clientes||[]).map(c=>{
+            const nom=cliNom(c), f=cliFisc(clientes,nom);
+            return (
+            <div key={nom} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.bg,borderRadius:9,padding:"9px 13px",marginBottom:6,border:`1px solid ${C.border}`}}>
+              <div style={{minWidth:0}}>
+                <div>👤 {nom}</div>
+                <div style={{fontSize:11,color:f.rfc?C.green:C.amber,marginTop:2}}>{f.rfc ? `${f.razonSocial||""} · ${f.rfc}` : "Sin datos fiscales"}</div>
+              </div>
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                <button style={{...btnO(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>abrirFisc(nom)}>Datos fiscales</button>
+                <button style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:20,fontWeight:700}} onClick={()=>setClientes(cs=>cs.filter(x=>cliNom(x)!==nom))}>×</button>
+              </div>
             </div>
-          ))}
+          );})}
         </div>
         {/* Proveedores */}
         <div style={card}>
@@ -1604,10 +1802,17 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
               {editP?.orig===p.nombre ? (
                 <div>
                   <div style={{fontWeight:700,marginBottom:6}}>{pEmoji(p.nombre)} {p.nombre}</div>
-                  <div style={{display:"flex",gap:7}}>
-                    <input style={{...inp,flex:1}} value={editP.calibresStr} onChange={e=>setEditP(ep=>({...ep,calibresStr:e.target.value}))}/>
-                    <button style={btn()} onClick={saveProd}>✓</button>
-                    <button style={btnO()} onClick={()=>setEditP(null)}>✕</button>
+                  <label style={lbl}>Calibres (separados por coma)</label>
+                  <input style={inp} value={editP.calibresStr} onChange={e=>setEditP(ep=>({...ep,calibresStr:e.target.value}))}/>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1.3fr",gap:7,marginTop:8}}>
+                    <div><label style={lbl}>Clave SAT</label>
+                      <input style={inp} placeholder="50401736" value={editP.claveSAT} onChange={e=>setEditP(ep=>({...ep,claveSAT:e.target.value}))}/></div>
+                    <div><label style={lbl}>Nombre en la factura</label>
+                      <input style={inp} placeholder="Aguacate Hass" value={editP.descSAT} onChange={e=>setEditP(ep=>({...ep,descSAT:e.target.value}))}/></div>
+                  </div>
+                  <div style={{display:"flex",gap:7,marginTop:10,justifyContent:"flex-end"}}>
+                    <button style={btnO()} onClick={()=>setEditP(null)}>Cancelar</button>
+                    <button style={btn()} onClick={saveProd}>Guardar</button>
                   </div>
                 </div>
               ) : (
@@ -1615,9 +1820,12 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
                   <div>
                     <div style={{fontWeight:700}}>{pEmoji(p.nombre)} {p.nombre}</div>
                     <div style={{color:C.muted,fontSize:12,marginTop:2}}>{p.calibres.join(", ")}</div>
+                    <div style={{fontSize:11,color:satDe(productos,p.nombre).clave?C.green:C.amber,marginTop:2}}>
+                      {satDe(productos,p.nombre).clave ? `SAT ${satDe(productos,p.nombre).clave} · ${satDe(productos,p.nombre).desc}` : "Sin clave SAT"}
+                    </div>
                   </div>
                   <div style={{display:"flex",gap:5}}>
-                    <button style={{...btn(C.blue),padding:"5px 10px",fontSize:11}} onClick={()=>setEditP({orig:p.nombre,calibresStr:p.calibres.join(", ")})}>✎</button>
+                    <button style={{...btn(C.blue),padding:"5px 10px",fontSize:11}} onClick={()=>{const d=satDe(productos,p.nombre);setEditP({orig:p.nombre,calibresStr:p.calibres.join(", "),claveSAT:p.claveSAT||d.clave||"",descSAT:p.descSAT||d.desc||p.nombre});}}>✎</button>
                     <button style={{...btn(C.red),padding:"5px 10px",fontSize:11}} onClick={()=>setProductos(ps=>ps.filter(x=>x.nombre!==p.nombre))}>✕</button>
                   </div>
                 </div>
@@ -1626,6 +1834,44 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
           ))}
         </div>
       </div>
+
+      {/* Datos fiscales del cliente */}
+      {editC&&(
+        <div style={modal} onClick={()=>setEditC(null)}>
+          <div style={{...mbox,maxWidth:560}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,fontSize:17}}>Datos fiscales de {editC.nombre}</h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setEditC(null)}>×</button>
+            </div>
+            <div style={g2}>
+              <div><label style={lbl}>Razón social</label>
+                <input style={inp} placeholder="JOSE LUIS LUNA SOTO" value={editC.razonSocial} onChange={e=>setEditC(x=>({...x,razonSocial:e.target.value}))}/></div>
+              <div><label style={lbl}>RFC</label>
+                <input style={inp} placeholder="LUSL770821NV8" value={editC.rfc} onChange={e=>setEditC(x=>({...x,rfc:e.target.value.toUpperCase()}))}/></div>
+            </div>
+            <div style={{...g2,marginTop:12}}>
+              <div><label style={lbl}>Código postal</label>
+                <input style={inp} placeholder="52170" value={editC.cp} onChange={e=>setEditC(x=>({...x,cp:e.target.value}))}/></div>
+              <div><label style={lbl}>Forma de pago</label>
+                <input style={inp} placeholder="Transferencia electrónica de fondos (incluye SPEI)" value={editC.formaPago} onChange={e=>setEditC(x=>({...x,formaPago:e.target.value}))}/></div>
+            </div>
+            <div style={{marginTop:12}}>
+              <label style={lbl}>Régimen fiscal</label>
+              <input style={inp} placeholder="Personas Físicas con Actividades Empresariales y Profesionales" value={editC.regimen} onChange={e=>setEditC(x=>({...x,regimen:e.target.value}))}/>
+            </div>
+            <div style={{marginTop:12}}>
+              <label style={lbl}>Uso del CFDI</label>
+              <input style={inp} placeholder="Gastos en general" value={editC.usoCFDI} onChange={e=>setEditC(x=>({...x,usoCFDI:e.target.value}))}/>
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginTop:10}}>Lo que dejes vacío simplemente no aparece en el mensaje al contador.</div>
+            <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setEditC(null)}>Cancelar</button>
+              <button style={btn()} onClick={guardarFisc}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -2275,7 +2521,7 @@ export default function App() {
           { id:"inventarios", label:"Inventarios", icon:"box" },
         ]}]
     : [
-        { g:"General",   items:[{ id:"dashboard", label:"Inicio", icon:"home" },{ id:"pedidos", label:"Pedidos", icon:"list" },{ id:"ventas", label:"Ventas", icon:"leaf" }] },
+        { g:"General",   items:[{ id:"dashboard", label:"Inicio", icon:"home" },{ id:"pedidos", label:"Pedidos", icon:"list" },{ id:"ventas", label:"Ventas", icon:"leaf" },{ id:"facturacion", label:"Facturación", icon:"book" }] },
         { g:"Operación", items:[{ id:"gastos", label:"Gastos", icon:"wallet" },{ id:"fruta", label:"Proveedor", icon:"truck" },{ id:"inventarios", label:"Inventarios", icon:"box" }] },
         { g:"Sistema",   items:[{ id:"catalogos", label:"Catálogos", icon:"layers" },{ id:"bitacora", label:"Bitácora", icon:"book" }] },
       ];
@@ -2352,6 +2598,7 @@ export default function App() {
           {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)}/>}
           {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
           {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+          {tab==="facturacion" && rol==="admin" && <Facturacion ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
           {tab==="gastos"      && rol==="admin" && <Gastos gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
           {tab==="fruta"       && rol==="admin" && <Fruta fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
           {tab==="inventarios" && <Inventarios inventario={inventario} setInventario={setInventario} logBit={logBit}/>}
