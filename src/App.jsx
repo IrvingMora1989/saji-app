@@ -237,6 +237,22 @@ const cliFisc = (clientes, nombre) => {
   return (c && typeof c === "object") ? c : { nombre };
 };
 
+// Un mismo contribuyente puede tener varias sucursales: se facturan juntas
+const grupoDe = (clientes, nombre) => {
+  const c = (clientes||[]).find(x => cliNom(x) === nombre);
+  return (c && typeof c === "object" && c.grupo && c.grupo.trim()) ? c.grupo.trim() : nombre;
+};
+// Datos fiscales del grupo: el primer valor no vacío entre sus miembros
+const fiscalGrupo = (clientes, grupo) => {
+  const miembros = (clientes||[]).filter(c => typeof c === "object" && grupoDe(clientes, cliNom(c)) === grupo);
+  const out = { nombre:grupo };
+  ["razonSocial","rfc","cp","regimen","usoCFDI","formaPago"].forEach(k=>{
+    const v = miembros.map(m=>m[k]).find(x=>x && String(x).trim());
+    if(v) out[k] = v;
+  });
+  return out;
+};
+
 // ─── Claves del SAT por producto (se pueden cambiar en Catálogos) ────────────
 const CLAVES_SAT = {
   "aguacate":        { clave:"50401736", desc:"Aguacate Hass" },
@@ -813,13 +829,15 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
     ["", "pedir", ...(verPedidas?["pedida"]:[])].includes(String(v.factura||"").toLowerCase().trim());
 
   const candidatas = ventas.filter(porFacturar);
-  const clientesCon = [...new Set(candidatas.map(v=>normCliente(v.cliente)))].sort();
+  const grupoV = v => grupoDe(clientes, normCliente(v.cliente));
+  const clientesCon = [...new Set(candidatas.map(grupoV))].sort();
 
-  // Remisiones del cliente elegido
-  const delCliente = candidatas.filter(v=>normCliente(v.cliente)===cli);
+  // Remisiones del grupo elegido (puede incluir varias sucursales)
+  const delCliente = candidatas.filter(v=>grupoV(v)===cli);
+  const sucursales = [...new Set(delCliente.map(v=>normCliente(v.cliente)))];
   const remisiones = Object.values(delCliente.reduce((acc,v)=>{
     const k = String(v.pedido||"").trim() || "(sin remisión)";
-    if(!acc[k]) acc[k] = { rem:k, fecha:v.fecha, items:[], total:0 };
+    if(!acc[k]) acc[k] = { rem:k, fecha:v.fecha, items:[], total:0, suc:normCliente(v.cliente) };
     acc[k].items.push(v); acc[k].total += num(v.total);
     if((v.fecha||"") < (acc[k].fecha||"")) acc[k].fecha = v.fecha;
     return acc;
@@ -835,7 +853,7 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
   },{})).sort((a,b)=> a.producto.localeCompare(b.producto) || a.precio-b.precio);
 
   const totalMsg = lineas.reduce((s,l)=>s+l.total,0);
-  const f = cliFisc(clientes, cli);
+  const f = fiscalGrupo(clientes, cli);
   const nf  = n => n.toLocaleString("es-MX",{maximumFractionDigits:2});                         // cantidades
   const nfM = n => n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2}); // dinero
   const sinClave = lineas.filter(l=>!satDe(productos,l.producto).clave).map(l=>l.producto);
@@ -845,7 +863,8 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
     const L = [];
     L.push("Buenas tardes, me ayudan con esta factura por favor");
     L.push("");
-    L.push(`Cliente: ${f.razonSocial || cli}${f.razonSocial ? ` (${cli})` : ""}`);
+    const alias = [...new Set(elegidas.map(r=>r.suc))].join(", ");
+    L.push(`Cliente: ${f.razonSocial || cli}${f.razonSocial ? ` (${alias||cli})` : ""}`);
     if(f.rfc)       L.push(`RFC: ${f.rfc}`);
     if(f.cp)        L.push(`CP: ${f.cp}`);
     if(f.regimen)   L.push(`Régimen: ${f.regimen}`);
@@ -876,7 +895,7 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
     const rems = new Set(elegidas.map(r=>r.rem));
     if(!rems.size) return;
     if(!window.confirm(`¿Marcar como "Pedida" la factura de ${rems.size} remisión(es)?`)) return;
-    setVentas(vs=>vs.map(v=>(rems.has(String(v.pedido||"").trim()) && normCliente(v.cliente)===cli && porFacturar(v))
+    setVentas(vs=>vs.map(v=>(rems.has(String(v.pedido||"").trim()) && grupoV(v)===cli && porFacturar(v))
       ? {...v, factura:"Pedida"} : v));
     logBit("Pidió factura",`${cli} · remisiones ${[...rems].join(", ")} · ${fmt(totalMsg)}`);
     setSel({});
@@ -902,8 +921,10 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
           ? <p style={{color:C.green,textAlign:"center",padding:"18px 0",margin:0,fontWeight:600}}>No hay facturas pendientes de pedir</p>
           : <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
               {clientesCon.map(c=>{
-                const n = candidatas.filter(v=>normCliente(v.cliente)===c).reduce((s,v)=>s+num(v.total),0);
-                return <button key={c} style={nb(cli===c)} onClick={()=>togglePick(c)}>{c} · {fmt(n)}</button>;
+                const vs = candidatas.filter(v=>grupoV(v)===c);
+                const n = vs.reduce((s,v)=>s+num(v.total),0);
+                const sucs = new Set(vs.map(v=>normCliente(v.cliente))).size;
+                return <button key={c} style={nb(cli===c)} onClick={()=>togglePick(c)}>{c}{sucs>1?` (${sucs} sucursales)`:""} · {fmt(n)}</button>;
               })}
             </div>}
       </div>
@@ -912,7 +933,7 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
         <div className="saji-cols">
           <div style={card}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
-              <h3 style={{...h3s,margin:0}}>Remisiones de {cli}</h3>
+              <h3 style={{...h3s,margin:0}}>Remisiones de {cli}{sucursales.length>1?` · ${sucursales.length} sucursales`:""}</h3>
               <div style={{display:"flex",gap:6}}>
                 <button style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}} onClick={todas}>Todas</button>
                 <button style={{...btnO(C.muted),padding:"5px 11px",fontSize:11}} onClick={ningun}>Ninguna</button>
@@ -927,6 +948,7 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
                     <strong style={{fontSize:13.5}}>{fmt(r.total)}</strong>
                   </div>
                   <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    {sucursales.length>1&&<strong style={{color:C.indigo}}>{r.suc} · </strong>}
                     {fmtDate(r.fecha)} · Sem {weekOf(r.fecha)} · {r.items.map(i=>`${i.producto} ${num(i.kg)}${uni(i.producto)}`).join(" · ")}
                   </div>
                 </div>
@@ -1725,7 +1747,7 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
   const [editC, setEditC] = useState(null);   // datos fiscales en edición
   const nombres = (clientes||[]).map(cliNom);
   const addCli  = () => { const v=nCli.trim(); if(v&&!nombres.includes(v)){setClientes(c=>[...c,{nombre:v}]);setNCli("");} };
-  const abrirFisc = nom => { const f=cliFisc(clientes,nom); setEditC({nombre:nom,razonSocial:f.razonSocial||"",rfc:f.rfc||"",cp:f.cp||"",regimen:f.regimen||"",usoCFDI:f.usoCFDI||"",formaPago:f.formaPago||""}); };
+  const abrirFisc = nom => { const f=cliFisc(clientes,nom); setEditC({nombre:nom,grupo:f.grupo||"",razonSocial:f.razonSocial||"",rfc:f.rfc||"",cp:f.cp||"",regimen:f.regimen||"",usoCFDI:f.usoCFDI||"",formaPago:f.formaPago||""}); };
   const guardarFisc = () => {
     setClientes(cs=>cs.map(c=>cliNom(c)===editC.nombre?{...editC}:c));
     setEditC(null);
@@ -1761,7 +1783,10 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
             <div key={nom} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.bg,borderRadius:9,padding:"9px 13px",marginBottom:6,border:`1px solid ${C.border}`}}>
               <div style={{minWidth:0}}>
                 <div>👤 {nom}</div>
-                <div style={{fontSize:11,color:f.rfc?C.green:C.amber,marginTop:2}}>{f.rfc ? `${f.razonSocial||""} · ${f.rfc}` : "Sin datos fiscales"}</div>
+                <div style={{fontSize:11,color:f.rfc?C.green:C.amber,marginTop:2}}>
+                  {f.grupo && <span style={{color:C.indigo,fontWeight:600}}>Grupo {f.grupo} · </span>}
+                  {f.rfc ? `${f.razonSocial||""} · ${f.rfc}` : (f.grupo ? "Datos fiscales del grupo" : "Sin datos fiscales")}
+                </div>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}}>
                 <button style={{...btnO(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>abrirFisc(nom)}>Datos fiscales</button>
@@ -1862,6 +1887,14 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
             <div style={{marginTop:12}}>
               <label style={lbl}>Uso del CFDI</label>
               <input style={inp} placeholder="Gastos en general" value={editC.usoCFDI} onChange={e=>setEditC(x=>({...x,usoCFDI:e.target.value}))}/>
+            </div>
+            <div style={{marginTop:12}}>
+              <label style={lbl}>Grupo de facturación (opcional)</label>
+              <input style={inp} list="grupos-list" placeholder="Ej. Carnalito — déjalo vacío si se factura solo" value={editC.grupo} onChange={e=>setEditC(x=>({...x,grupo:e.target.value}))}/>
+              <datalist id="grupos-list">{[...new Set((clientes||[]).map(c=>typeof c==="object"?c.grupo:"").filter(Boolean))].map(g=><option key={g} value={g}/>)}</datalist>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+                Varias sucursales con el mismo grupo se facturan juntas, en un solo mensaje. Los datos fiscales se capturan una sola vez, en cualquiera de ellas.
+              </div>
             </div>
             <div style={{fontSize:11,color:C.muted,marginTop:10}}>Lo que dejes vacío simplemente no aparece en el mensaje al contador.</div>
             <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end"}}>
