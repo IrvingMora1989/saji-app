@@ -172,6 +172,7 @@ body{margin:0;background:#f4f6f3;color:#14201a;font-family:'Inter','Segoe UI',sy
 
 /* Piezas */
 .saji-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.saji-kpis2{grid-template-columns:repeat(2,1fr);max-width:720px}
 .saji-cols{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start}
 .saji-row{display:grid;grid-template-columns:70px 1.5fr 1.2fr 1.1fr 120px 16px;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid #f0f2ee;cursor:pointer;transition:background .15s ease}
 .saji-row:last-child{border-bottom:0}
@@ -228,6 +229,13 @@ const TIPOS_GASTO = {
 };
 const METODOS_PAGO = ["Efectivo","Tarjeta Jasso","Tarjeta Irving","Tarjeta SAJI","Transferencia SAJI","Transferencia Jasso"];
 
+
+// ─── Unidad de medida por producto ───────────────────────────────────────────
+// Los jugos se venden por litro; todo lo demás por kilogramo.
+const PROD_LITROS = /jugo/i;
+const uni  = p => PROD_LITROS.test(String(p||"")) ? "L"  : "kg";   // minúscula
+const uniU = p => PROD_LITROS.test(String(p||"")) ? "L"  : "KG";   // etiqueta
+const esLitro = p => PROD_LITROS.test(String(p||""));
 
 // ─── Helpers de ventas ────────────────────────────────────────────────────────
 const num      = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
@@ -342,7 +350,9 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
   const pendPedidos = pedidos.filter(p=>p.estatus==="pendiente").length;
 
   const totalVentas = vF.reduce((s,v)=>s+num(v.total),0);
-  const totalKg     = vF.reduce((s,v)=>s+num(v.kg),0);
+  const totalKg     = vF.filter(v=>!esLitro(v.producto)).reduce((s,v)=>s+num(v.kg),0);
+  const totalLt     = vF.filter(v=> esLitro(v.producto)).reduce((s,v)=>s+num(v.kg),0);
+  const nf1         = n => n.toLocaleString("es-MX",{maximumFractionDigits:1});
   const esImp       = g => ["isr","iva"].includes(String(g.gasto||"").toLowerCase().trim());
   const gastosOp    = gF.filter(g=>!esImp(g)).reduce((s,g)=>s+num(g.monto),0);
   const totalISR    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="isr").reduce((s,g)=>s+num(g.monto),0);
@@ -371,8 +381,9 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
   const deuda = {};
   pend.forEach(v=>{
     const c = normCliente(v.cliente)||"—";
-    if(!deuda[c]) deuda[c]={cli:c,monto:0,n:0,dias:0};
-    deuda[c].monto += num(v.total); deuda[c].n++;
+    if(!deuda[c]) deuda[c]={cli:c,monto:0,n:0,dias:0,peds:new Set()};
+    deuda[c].monto += num(v.total); deuda[c].peds.add(String(v.pedido||"").trim());
+    deuda[c].n = deuda[c].peds.size;
     deuda[c].dias = Math.max(deuda[c].dias, diasPend(v));
   });
   const listaDeuda = Object.values(deuda).sort((a,b)=>b.monto-a.monto);
@@ -390,7 +401,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
 
       <div className="saji-kpis" style={{marginBottom:16}}>
         <Kpi hi label="Utilidad neta" value={fmt(utilidad)}/>
-        <Kpi label="Ventas" value={fmt(totalVentas)} sub={`${totalKg.toLocaleString("es-MX",{maximumFractionDigits:1})} kg`}/>
+        <Kpi label="Ventas" value={fmt(totalVentas)} sub={totalLt>0?`${nf1(totalKg)} kg · ${nf1(totalLt)} L`:`${nf1(totalKg)} kg`}/>
         <Kpi label="Gastos + compras" value={fmt(totalGastos+costoFruta)}/>
         <Kpi label="Por cobrar" value={fmt(porCobrar)} color={porCobrar>0?C.red:C.green}/>
       </div>
@@ -456,7 +467,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
           <div style={card}>
             <h3 style={h3s}>Pendientes</h3>
             <Linea l="Pedidos por entregar" v={String(pendPedidos)}/>
-            <Linea l="Ventas por cobrar" v={String(pend.length)}/>
+            <Linea l="Ventas por cobrar" v={String(new Set(pend.map(v=>`${String(v.pedido||"").trim()}|${normCliente(v.cliente)}`)).size)}/>
           </div>
         </div>
       </div>
@@ -473,6 +484,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   const [show,         setShow]        = useState(false);
   const [filter,       setFilter]      = useState("pendiente");
   const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
+  const [editId,       setEditId]      = useState(null); // pedido que se está editando
   const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
   const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
   const [fechaEntregaReal, setFechaEntregaReal] = useState("");
@@ -490,14 +502,33 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   const totalForm = form.items.reduce((s,it)=>s+(parseFloat(it.cantidad||0)*parseFloat(it.precio||0)),0);
   const getCals   = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
 
+  const limpiar = () => {
+    setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
+    setEditId(null); setShow(false);
+  };
+  const abrirNuevo  = () => { setEditId(null); setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] }); setShow(true); };
+  const abrirEditar = p  => {
+    setEditId(p.id);
+    setForm({
+      cliente: p.cliente||"", fechaEntrega: p.fechaEntrega||"",
+      tipoPago: p.tipoPago||"efectivo", factura: p.factura||"no",
+      items: (p.items||[]).length ? (p.items||[]).map(it=>({...it, cantidad:String(it.cantidad??""), precio:String(it.precio??"")})) : [emptyItem()],
+    });
+    setShow(true);
+  };
+
   const guardar = () => {
     if(!form.cliente||!form.fechaEntrega) return alert("Completa cliente y fecha de entrega");
     if(form.items.some(it=>!it.producto||!it.cantidad||!it.precio)) return alert("Completa todos los productos");
-    const np={id:genId(pedidos),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
-    setPedidos(ps=>[np,...ps]);
-    logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
-    setForm({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
-    setShow(false);
+    if(editId!==null){
+      setPedidos(ps=>ps.map(p=>p.id===editId?{...p,...form,total:totalForm}:p));
+      logBit("Editó pedido",`#${editId} · ${form.cliente} · ${form.items.length} producto${form.items.length===1?"":"s"} · ${fmt(totalForm)}`);
+    } else {
+      const np={id:genId(pedidos),fecha:todayStr(),...form,total:totalForm,estatus:"pendiente"};
+      setPedidos(ps=>[np,...ps]);
+      logBit("Nuevo pedido",`#${np.id} · ${form.cliente} · ${fmt(totalForm)}`);
+    }
+    limpiar();
   };
   const cancelar  = id => { if(!window.confirm("¿Cancelar este pedido?")) return; setPedidos(ps=>ps.map(p=>p.id===id?{...p,estatus:"cancelado"}:p)); logBit("Canceló pedido",`#${id}`); };
   const abrirCompletar = id => {
@@ -545,7 +576,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
         <h2 style={{...h2s,margin:0}}>📦 Pedidos Pendientes</h2>
-        <button style={btn()} onClick={()=>setShow(true)}>+ Nuevo Pedido</button>
+        <button style={btn()} onClick={abrirNuevo}>+ Nuevo Pedido</button>
       </div>
 
       <div style={card}>
@@ -565,7 +596,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
               <col style={{width:90}}/>{/* Acciones */}
             </colgroup>
             <thead>
-              <tr>{["Cliente","Producto","Calibre","KG","$/kg","Subtotal","F.Entrega","Fact.","Pago","#Ped",""].map(h=>(
+              <tr>{["Cliente","Producto","Calibre","Cant.","$/unidad","Subtotal","F.Entrega","Fact.","Pago","#Ped",""].map(h=>(
                 <th key={h} style={{...th,padding:"7px 6px",fontSize:10}}>{h}</th>
               ))}</tr>
             </thead>
@@ -578,7 +609,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
                     {idx===0&&<td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} rowSpan={items.length}>{p.cliente}</td>}
                     <td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}}>{pEmoji(it.producto)} {it.producto}</td>
                     <td style={{...td,padding:"7px 6px"}}><span style={{...badge(C.blue,C.blueL),padding:"2px 6px",fontSize:10}}>{it.calibre}</span></td>
-                    <td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px"}}>{it.cantidad}kg</td>
+                    <td style={{...td,fontWeight:700,fontSize:12,padding:"7px 6px"}}>{it.cantidad} {uni(it.producto)}</td>
                     <td style={{...td,fontSize:12,padding:"7px 6px"}}>{fmt(it.precio)}</td>
                     <td style={{...td,padding:"7px 6px"}}><strong style={{color:C.green,fontSize:12}}>{fmt(parseFloat(it.cantidad||0)*parseFloat(it.precio||0))}</strong></td>
                     {idx===0&&<td style={{...td,fontWeight:600,fontSize:12,padding:"7px 6px"}} rowSpan={items.length}>{fmtDate(p.fechaEntrega)}</td>}
@@ -589,6 +620,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
                       <td style={{...td,padding:"7px 6px"}} rowSpan={items.length}>
                         <div style={{display:"flex",flexDirection:"column",gap:3}}>
                           <button style={{...btn(C.green),padding:"4px 8px",fontSize:10}} onClick={()=>abrirCompletar(p.id)}>✓ Completar</button>
+                          <button style={{...btnO(C.blue),padding:"4px 8px",fontSize:10}} onClick={()=>abrirEditar(p)}>✎ Editar</button>
                           <button style={{...btn(C.red),padding:"4px 8px",fontSize:10}} onClick={()=>cancelar(p.id)}>✕ Cancelar</button>
                         </div>
                       </td>
@@ -606,12 +638,12 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
         <div style={modal}>
           <div style={{...mbox,maxWidth:480}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:C.green}}>⚖️ Confirmar KG reales</h3>
+              <h3 style={{margin:0,color:C.green}}>⚖️ Confirmar cantidades reales</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setCompletando(null)}>×</button>
             </div>
             <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:14}}>
               📦 Pedido #{completando.id} · {completando.cliente}<br/>
-              <span style={{fontSize:11,fontWeight:400}}>Edita los KG si el cliente pesó diferente al pedido original</span>
+              <span style={{fontSize:11,fontWeight:400}}>Edita la cantidad si el cliente recibió diferente al pedido original</span>
             </div>
             <div style={{background:C.bg,borderRadius:8,padding:"10px 14px",marginBottom:14,border:`1px solid ${C.border}`}}>
               <label style={lbl}>📅 Fecha real de entrega <span style={{color:C.red}}>*</span></label>
@@ -635,9 +667,9 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
                 <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                   <div style={{flex:"1 1 160px",fontWeight:600,fontSize:13}}>{it.producto} <span style={badge(C.blue,C.blueL)}>{it.calibre}</span></div>
                   <div style={{flex:"0 0 auto"}}>
-                    <label style={{...lbl,margin:"0 0 2px"}}>KG pedido: <strong>{it.cantidad}</strong></label>
+                    <label style={{...lbl,margin:"0 0 2px"}}>{uniU(it.producto)} pedido: <strong>{it.cantidad}</strong></label>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <label style={lbl}>KG real *</label>
+                      <label style={lbl}>{uniU(it.producto)} real *</label>
                       <input type="number" inputMode="decimal" style={{...inp,width:100,padding:"7px 10px"}}
                         value={kgsReales[i]||""}
                         onChange={e=>setKgsReales(k=>{const n=[...k];n[i]=e.target.value;return n;})}/>
@@ -669,14 +701,14 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
         <div style={modal}>
           <div style={mbox}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:C.green,fontSize:16}}>📦 Nuevo Pedido</h3>
-              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShow(false)}>×</button>
+              <h3 style={{margin:0,color:C.green,fontSize:16}}>{editId!==null?`✎ Editar Pedido #${editId}`:"📦 Nuevo Pedido"}</h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={limpiar}>×</button>
             </div>
             <div style={g2}>
               <div><label style={lbl}>Cliente *</label>
                 <select style={sel} value={form.cliente} onChange={e=>sf("cliente",e.target.value)}>
                   <option value="">— Seleccionar —</option>
-                  {clientes.map(c=><option key={c}>{c}</option>)}
+                  {[...new Set([...(clientes||[]), form.cliente].filter(Boolean))].map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Fecha de entrega *</label>
@@ -706,18 +738,19 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
                   <div style={{flex:"1 1 140px"}}><label style={lbl}>Producto</label>
                     <select style={sel} value={it.producto} onChange={e=>setItem(i,"producto",e.target.value)}>
                       <option value="">— Seleccionar —</option>
-                      {productos.map(p=><option key={p.nombre}>{p.nombre}</option>)}
+                      {[...new Set([...productos.map(p=>p.nombre), it.producto].filter(Boolean))].map(n=><option key={n}>{n}</option>)}
                     </select>
                   </div>
                   <div style={{flex:"1 1 100px"}}><label style={lbl}>Calibre</label>
                     <select style={sel} value={it.calibre} onChange={e=>setItem(i,"calibre",e.target.value)} disabled={!it.producto}>
-                      {getCals(it.producto).map(c=><option key={c}>{c}</option>)}
+                      {[...new Set([...getCals(it.producto), it.calibre].filter(Boolean))].map(c=><option key={c}>{c}</option>)}
+                      {!it.calibre&&<option value="">—</option>}
                     </select>
                   </div>
-                  <div style={{flex:"1 1 80px"}}><label style={lbl}>KG</label>
+                  <div style={{flex:"1 1 80px"}}><label style={lbl}>{uniU(it.producto)}</label>
                     <input type="number" inputMode="decimal" style={inp} placeholder="0" value={it.cantidad} onChange={e=>setItem(i,"cantidad",e.target.value)}/>
                   </div>
-                  <div style={{flex:"1 1 90px"}}><label style={lbl}>$/kg</label>
+                  <div style={{flex:"1 1 90px"}}><label style={lbl}>$/{uni(it.producto)}</label>
                     <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={it.precio} onChange={e=>setItem(i,"precio",e.target.value)}/>
                   </div>
                   <div style={{flex:"0 0 auto",minWidth:72}}>
@@ -733,8 +766,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
               <span style={{fontSize:22,fontWeight:800,color:C.green}}>{fmt(totalForm)}</span>
             </div>
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
-              <button style={btnO()} onClick={()=>setShow(false)}>Cancelar</button>
-              <button style={btn()} onClick={guardar}>💾 Guardar Pedido</button>
+              <button style={btnO()} onClick={limpiar}>Cancelar</button>
+              <button style={btn()} onClick={guardar}>💾 {editId!==null?"Guardar cambios":"Guardar Pedido"}</button>
             </div>
           </div>
         </div>
@@ -779,7 +812,7 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
   const cerrar = () => { setSel(null); setForm(null); setNueva(false); };
 
   const guardar = () => {
-    if(!form.cliente||!form.producto||!form.kg||!form.precio) return alert("Completa cliente, producto, KG y precio.");
+    if(!form.cliente||!form.producto||!form.kg||!form.precio) return alert(`Completa cliente, producto, ${uniU(form.producto)} y precio.`);
     const kg=num(form.kg), precio=num(form.precio);
     const reg = {
       ...form,
@@ -819,7 +852,18 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
   }).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"") || String(b.pedido||"").localeCompare(String(a.pedido||"")));
 
   const tot    = lista.reduce((s,v)=>s+num(v.total),0);
-  const kgTot  = lista.reduce((s,v)=>s+num(v.kg),0);
+  const kgTot  = lista.filter(v=>!esLitro(v.producto)).reduce((s,v)=>s+num(v.kg),0);
+  const ltTot  = lista.filter(v=> esLitro(v.producto)).reduce((s,v)=>s+num(v.kg),0);
+  // Una venta = un pedido (número de remisión); un pedido puede traer varios productos
+  const keyPed   = v => `${String(v.pedido||"").trim()}|${normCliente(v.cliente)}`;
+  const nPedidos = new Set(lista.map(keyPed)).size;
+  const nPedPend = new Set(lista.filter(esPend).map(keyPed)).size;
+  const atrasoMax = lista.filter(esPend).reduce((m,v)=>Math.max(m,diasPend(v)),0);
+  // El primer recuadro cambia de nombre según el estatus filtrado
+  const tituloTot = fEst==="pend" ? "Total por cobrar"
+                  : fEst==="pag"  ? "Total cobrado"
+                  : fEst==="fact" ? "Total por facturar"
+                  :                 "Total vendido";
   const pendT  = lista.filter(esPend).reduce((s,v)=>s+num(v.total),0);
   const facT   = lista.filter(v=>String(v.tipoPago||"").toLowerCase()!=="efectivo" && ["","pedir","pedida"].includes(String(v.factura||"").toLowerCase())).length;
 
@@ -828,7 +872,7 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
 
   const cols = [
     {l:"Pedido",k:"pedido"},{l:"SEM",k:"sem"},{l:"DÍA",k:"dia"},{l:"MES",k:"mes"},{l:"FECHA",k:"fecha"},
-    {l:"CLIENTE",k:"cliente"},{l:"Producto",k:"producto"},{l:"KG",k:"kg"},{l:"$/KG",k:"precio"},{l:"Total",k:"total"},
+    {l:"CLIENTE",k:"cliente"},{l:"Producto",k:"producto"},{l:"CANTIDAD",k:"kg"},{l:"UNIDAD",k:"_u"},{l:"$/UNIDAD",k:"precio"},{l:"Total",k:"total"},
     {l:"TIPO DE PAGO",k:"tipoPago"},{l:"ESTATUS PAGO",k:"estatus"},{l:"FACTURA",k:"factura"},{l:"DÍAS PEND.",k:"_d"},{l:"F. PAGO",k:"fpago"},
   ];
 
@@ -837,7 +881,7 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
       <PageHead titulo="Ventas" sub="Se registran al confirmar un pedido"
         extra={<>
           <button style={btnO(C.muted)} onClick={()=>document.getElementById("impVentasJSON").click()}>Importar</button>
-          <button style={btnO(C.muted)} onClick={()=>exportCSV(lista.map(v=>({...v,_d:diasPend(v)})),cols,`ventas-${todayStr()}.csv`)}>Exportar</button>
+          <button style={btnO(C.muted)} onClick={()=>exportCSV(lista.map(v=>({...v,_d:diasPend(v),_u:uni(v.producto)})),cols,`ventas-${todayStr()}.csv`)}>Exportar</button>
           <button style={btn(C.indigo)} onClick={abrirNueva}>+ Nueva venta</button>
         </>}/>
       <input id="impVentasJSON" type="file" accept=".json" style={{display:"none"}} onChange={async e=>{
@@ -858,11 +902,11 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
         e.target.value="";
       }}/>
 
-      <div className="saji-kpis" style={{marginBottom:16}}>
-        <Kpi hi label="Total vendido" value={fmt(tot)} sub={`${lista.length} ventas`}/>
-        <Kpi label="Kilos" value={kgTot.toLocaleString("es-MX",{maximumFractionDigits:1})}/>
-        <Kpi label="Por cobrar" value={fmt(pendT)} color={pendT>0?C.red:C.green}/>
-        <Kpi label="Facturas pendientes" value={String(facT)} color={facT>0?C.amber:C.green}/>
+      <div className="saji-kpis saji-kpis2" style={{marginBottom:16}}>
+        <Kpi hi label={tituloTot} value={fmt(tot)} sub={`${nPedidos} venta${nPedidos===1?"":"s"} · ${lista.length} ${lista.length===1?"renglón":"renglones"}`}/>
+        {fEst==="pend"
+          ? <Kpi label="Atraso máximo" value={`${atrasoMax} día${atrasoMax===1?"":"s"}`} sub={`${nPedPend} venta${nPedPend===1?"":"s"} sin pagar`} color={atrasoMax>15?C.red:C.amber}/>
+          : <Kpi label="Por cobrar" value={fmt(pendT)} sub={`${nPedPend} venta${nPedPend===1?"":"s"}`} color={pendT>0?C.red:C.green}/>}
       </div>
 
       <div style={card}>
@@ -896,13 +940,13 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
                     <div style={{fontWeight:600,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.cliente}</div>
                     <div style={{fontSize:11,color:C.muted}}>{fmtDate(v.fecha)} · Sem {v.sem||weekOf(v.fecha)}</div>
                     <div className="saji-only-sm" style={{fontSize:11,color:C.muted,marginTop:2}}>
-                      {v.producto} · {num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} kg
+                      {v.producto} · {num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)}
                       <span style={{color:pend?C.amber:C.green,fontWeight:600}}> · {pend?"Pendiente":"Pagado"}</span>
                     </div>
                   </div>
                   <div className="saji-hide-sm" style={{fontSize:13}}>
                     <div style={{fontWeight:600}}>{v.producto}</div>
-                    <div style={{fontSize:11,color:C.muted}}>{num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} kg · {fmt(v.precio)}/kg</div>
+                    <div style={{fontSize:11,color:C.muted}}>{num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)} · {fmt(v.precio)}/{uni(v.producto)}</div>
                   </div>
                   <div className="saji-hide-sm">
                     <span style={badge(pend?C.amber:C.green)}>{pend?"Pendiente":"Pagado"}</span>
@@ -947,8 +991,8 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
               </div>
             </div>
             <div style={{...g3,marginTop:12}}>
-              <div><label style={lbl}>KG</label><input type="number" inputMode="decimal" style={inp} value={form.kg} onChange={e=>sf("kg",e.target.value)}/></div>
-              <div><label style={lbl}>$ / KG</label><input type="number" inputMode="decimal" style={inp} value={form.precio} onChange={e=>sf("precio",e.target.value)}/></div>
+              <div><label style={lbl}>{uniU(form.producto)}</label><input type="number" inputMode="decimal" style={inp} value={form.kg} onChange={e=>sf("kg",e.target.value)}/></div>
+              <div><label style={lbl}>$ / {uniU(form.producto)}</label><input type="number" inputMode="decimal" style={inp} value={form.precio} onChange={e=>sf("precio",e.target.value)}/></div>
               <div><label style={lbl}>Total</label><div style={{...inp,background:C.indigoL,fontWeight:700,color:C.indigo}}>{fmt(num(form.kg)*num(form.precio))}</div></div>
             </div>
 
@@ -1220,7 +1264,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
     };
     if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
-    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad}kg · ${fmt(reg.total)}`); }
+    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad} ${uni(reg.producto)} · ${fmt(reg.total)}`); }
     setForm(frutaEmpty()); setShowComp(false);
   };
 
@@ -1248,7 +1292,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const cols=[
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},
-    {l:"Cantidad KG",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},
+    {l:"Cantidad",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},
     {l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"}
   ];
   const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
@@ -1347,7 +1391,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","KG","$/kg","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Cant.","$/unidad","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
               {listaComp.length===0&&<tr><td colSpan={13} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
               {listaComp.map(c=>(
@@ -1357,7 +1401,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
                   <td style={td}>{pEmoji(c.producto)} {c.producto}</td>
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{c.calibre}</span></td>
-                  <td style={td}>{c.cantidad} kg</td>
+                  <td style={td}>{c.cantidad} {uni(c.producto)}</td>
                   <td style={td}>{fmt(c.precio)}</td>
                   <td style={td}><strong style={{color:C.teal}}>{fmt(c.total)}</strong></td>
                   <td style={td}>{c.factura||"—"}</td>
@@ -1402,10 +1446,10 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   {getCals(form.producto).map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Cantidad KG *</label>
+              <div><label style={lbl}>Cantidad {uniU(form.producto)} *</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.cantidad} onChange={e=>sf("cantidad",e.target.value)}/>
               </div>
-              <div><label style={lbl}>Precio $/kg *</label>
+              <div><label style={lbl}>Precio $/{uni(form.producto)} *</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/>
               </div>
               <div><label style={lbl}>Método de pago</label>
