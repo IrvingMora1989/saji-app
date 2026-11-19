@@ -260,6 +260,9 @@ const CLAVES_SAT = {
   "limón":           { clave:"50304100", desc:"Limones" },
   "limon":           { clave:"50304100", desc:"Limones" },
   "limón persa":     { clave:"50304100", desc:"Limones" },
+  "jugo de limón":   { clave:"50202404", desc:"Jugo de limón" },
+  "jugo de limon":   { clave:"50202404", desc:"Jugo de limón" },
+  "jugo de naranja": { clave:"50202409", desc:"Jugo de naranja" },
 };
 const satDe = (productos, nombre) => {
   const p = (productos||[]).find(x => x.nombre === nombre);
@@ -1756,7 +1759,6 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
   const addProd = () => {
     if(!nProd.nombre.trim()) return;
     const cals=nProd.calibres.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
-    if(!cals.length) return alert("Agrega al menos un calibre");
     setProductos(ps=>[...ps,{nombre:nProd.nombre.trim(),calibres:cals}]);
     setNProd({nombre:"",calibres:""});
   };
@@ -1817,7 +1819,7 @@ function Catalogos({ clientes, setClientes, productos, setProductos, proveedores
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
           <input style={inp} placeholder="Nombre del producto (ej: Mango)" value={nProd.nombre} onChange={e=>setNProd(p=>({...p,nombre:e.target.value}))}/>
           <div style={{display:"flex",gap:7}}>
-            <input style={{...inp,flex:1}} placeholder="Calibres separados por coma" value={nProd.calibres} onChange={e=>setNProd(p=>({...p,calibres:e.target.value}))}/>
+            <input style={{...inp,flex:1}} placeholder="Calibres separados por coma (opcional)" value={nProd.calibres} onChange={e=>setNProd(p=>({...p,calibres:e.target.value}))}/>
             <button style={btn()} onClick={addProd}>+ Agregar</button>
           </div>
         </div>
