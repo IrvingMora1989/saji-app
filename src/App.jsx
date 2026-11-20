@@ -382,7 +382,7 @@ function applyFilter(rows, filter, dateKey="fecha") {
 // ════════════════════════════════════════════════════════════════════════════════
 // INICIO
 // ════════════════════════════════════════════════════════════════════════════════
-function Dashboard({ pedidos, ventas, gastos, fruta }) {
+function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
   const [f, setF] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
 
   const vF  = applyFilter(ventas, f);
@@ -399,7 +399,11 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
   const totalISR    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="isr").reduce((s,g)=>s+num(g.monto),0);
   const totalIVA    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="iva").reduce((s,g)=>s+num(g.monto),0);
   const totalGastos = gF.reduce((s,g)=>s+num(g.monto),0);
-  const costoFruta  = frF.reduce((s,x)=>s+num(x.total),0);
+  // Costo de ventas = lo que costó la mercancía que SALIÓ, no lo que se compró
+  const costoVentas = vF.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras,v.producto,v.fecha),0);
+  const sinCosteo   = [...new Set(vF.filter(v=>!costoPromedio(compras,v.producto,v.fecha)).map(v=>v.producto))];
+  const comprasPer  = frF.reduce((s,x)=>s+num(x.total),0);   // desembolso del período
+  const costoFruta  = costoVentas;
   const totalFruta  = costoFruta;
   const uBruta      = totalVentas - costoFruta;
   const uOperat     = uBruta - gastosOp;
@@ -407,7 +411,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
   const pct         = v => totalVentas ? `${(v/totalVentas*100).toFixed(1)}%` : "0%";
   const filas = [
     { concepto:"Ventas totales",          monto:totalVentas, c:C.green, bold:true  },
-    { concepto:"(–) Costo de ventas (fruta)", monto:costoFruta, c:C.muted, bold:false },
+    { concepto:"(–) Costo de ventas (fruta)", monto:costoVentas, c:C.muted, bold:false },
     { concepto:"= Utilidad bruta",        monto:uBruta,      c:uBruta>=0?C.amber:C.red,  bold:true  },
     { concepto:"(–) Gastos operativos",   monto:gastosOp,    c:C.muted, bold:false },
     { concepto:"= Utilidad operativa",    monto:uOperat,     c:uOperat>=0?C.teal:C.red,  bold:true  },
@@ -443,13 +447,18 @@ function Dashboard({ pedidos, ventas, gastos, fruta }) {
       <div className="saji-kpis" style={{marginBottom:16}}>
         <Kpi hi label="Utilidad neta" value={fmt(utilidad)}/>
         <Kpi label="Ventas" value={fmt(totalVentas)} sub={totalLt>0?`${nf1(totalKg)} kg · ${nf1(totalLt)} L`:`${nf1(totalKg)} kg`}/>
-        <Kpi label="Gastos + compras" value={fmt(totalGastos+costoFruta)}/>
+        <Kpi label="Comprado en el período" value={fmt(comprasPer)} sub={`Gastos ${fmt(totalGastos)}`}/>
         <Kpi label="Por cobrar" value={fmt(porCobrar)} color={porCobrar>0?C.red:C.green}/>
       </div>
 
       <div className="saji-cols">
         <div style={card}>
           <h3 style={h3s}>Estado de Resultados</h3>
+          {sinCosteo.length>0&&(
+            <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.amber,marginBottom:12}}>
+              Sin costo registrado: {sinCosteo.join(", ")}. Captura sus compras en Proveedor para que el margen sea real.
+            </div>
+          )}
           <table style={{width:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:13.5}}>
             <thead><tr>
               <th style={{...th,textAlign:"left"}}>Concepto</th>
@@ -526,6 +535,7 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   const [filter,       setFilter]      = useState("pendiente");
   const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
   const [editId,       setEditId]      = useState(null); // pedido que se está editando
+  const [ticket,       setTicket]      = useState(null); // ticket listo para imprimir
   const [completando,  setCompletando] = useState(null); // pedido en proceso de completar
   const [kgsReales,    setKgsReales]   = useState([]);   // cantidades reales por item
   const [fechaEntregaReal, setFechaEntregaReal] = useState("");
@@ -607,6 +617,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
     setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,estatus:"completado",totalReal,fechaEntrega:fechaVenta}:x));
     logBit("Completó pedido",`#${p.id} · ${p.cliente} · ${fmt(totalReal)}`);
     setCompletando(null);
+    setTicket({ folio:remisionReal.trim(), fecha:fechaVenta, cliente:p.cliente, items,
+                total:totalReal, tipoPago:esEfectivo?"Efectivo":"Transferencia", estatus:"Pendiente" });
   };
 
   // Always show only pending pedidos
@@ -675,6 +687,8 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
       </div>
 
       {/* Modal confirmar KG reales */}
+      <TicketModal datos={ticket} onClose={()=>setTicket(null)}/>
+
       {completando&&(
         <div style={modal}>
           <div style={{...mbox,maxWidth:480}}>
@@ -817,6 +831,107 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
   );
 }
 
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// TICKET DE REMISIÓN (impresión térmica 58 / 80 mm)
+// ════════════════════════════════════════════════════════════════════════════════
+function TicketModal({ datos, onClose }) {
+  const [ancho, setAncho] = useState(() => {
+    try { return localStorage.getItem("saji_ancho_ticket") || "80"; } catch { return "80"; }
+  });
+  if(!datos) return null;
+  const { folio, fecha, cliente, items, total, tipoPago, estatus } = datos;
+  const setW = w => { setAncho(w); try{ localStorage.setItem("saji_ancho_ticket",w); }catch{} };
+
+  const nfM = n => num(n).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const nfC = n => num(n).toLocaleString("es-MX",{maximumFractionDigits:2});
+  const papel = ancho==="58" ? 48 : 72;   // mm imprimibles
+
+  const textoWA = () => {
+    const L = [`*SAJI GROUP*`,`Remisión ${folio}`,`${fmtDate(fecha)} · ${cliente}`,``];
+    items.forEach(it=>L.push(`${nfC(it.cantidad)} ${uni(it.producto)} ${it.producto} x $${nfM(it.precio)} = $${nfM(num(it.cantidad)*num(it.precio))}`));
+    L.push(``,`*Total: $${nfM(total)}*`,`Pago: ${tipoPago}`);
+    return L.join("\n");
+  };
+  const compartir = async () => {
+    const texto = textoWA();
+    if(navigator.share){ try{ await navigator.share({ title:`Remisión ${folio}`, text:texto }); return; }catch{} }
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
+  };
+
+  return (
+    <div style={modal} onClick={onClose}>
+      <style>{`@page { size: ${ancho}mm auto; margin: 3mm; }
+        @media print {
+          html, body { background: #fff !important; margin: 0 !important; }
+          body * { visibility: hidden !important; }
+          #saji-ticket, #saji-ticket * { visibility: visible !important; }
+          #saji-ticket { position: absolute !important; left: 0; top: 0; width: ${papel}mm !important;
+                         box-shadow: none !important; border: none !important; padding: 0 !important; }
+          .no-print { display: none !important; }
+        }`}</style>
+      <div style={{...mbox,maxWidth:420,padding:20}} onClick={e=>e.stopPropagation()}>
+        <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <h3 style={{margin:0,fontSize:16}}>Ticket de remisión</h3>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:26,color:C.muted,cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+
+        <div className="no-print" style={{display:"flex",gap:6,marginBottom:12,alignItems:"center"}}>
+          <span style={{fontSize:12,color:C.muted}}>Papel:</span>
+          <button style={nb(ancho==="58")} onClick={()=>setW("58")}>58 mm</button>
+          <button style={nb(ancho==="80")} onClick={()=>setW("80")}>80 mm</button>
+        </div>
+
+        {/* ── El ticket ─────────────────────────────────────────────── */}
+        <div id="saji-ticket" style={{
+          width:`${papel}mm`, margin:"0 auto", background:"#fff", color:"#000",
+          fontFamily:"ui-monospace,'Courier New',monospace", fontSize: ancho==="58"?10.5:11.5,
+          lineHeight:1.45, padding:"10px 8px", border:`1px dashed ${C.border}`, borderRadius:6,
+        }}>
+          <div style={{textAlign:"center",fontWeight:700,fontSize: ancho==="58"?14:16,letterSpacing:1}}>SAJI GROUP</div>
+          <div style={{textAlign:"center",fontSize:ancho==="58"?9:10,marginBottom:6}}>Nota de remisión</div>
+          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
+          <div><strong>REMISIÓN:</strong> {folio}</div>
+          <div><strong>FECHA:</strong> {fmtDate(fecha)}</div>
+          <div><strong>CLIENTE:</strong> {cliente}</div>
+          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
+          {items.map((it,i)=>(
+            <div key={i} style={{marginBottom:5}}>
+              <div style={{fontWeight:700}}>{it.producto}{it.calibre?` (${it.calibre})`:""}</div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span>{nfC(it.cantidad)} {uni(it.producto)} x ${nfM(it.precio)}</span>
+                <span>${nfM(num(it.cantidad)*num(it.precio))}</span>
+              </div>
+            </div>
+          ))}
+          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,fontSize:ancho==="58"?12:13.5}}>
+            <span>TOTAL</span><span>${nfM(total)}</span>
+          </div>
+          <div style={{marginTop:6}}>Pago: {tipoPago}</div>
+          {estatus&&<div>Estatus: {estatus}</div>}
+          <div style={{borderTop:"1px dashed #000",margin:"8px 0"}}/>
+          <div style={{textAlign:"center",marginTop:14}}>_____________________________</div>
+          <div style={{textAlign:"center",fontSize:ancho==="58"?9:10}}>Recibí conforme · Nombre y firma</div>
+          <div style={{textAlign:"center",fontSize:ancho==="58"?8.5:9.5,marginTop:10}}>
+            Este documento no es un comprobante fiscal
+          </div>
+          <div style={{textAlign:"center",fontSize:ancho==="58"?8.5:9.5,marginTop:2}}>¡Gracias por su compra!</div>
+        </div>
+
+        <div className="no-print" style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+          <button style={{...btn(C.indigo),flex:1}} onClick={()=>window.print()}>Imprimir</button>
+          <button style={{...btnO(C.green),flex:1}} onClick={compartir}>Compartir</button>
+          <button style={btnO(C.muted)} onClick={onClose}>Cerrar</button>
+        </div>
+        <div className="no-print" style={{fontSize:11,color:C.muted,marginTop:8,textAlign:"center"}}>
+          Imprimir usa la impresora del teléfono. Compartir manda el ticket por WhatsApp.
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // FACTURACIÓN — arma el mensaje para el contador
@@ -992,7 +1107,8 @@ const ventaEmpty = () => ({
   tipoPago:"Transferencia", estatus:"Pendiente", factura:"Pedir", fpago:"",
 });
 
-function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
+function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
+  const [ticket,   setTicket]   = useState(null);
   const [f,       setF]       = useState({tipo:"todo",valor:"",desde:"",hasta:""});
   const [q,       setQ]       = useState("");
   const [fCli,    setFCli]    = useState("");
@@ -1067,6 +1183,9 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
   const nPedidos = new Set(lista.map(keyPed)).size;
   const nPedPend = new Set(lista.filter(esPend).map(keyPed)).size;
   const atrasoMax = lista.filter(esPend).reduce((m,v)=>Math.max(m,diasPend(v)),0);
+  const costoLista = lista.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras||[],v.producto,v.fecha),0);
+  const margen     = tot - costoLista;
+  const margenPct  = tot ? margen/tot*100 : 0;
   // El primer recuadro cambia de nombre según el estatus filtrado
   const tituloTot = fEst==="pend" ? "Total por cobrar"
                   : fEst==="pag"  ? "Total cobrado"
@@ -1112,7 +1231,9 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
 
       <div className="saji-kpis saji-kpis2" style={{marginBottom:16}}>
         <Kpi hi label={tituloTot} value={fmt(tot)} sub={`${nPedidos} venta${nPedidos===1?"":"s"} · ${lista.length} ${lista.length===1?"renglón":"renglones"}`}/>
-        {fEst==="pend"
+        {costoLista>0&&fEst!=="pend"
+          ? <Kpi label="Margen" value={fmt(margen)} sub={`${margenPct.toFixed(1)}% · costo ${fmt(costoLista)}`} color={margen>0?C.green:C.red}/>
+          : fEst==="pend"
           ? <Kpi label="Atraso máximo" value={`${atrasoMax} día${atrasoMax===1?"":"s"}`} sub={`${nPedPend} venta${nPedPend===1?"":"s"} sin pagar`} color={atrasoMax>15?C.red:C.amber}/>
           : <Kpi label="Por cobrar" value={fmt(pendT)} sub={`${nPedPend} venta${nPedPend===1?"":"s"}`} color={pendT>0?C.red:C.green}/>}
       </div>
@@ -1203,6 +1324,21 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
               <div><label style={lbl}>$ / {uniU(form.producto)}</label><input type="number" inputMode="decimal" style={inp} value={form.precio} onChange={e=>sf("precio",e.target.value)}/></div>
               <div><label style={lbl}>Total</label><div style={{...inp,background:C.indigoL,fontWeight:700,color:C.indigo}}>{fmt(num(form.kg)*num(form.precio))}</div></div>
             </div>
+            {(()=>{
+              const ck = costoPromedio(compras||[], form.producto, form.fecha);
+              if(!ck) return null;
+              const costo = num(form.kg)*ck, mg = num(form.kg)*num(form.precio) - costo;
+              const pct = num(form.kg)*num(form.precio) ? mg/(num(form.kg)*num(form.precio))*100 : 0;
+              return (
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:12,padding:"10px 14px",
+                  background:mg>=0?C.greenL:C.redL,borderRadius:12,fontSize:13}}>
+                  <span style={{color:C.muted}}>Costo {fmt(ck)}/{uni(form.producto)} · {fmt(costo)}</span>
+                  <strong style={{color:mg>=0?C.green:C.red}}>Margen {fmt(mg)} ({pct.toFixed(1)}%)</strong>
+                </div>
+              );
+            })()}
+            <div style={{display:"none"}}>
+            </div>
 
             <div style={{height:1,background:C.border,margin:"20px 0"}}/>
 
@@ -1244,10 +1380,18 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
                   </>}
             </div>
 
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:24}}>
-              {!nueva
-                ? <button style={btnO(C.red)} onClick={eliminar}>Eliminar</button>
-                : <span/>}
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:24,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8}}>
+                {!nueva&&<button style={btnO(C.red)} onClick={eliminar}>Eliminar</button>}
+                {!nueva&&<button style={btnO(C.indigo)} onClick={()=>{
+                  const rem=String(form.pedido||"").trim();
+                  const hs=ventas.filter(v=>String(v.pedido||"").trim()===rem && normCliente(v.cliente)===normCliente(form.cliente));
+                  const its=(hs.length?hs:[form]).map(v=>({producto:v.producto,cantidad:v.kg,precio:v.precio,calibre:v.calibre}));
+                  setTicket({ folio:rem||"—", fecha:form.fecha, cliente:form.cliente, items:its,
+                    total:its.reduce((a,v)=>a+num(v.cantidad)*num(v.precio),0),
+                    tipoPago:form.tipoPago, estatus:form.estatus });
+                }}>Ticket</button>}
+              </div>
               <div style={{display:"flex",gap:8}}>
                 <button style={btnO(C.muted)} onClick={cerrar}>Cancelar</button>
                 <button style={btn(C.indigo)} onClick={guardar}>Guardar</button>
@@ -1256,6 +1400,7 @@ function Ventas({ ventas, setVentas, clientes, productos, logBit }) {
           </div>
         </div>
       )}
+      <TicketModal datos={ticket} onClose={()=>setTicket(null)}/>
     </div>
   );
 }
@@ -1307,6 +1452,7 @@ function Gastos({ gastos, setGastos, logBit }) {
           </div>
         </div>
         <div style={{display:"flex",gap:7}}>
+          <button style={btnO(C.muted)} onClick={()=>document.getElementById("impProvJSON").click()}>⬆ Importar</button>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
           <button style={btn(C.red)} onClick={openNew}>+ Nuevo Gasto</button>
         </div>
@@ -1442,7 +1588,44 @@ function Gastos({ gastos, setGastos, logBit }) {
   );
 }
 // ════════════════════════════════════════════════════════════════════════════════
-const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
+// ─── Unidades de compra ───────────────────────────────────────────────────────
+// Los proveedores venden a granel (kg/L) o por bulto. Guardamos ambas cosas para
+// poder convertir todo a kilos y sacar el costo real por kilo.
+const UNIDADES_COMPRA = [
+  { id:"kg",      label:"Kilos (granel)", kg:1  },
+  { id:"litro",   label:"Litros",         kg:1  },
+  { id:"caja",    label:"Caja",           kg:20 },
+  { id:"arpilla", label:"Arpilla",        kg:29 },
+  { id:"malla",   label:"Malla",          kg:20 },
+  { id:"reja",    label:"Reja",           kg:20 },
+  { id:"costal",  label:"Costal",         kg:50 },
+];
+const esGranel = u => !u || u==="kg" || u==="litro";
+// Kilos reales de una compra (las compras viejas no traen unidad: son granel)
+const kgCompra = c => {
+  const cant = num(c.cantidad);
+  return esGranel(c.unidad) ? cant : cant * (num(c.kgBulto) || 1);
+};
+// Costo por kilo de una compra
+const costoKgCompra = c => { const k = kgCompra(c); return k ? num(c.total)/k : 0; };
+
+// Costo promedio móvil por producto: promedio ponderado de todo lo comprado
+// hasta esa fecha. Sin lotes es lo más fiel que se puede calcular.
+const costoPromedio = (compras, producto, hasta) => {
+  let kg=0, mx=0, kgTot=0, mxTot=0;
+  (compras||[]).forEach(c=>{
+    if(c.tipo || c.producto!==producto) return;
+    kgTot += kgCompra(c); mxTot += num(c.total);
+    if(hasta && (c.fecha||"") > hasta) return;
+    kg += kgCompra(c); mx += num(c.total);
+  });
+  if(kg) return mx/kg;
+  // Venta anterior a la primera compra registrada: usamos el promedio general
+  // del producto en lugar de dejar el costo en cero.
+  return kgTot ? mxTot/kgTot : 0;
+};
+
+const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
 function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
@@ -1458,6 +1641,10 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
     const n={...f,[k]:v};
     if(k==="producto"){ const p=productos.find(x=>x.nombre===v); n.calibre=p?.calibres[0]||""; }
     if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
+    if(k==="unidad"){
+      const u = UNIDADES_COMPRA.find(x=>x.id===v);
+      n.kgBulto = esGranel(v) ? "" : String(n.kgBulto || u?.kg || "");
+    }
     return n;
   });
   const sfp = (k,v) => setPagoForm(f=>({...f,[k]:v}));
@@ -1467,6 +1654,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
     const reg = {
       id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha),
       ...form, cantidad:parseFloat(form.cantidad), precio:parseFloat(form.precio),
+      unidad: form.unidad || "kg",
+      kgBulto: esGranel(form.unidad) ? 1 : (parseFloat(form.kgBulto)||1),
       total:parseFloat(form.cantidad)*parseFloat(form.precio),
       // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
@@ -1500,7 +1689,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const cols=[
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},
-    {l:"Cantidad",k:"cantidad"},{l:"Precio",k:"precio"},{l:"Total",k:"total"},
+    {l:"Cantidad",k:"cantidad"},{l:"Unidad",k:"unidad"},{l:"Kg por bulto",k:"kgBulto"},{l:"Kilos",k:"_kg"},{l:"Precio",k:"precio"},{l:"Costo por kilo",k:"_ck"},{l:"Total",k:"total"},
     {l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"}
   ];
   const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
@@ -1535,11 +1724,34 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
           })()}
         </div>
         <div style={{display:"flex",gap:7}}>
-          <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp,cols,`fruta-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp.map(c=>({...c,_kg:kgCompra(c),_ck:costoKgCompra(c).toFixed(2)})),cols,`compras-${todayStr()}.csv`)}>⬇ CSV</button>
           <button style={btn(C.teal)} onClick={()=>{ setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(true); }}>💳 Pago a Proveedor</button>
           <button style={btn()} onClick={()=>{ setEditId(null); setForm(frutaEmpty()); setShowComp(true); }}>+ Nueva Compra</button>
         </div>
       </div>
+
+      <input id="impProvJSON" type="file" accept=".json" style={{display:"none"}} onChange={async e=>{
+        const file=e.target.files?.[0]; if(!file) return;
+        try{
+          const d=JSON.parse(await file.text());
+          const comp=(d.compras||[]).map((c,i)=>({
+            ...c, id:c.id||`c${Date.now()}${i}`,
+            cantidad:num(c.cantidad), precio:num(c.precio),
+            kgBulto:esGranel(c.unidad)?1:(num(c.kgBulto)||1),
+            total:num(c.total)||num(c.cantidad)*num(c.precio),
+            semana:c.semana||weekOf(c.fecha), dia:c.dia||dayOf(c.fecha), mes:c.mes||monthOf(c.fecha),
+          }));
+          const pag=(d.abonos||d.pagos||[]).map((p,i)=>({
+            ...p, id:p.id||`p${Date.now()}${i}`, monto:num(p.monto), tipo:"pago",
+            metodoPago:p.metodoPago||"Transferencia SAJI",
+          }));
+          if(window.confirm(`¿Importar ${comp.length} compras y ${pag.length} abonos?\n\nEsto REEMPLAZA todo lo que hay en Proveedor.`)){
+            setFruta([...comp,...pag]);
+            logBit("Importó proveedores",`${comp.length} compras · ${pag.length} abonos`);
+          }
+        }catch(err){ alert("No se pudo leer el archivo: "+err.message); }
+        e.target.value="";
+      }}/>
 
       {/* Saldo por proveedor */}
       {existingProveedores.length>0&&(
@@ -1599,9 +1811,9 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Cant.","$/unidad","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Cantidad","Kilos","Costo/kg","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
-              {listaComp.length===0&&<tr><td colSpan={13} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
+              {listaComp.length===0&&<tr><td colSpan={15} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
               {listaComp.map(c=>(
                 <tr key={c.id}>
                   <td style={td}>{c.semana}</td><td style={td}>{c.dia}</td><td style={td}>{c.mes}</td>
@@ -1609,14 +1821,15 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
                   <td style={td}>{pEmoji(c.producto)} {c.producto}</td>
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{c.calibre}</span></td>
-                  <td style={td}>{c.cantidad} {uni(c.producto)}</td>
-                  <td style={td}>{fmt(c.precio)}</td>
+                  <td style={td}>{c.cantidad} {esGranel(c.unidad)?uni(c.producto):`${UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad}${num(c.cantidad)===1?"":"s"}`} {esGranel(c.unidad)?"":<span style={{color:C.muted}}>· {fmt(c.precio)} c/u</span>}</td>
+                  <td style={td}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(c.producto)}</td>
+                  <td style={td}><strong>{fmt(costoKgCompra(c))}</strong></td>
                   <td style={td}><strong style={{color:C.teal}}>{fmt(c.total)}</strong></td>
                   <td style={td}>{c.factura||"—"}</td>
                   <td style={td}>{fmtDate(c.fechaFactura)||"—"}</td>
                   <td style={td}>
                     <div style={{display:"flex",gap:4}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio)}); setShowComp(true); }}>✎</button>
+                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||"")}); setShowComp(true); }}>✎</button>
                       <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==c.id))}>✕</button>
                     </div>
                   </td>
@@ -1654,11 +1867,30 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   {getCals(form.producto).map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>Cantidad {uniU(form.producto)} *</label>
+              <div><label style={lbl}>Unidad de compra *</label>
+                <select style={sel} value={form.unidad||"kg"} onChange={e=>sf("unidad",e.target.value)}>
+                  {UNIDADES_COMPRA.map(u=><option key={u.id} value={u.id}>{u.label}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>{esGranel(form.unidad)?`Cantidad (${uni(form.producto)}) *`:"Cuántos bultos *"}</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.cantidad} onChange={e=>sf("cantidad",e.target.value)}/>
               </div>
-              <div><label style={lbl}>Precio $/{uni(form.producto)} *</label>
+              {!esGranel(form.unidad)&&(
+                <div><label style={lbl}>Kilos por bulto *</label>
+                  <input type="number" inputMode="decimal" style={inp} placeholder="20" value={form.kgBulto} onChange={e=>sf("kgBulto",e.target.value)}/>
+                </div>
+              )}
+              <div><label style={lbl}>{esGranel(form.unidad)?`Precio $/${uni(form.producto)} *`:"Precio por bulto *"}</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/>
+              </div>
+              <div><label style={lbl}>Resumen</label>
+                <div style={{...inp,background:C.indigoL,color:C.indigo,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>{kgCompra(form).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(form.producto)}</span>
+                  <span>{fmt(num(form.cantidad)*num(form.precio))}</span>
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginTop:3}}>
+                  Costo real: <strong>{fmt(costoKgCompra({...form,total:num(form.cantidad)*num(form.precio)}))}</strong> por {uni(form.producto)}
+                </div>
               </div>
               <div><label style={lbl}>Método de pago</label>
                 <select style={sel} value={form.metodoPago} onChange={e=>sf("metodoPago",e.target.value)}>
@@ -2630,9 +2862,9 @@ export default function App() {
         </header>
 
         <main className="saji-main saji-view" key={tab}>
-          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)}/>}
+          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} compras={fruta.filter(f=>!f.tipo)}/>}
           {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-          {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
+          {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} compras={fruta.filter(f=>!f.tipo)} logBit={logBit}/>}
           {tab==="facturacion" && rol==="admin" && <Facturacion ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
           {tab==="gastos"      && rol==="admin" && <Gastos gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
           {tab==="fruta"       && rol==="admin" && <Fruta fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
