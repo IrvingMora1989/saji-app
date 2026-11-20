@@ -1660,7 +1660,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
 
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
-    if(k==="producto"){ const p=productos.find(x=>x.nombre===v); n.calibre=p?.calibres[0]||""; }
+    if(k==="producto" && v!==f.producto){ const p=productos.find(x=>x.nombre===v); n.calibre=p?.calibres[0]||""; }
     if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
     if(k==="unidad"){
       const u = UNIDADES_COMPRA.find(x=>x.id===v);
@@ -1688,6 +1688,19 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
     if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
     else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad} ${uni(reg.producto)} · ${fmt(reg.total)}`); }
     setForm(frutaEmpty()); setShowComp(false);
+  };
+
+  const abrirCompra = c => {
+    setEditId(c.id);
+    setForm({...c, cantidad:String(c.cantidad), precio:String(c.precio),
+      unidad:c.unidad||"kg", kgBulto:String(c.kgBulto||""),
+      deudaKg:String(c.deudaKg||""), destino:c.destino||"Normal"});
+    setShowComp(true);
+  };
+  const borrarCompra = c => {
+    if(!window.confirm(`¿Eliminar esta compra?\n\n${c.proveedor} · ${c.producto} · ${fmtDate(c.fecha)}\n${fmt(c.total)}\n\nEsta acción no se puede deshacer.`)) return;
+    setFruta(fs=>fs.filter(x=>x.id!==c.id));
+    logBit("Eliminó compra fruta",`${c.proveedor} · ${c.producto} · ${fmt(c.total)}`);
   };
 
   const guardarPago = () => {
@@ -1828,7 +1841,11 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                                 <td style={{...td,paddingLeft:20,color:C.muted,fontSize:11}} colSpan={1}>└ {fmtDate(pg.fecha)}</td>
                                 <td style={{...td,fontSize:11}} colSpan={2}>{pg.metodoPago}</td>
                                 <td style={{...td,color:C.green,fontWeight:600,fontSize:12}}>{fmt(pg.monto)}</td>
-                                <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==pg.id))}>✕</button></td>
+                                <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>{
+                                  if(!window.confirm(`¿Eliminar este pago?\n\n${pg.proveedor} · ${fmtDate(pg.fecha)} · ${fmt(pg.monto)}`)) return;
+                                  setFruta(fs=>fs.filter(x=>x.id!==pg.id));
+                                  logBit("Eliminó pago a proveedor",`${pg.proveedor} · ${fmt(pg.monto)}`);
+                                }}>✕</button></td>
                               </tr>
                             ))
                       )}
@@ -1857,7 +1874,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         <div className="saji-cards">
           {listaComp.length===0&&<p style={{color:C.muted,textAlign:"center",padding:"22px 0",margin:0}}>Sin compras en este período</p>}
           {listaComp.map(c=>(
-            <div key={c.id} style={{padding:"12px 2px",borderBottom:"1px solid #f0f2ee"}}>
+            <div key={c.id} onClick={()=>abrirCompra(c)} style={{padding:"12px 2px",borderBottom:"1px solid #f0f2ee",cursor:"pointer"}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:700,fontSize:14}}>
@@ -1878,10 +1895,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   {c.cantidad} {esGranel(c.unidad)?uni(c.producto):(UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad)} · {kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(c.producto)}
                   {num(c.deudaKg)>0&&<span style={{color:C.purple}}> · deuda {fmt(deudaDeCompra(c))}</span>}
                 </span>
-                <span style={{display:"flex",gap:6,flexShrink:0}}>
-                  <button style={{...btnO(C.blue),padding:"4px 10px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||""),deudaKg:String(c.deudaKg||""),destino:c.destino||"Normal"}); setShowComp(true); }}>Editar</button>
-                  <button style={{...btnO(C.red),padding:"4px 10px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==c.id))}>✕</button>
-                </span>
+                <button style={{...btnO(C.red),padding:"4px 12px",fontSize:11,flexShrink:0}}
+                  onClick={e=>{ e.stopPropagation(); borrarCompra(c); }}>Eliminar</button>
               </div>
             </div>
           ))}
@@ -1893,7 +1908,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
             <tbody>
               {listaComp.length===0&&<tr><td colSpan={17} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
               {listaComp.map(c=>(
-                <tr key={c.id}>
+                <tr key={c.id} onClick={()=>abrirCompra(c)} style={{cursor:"pointer"}}>
                   <td style={td}>{c.semana}</td><td style={td}>{c.dia}</td><td style={td}>{c.mes}</td>
                   <td style={td}>{fmtDate(c.fecha)}</td>
                   <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
@@ -1908,10 +1923,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <td style={td}>{c.factura||"—"}</td>
                   <td style={td}>{fmtDate(c.fechaFactura)||"—"}</td>
                   <td style={td}>
-                    <div style={{display:"flex",gap:4}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||""),deudaKg:String(c.deudaKg||""),destino:c.destino||"Normal"}); setShowComp(true); }}>✎</button>
-                      <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==c.id))}>✕</button>
-                    </div>
+                    <button style={{...btnO(C.red),padding:"4px 10px",fontSize:11}}
+                      onClick={e=>{ e.stopPropagation(); borrarCompra(c); }}>Eliminar</button>
                   </td>
                 </tr>
               ))}
@@ -1939,12 +1952,15 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
               <div><label style={lbl}>Producto *</label>
                 <select style={sel} value={form.producto} onChange={e=>sf("producto",e.target.value)}>
                   <option value="">— Seleccionar —</option>
-                  {productos.map(p=><option key={p.nombre}>{p.nombre}</option>)}
+                  {[...new Set([...productos.map(p=>p.nombre),...compras.map(c=>c.producto),form.producto].filter(Boolean))].sort()
+                    .map(n=><option key={n}>{n}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Calibre</label>
-                <select style={sel} value={form.calibre} onChange={e=>sf("calibre",e.target.value)} disabled={!form.producto}>
-                  {getCals(form.producto).map(c=><option key={c}>{c}</option>)}
+                <select style={sel} value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)} disabled={!form.producto}>
+                  <option value="">—</option>
+                  {[...new Set([...getCals(form.producto),...compras.filter(c=>c.producto===form.producto).map(c=>c.calibre),form.calibre].filter(Boolean))]
+                    .map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Unidad de compra *</label>
