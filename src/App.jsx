@@ -1452,7 +1452,6 @@ function Gastos({ gastos, setGastos, logBit }) {
           </div>
         </div>
         <div style={{display:"flex",gap:7}}>
-          <button style={btnO(C.muted)} onClick={()=>document.getElementById("impProvJSON").click()}>⬆ Importar</button>
           <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
           <button style={btn(C.red)} onClick={openNew}>+ Nuevo Gasto</button>
         </div>
@@ -1725,6 +1724,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         </div>
         <div style={{display:"flex",gap:7}}>
           <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp.map(c=>({...c,_kg:kgCompra(c),_ck:costoKgCompra(c).toFixed(2)})),cols,`compras-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={btnO(C.muted)} onClick={()=>document.getElementById("impProvJSON").click()}>⬆ Importar</button>
           <button style={btn(C.teal)} onClick={()=>{ setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(true); }}>💳 Pago a Proveedor</button>
           <button style={btn()} onClick={()=>{ setEditId(null); setForm(frutaEmpty()); setShowComp(true); }}>+ Nueva Compra</button>
         </div>
