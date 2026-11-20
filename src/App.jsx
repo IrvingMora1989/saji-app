@@ -178,6 +178,8 @@ body{margin:0;background:#f4f6f3;color:#14201a;font-family:'Inter','Segoe UI',sy
 .saji-row:last-child{border-bottom:0}
 .saji-row:hover{background:#f7faf6}
 .saji-only-sm{display:none}
+.saji-cards{display:none}
+.saji-chips{display:flex;gap:6px;flex-wrap:wrap}
 .saji-drawer{background:#fff;border-radius:22px;padding:26px;width:100%;max-width:620px;margin:auto;box-shadow:0 16px 40px rgba(20,32,26,.18);animation:sajiSlide .2s ease}
 
 /* Formularios y tablas heredadas */
@@ -206,6 +208,19 @@ tbody tr:hover{background:#f7faf6}
   .saji-hide-sm{display:none!important}
   .saji-row{grid-template-columns:62px 1fr auto 14px;gap:8px}
   .saji-only-sm{display:block}
+  .saji-tabla-sm{display:none!important}
+  .saji-cards{display:block}
+  .saji-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .saji-chips::-webkit-scrollbar{display:none}
+  .saji-chips>button{flex:0 0 auto}
+  .saji-kpis,.saji-kpis2{grid-template-columns:1fr 1fr!important;gap:8px}
+  .saji-main h2{font-size:16.5px!important;line-height:1.25}
+  .saji-minikpis{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px!important}
+  .saji-minikpis>div{min-width:0!important;padding:7px 4px!important}
+  .saji-minikpis span:first-child{font-size:8.5px!important}
+  .saji-minikpis span:last-child{font-size:13px!important}
+  .saji-acciones{width:100%;flex-wrap:wrap}
+  .saji-acciones>button{flex:1 1 calc(50% - 4px);font-size:12px!important;padding:9px 8px!important;justify-content:center}
   .saji-filtros select{flex:1 1 calc(50% - 4px)!important;min-width:0}
   .saji-filtros input{flex:1 1 100%!important}
   .saji-drawer{border-radius:20px;padding:20px;margin-top:10px}
@@ -1109,7 +1124,8 @@ const ventaEmpty = () => ({
 
 function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
   const [ticket,   setTicket]   = useState(null);
-  const [f,       setF]       = useState({tipo:"todo",valor:"",desde:"",hasta:""});
+  // Arranca en la semana corriente; con "Todo" se ve el histórico completo
+  const [f,       setF]       = useState({tipo:"semana",valor:"",desde:"",hasta:""});
   const [q,       setQ]       = useState("");
   const [fCli,    setFCli]    = useState("");
   const [fProd,   setFProd]   = useState("");
@@ -1606,7 +1622,7 @@ const kgCompra = c => {
   return esGranel(c.unidad) ? cant : cant * (num(c.kgBulto) || 1);
 };
 // Costo por kilo de una compra
-const costoKgCompra = c => { const k = kgCompra(c); return k ? num(c.total)/k : 0; };
+const costoKgCompra = c => { const k = kgCompra(c); return k ? (num(c.total) - k*num(c.deudaKg))/k : 0; };
 
 // Costo promedio móvil por producto: promedio ponderado de todo lo comprado
 // hasta esa fecha. Sin lotes es lo más fiel que se puede calcular.
@@ -1614,9 +1630,9 @@ const costoPromedio = (compras, producto, hasta) => {
   let kg=0, mx=0, kgTot=0, mxTot=0;
   (compras||[]).forEach(c=>{
     if(c.tipo || c.producto!==producto) return;
-    kgTot += kgCompra(c); mxTot += num(c.total);
+    kgTot += kgCompra(c); mxTot += costoMercancia(c);
     if(hasta && (c.fecha||"") > hasta) return;
-    kg += kgCompra(c); mx += num(c.total);
+    kg += kgCompra(c); mx += costoMercancia(c);
   });
   if(kg) return mx/kg;
   // Venta anterior a la primera compra registrada: usamos el promedio general
@@ -1624,7 +1640,13 @@ const costoPromedio = (compras, producto, hasta) => {
   return kgTot ? mxTot/kgTot : 0;
 };
 
-const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
+// Sobreprecio por kilo que algunos proveedores cobran para abonar a una deuda
+// anterior. NO es costo del producto: se paga al proveedor pero no encarece la
+// mercancía, así que va separado para que el margen no salga distorsionado.
+const deudaDeCompra = c => kgCompra(c) * num(c.deudaKg);
+const costoMercancia = c => num(c.total) - deudaDeCompra(c);
+
+const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", deudaKg:"", destino:"Normal", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
 function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
@@ -1655,7 +1677,11 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       ...form, cantidad:parseFloat(form.cantidad), precio:parseFloat(form.precio),
       unidad: form.unidad || "kg",
       kgBulto: esGranel(form.unidad) ? 1 : (parseFloat(form.kgBulto)||1),
-      total:parseFloat(form.cantidad)*parseFloat(form.precio),
+      deudaKg: parseFloat(form.deudaKg)||0,
+      destino: form.destino || "Normal",
+      // Lo que se le paga al proveedor: mercancía + abono a deuda anterior
+      total: parseFloat(form.cantidad)*parseFloat(form.precio)
+           + (esGranel(form.unidad)?parseFloat(form.cantidad):parseFloat(form.cantidad)*(parseFloat(form.kgBulto)||1))*(parseFloat(form.deudaKg)||0),
       // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
     };
@@ -1688,7 +1714,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const cols=[
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},
-    {l:"Cantidad",k:"cantidad"},{l:"Unidad",k:"unidad"},{l:"Kg por bulto",k:"kgBulto"},{l:"Kilos",k:"_kg"},{l:"Precio",k:"precio"},{l:"Costo por kilo",k:"_ck"},{l:"Total",k:"total"},
+    {l:"Cantidad",k:"cantidad"},{l:"Unidad",k:"unidad"},{l:"Kg por bulto",k:"kgBulto"},{l:"Kilos",k:"_kg"},{l:"Precio",k:"precio"},{l:"Costo por kilo",k:"_ck"},{l:"Tipo",k:"destino"},{l:"Deuda $/kg",k:"deudaKg"},{l:"Abono deuda",k:"_de"},{l:"Total",k:"total"},
     {l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"}
   ];
   const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
@@ -1705,7 +1731,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
             const totalP=pagosF.reduce((s,p)=>s+p.monto,0);
             const porPagar=Math.max(0,totalC-totalP);
             return (
-              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
+              <div className="saji-minikpis" style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
                 <div style={{background:C.tealL,border:`1px solid ${C.teal}33`,borderRadius:9,padding:"8px 16px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:110}}>
                   <span style={{fontSize:10,color:C.teal,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>Total comprado</span>
                   <span style={{fontSize:17,fontWeight:800,color:C.teal}}>{fmt(totalC)}</span>
@@ -1722,8 +1748,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
             );
           })()}
         </div>
-        <div style={{display:"flex",gap:7}}>
-          <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp.map(c=>({...c,_kg:kgCompra(c),_ck:costoKgCompra(c).toFixed(2)})),cols,`compras-${todayStr()}.csv`)}>⬇ CSV</button>
+        <div className="saji-acciones" style={{display:"flex",gap:7}}>
+          <button style={btn(C.blue)} onClick={()=>exportCSV(listaComp.map(c=>({...c,_kg:kgCompra(c),_ck:costoKgCompra(c).toFixed(2),_de:deudaDeCompra(c).toFixed(2)})),cols,`compras-${todayStr()}.csv`)}>⬇ CSV</button>
           <button style={btnO(C.muted)} onClick={()=>document.getElementById("impProvJSON").click()}>⬆ Importar</button>
           <button style={btn(C.teal)} onClick={()=>{ setPagoForm({ proveedor:"", fecha:todayStr(), monto:"", metodoPago:"Efectivo" }); setShowPago(true); }}>💳 Pago a Proveedor</button>
           <button style={btn()} onClick={()=>{ setEditId(null); setForm(frutaEmpty()); setShowComp(true); }}>+ Nueva Compra</button>
@@ -1738,6 +1764,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
             ...c, id:c.id||`c${Date.now()}${i}`,
             cantidad:num(c.cantidad), precio:num(c.precio),
             kgBulto:esGranel(c.unidad)?1:(num(c.kgBulto)||1),
+            deudaKg:num(c.deudaKg), destino:c.destino||"Normal",
             total:num(c.total)||num(c.cantidad)*num(c.precio),
             semana:c.semana||weekOf(c.fecha), dia:c.dia||dayOf(c.fecha), mes:c.mes||monthOf(c.fecha),
           }));
@@ -1757,7 +1784,23 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       {existingProveedores.length>0&&(
         <div style={card}>
           <div style={{fontWeight:800,fontSize:14,marginBottom:12}}>💰 Saldo por Proveedor</div>
-          <div style={{overflowX:"auto"}}>
+          <div className="saji-cards">
+            {existingProveedores.map(prov=>{
+              const s2=saldoProveedor(prov);
+              return (
+                <div key={prov} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"11px 2px",borderBottom:"1px solid #f0f2ee"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:14}}>{prov}</div>
+                    <div style={{fontSize:11,color:C.muted}}>Compras {fmt(s2.totalCompras)} · Pagado {fmt(s2.totalPagos)}</div>
+                  </div>
+                  <strong style={{color:s2.pendiente>0?C.red:C.green,fontSize:15,whiteSpace:"nowrap"}}>
+                    {s2.pendiente>0?fmt(s2.pendiente):"Al día"}
+                  </strong>
+                </div>
+              );
+            })}
+          </div>
+          <div className="saji-tabla-sm" style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead><tr>{["Proveedor","Compras","Pagado","Pendiente",""].map(h=><th key={h} style={{...th,padding:"7px 8px",fontSize:10}}>{h}</th>)}</tr></thead>
               <tbody>
@@ -1800,8 +1843,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
 
       {/* Compras list */}
       <FilterBar filter={filt} setFilter={setFilt} count={listaComp.length}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{color:C.muted,fontSize:12,fontWeight:700}}>🚛 Proveedor:</span>
+      <div className="saji-chips" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:C.shadow,gap:8,alignItems:"center"}}>
+        <span style={{color:C.muted,fontSize:12,fontWeight:700,flexShrink:0}}>🚛 Proveedor:</span>
         <button style={nb(!filtProv)} onClick={()=>setFiltProv("")}>Todos</button>
         {allProveedores.map(p=>(
           <button key={p} style={nb(filtProv===p)} onClick={()=>setFiltProv(p)}>{p}</button>
@@ -1809,11 +1852,46 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       </div>
       <div style={card}>
         <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📦 Registro de Compras</div>
-        <div style={{overflowX:"auto"}}>
+
+        {/* En celular, una tarjeta por compra en lugar de la tabla ancha */}
+        <div className="saji-cards">
+          {listaComp.length===0&&<p style={{color:C.muted,textAlign:"center",padding:"22px 0",margin:0}}>Sin compras en este período</p>}
+          {listaComp.map(c=>(
+            <div key={c.id} style={{padding:"12px 2px",borderBottom:"1px solid #f0f2ee"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:14}}>
+                    {c.proveedor} · {c.producto}
+                    {c.destino&&c.destino!=="Normal"&&<span style={{...badge(C.purple,C.purpleL),marginLeft:6}}>{c.destino}</span>}
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    {fmtDate(c.fecha)} · Sem {c.semana||weekOf(c.fecha)}{c.calibre?` · ${c.calibre}`:""}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",whiteSpace:"nowrap"}}>
+                  <div style={{fontWeight:700,fontSize:14,color:C.teal}}>{fmt(c.total)}</div>
+                  <div style={{fontSize:11,color:C.muted}}>{fmt(costoKgCompra(c))}/{uni(c.producto)}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,gap:8}}>
+                <span style={{fontSize:12,color:C.muted}}>
+                  {c.cantidad} {esGranel(c.unidad)?uni(c.producto):(UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad)} · {kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(c.producto)}
+                  {num(c.deudaKg)>0&&<span style={{color:C.purple}}> · deuda {fmt(deudaDeCompra(c))}</span>}
+                </span>
+                <span style={{display:"flex",gap:6,flexShrink:0}}>
+                  <button style={{...btnO(C.blue),padding:"4px 10px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||""),deudaKg:String(c.deudaKg||""),destino:c.destino||"Normal"}); setShowComp(true); }}>Editar</button>
+                  <button style={{...btnO(C.red),padding:"4px 10px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==c.id))}>✕</button>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="saji-tabla-sm" style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Cantidad","Kilos","Costo/kg","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Tipo","Cantidad","Kilos","Costo/kg","Deuda","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
-              {listaComp.length===0&&<tr><td colSpan={15} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
+              {listaComp.length===0&&<tr><td colSpan={17} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
               {listaComp.map(c=>(
                 <tr key={c.id}>
                   <td style={td}>{c.semana}</td><td style={td}>{c.dia}</td><td style={td}>{c.mes}</td>
@@ -1821,15 +1899,17 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
                   <td style={td}>{pEmoji(c.producto)} {c.producto}</td>
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{c.calibre}</span></td>
+                  <td style={td}>{c.destino&&c.destino!=="Normal"?<span style={badge(C.purple,C.purpleL)}>{c.destino}</span>:"—"}</td>
                   <td style={td}>{c.cantidad} {esGranel(c.unidad)?uni(c.producto):`${UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad}${num(c.cantidad)===1?"":"s"}`} {esGranel(c.unidad)?"":<span style={{color:C.muted}}>· {fmt(c.precio)} c/u</span>}</td>
                   <td style={td}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(c.producto)}</td>
                   <td style={td}><strong>{fmt(costoKgCompra(c))}</strong></td>
+                  <td style={td}>{num(c.deudaKg)>0?<span style={{color:C.purple}}>{fmt(deudaDeCompra(c))}</span>:"—"}</td>
                   <td style={td}><strong style={{color:C.teal}}>{fmt(c.total)}</strong></td>
                   <td style={td}>{c.factura||"—"}</td>
                   <td style={td}>{fmtDate(c.fechaFactura)||"—"}</td>
                   <td style={td}>
                     <div style={{display:"flex",gap:4}}>
-                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||"")}); setShowComp(true); }}>✎</button>
+                      <button style={{...btn(C.blue),padding:"4px 9px",fontSize:11}} onClick={()=>{ setEditId(c.id); setForm({...c,cantidad:String(c.cantidad),precio:String(c.precio),unidad:c.unidad||"kg",kgBulto:String(c.kgBulto||""),deudaKg:String(c.deudaKg||""),destino:c.destino||"Normal"}); setShowComp(true); }}>✎</button>
                       <button style={{...btn(C.red),padding:"4px 9px",fontSize:11}} onClick={()=>setFruta(fs=>fs.filter(x=>x.id!==c.id))}>✕</button>
                     </div>
                   </td>
@@ -1883,14 +1963,29 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
               <div><label style={lbl}>{esGranel(form.unidad)?`Precio $/${uni(form.producto)} *`:"Precio por bulto *"}</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/>
               </div>
+              <div><label style={lbl}>Tipo de compra</label>
+                <select style={sel} value={form.destino||"Normal"} onChange={e=>sf("destino",e.target.value)}>
+                  <option>Normal</option><option>Fishers</option>
+                </select>
+              </div>
+              <div><label style={lbl}>Abono a deuda $/{uni(form.producto)}</label>
+                <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.deudaKg||""} onChange={e=>sf("deudaKg",e.target.value)}/>
+                <div style={{fontSize:11,color:C.muted,marginTop:3}}>Sobreprecio que le pagas al proveedor por una deuda anterior. No cuenta como costo del producto.</div>
+              </div>
               <div><label style={lbl}>Resumen</label>
-                <div style={{...inp,background:C.indigoL,color:C.indigo,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span>{kgCompra(form).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(form.producto)}</span>
-                  <span>{fmt(num(form.cantidad)*num(form.precio))}</span>
-                </div>
-                <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-                  Costo real: <strong>{fmt(costoKgCompra({...form,total:num(form.cantidad)*num(form.precio)}))}</strong> por {uni(form.producto)}
-                </div>
+                {(()=>{
+                  const kgs = kgCompra(form), merc = num(form.cantidad)*num(form.precio), deu = kgs*num(form.deudaKg);
+                  return (<>
+                    <div style={{...inp,background:C.indigoL,color:C.indigo,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span>{kgs.toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(form.producto)}</span>
+                      <span>{fmt(merc+deu)}</span>
+                    </div>
+                    <div style={{fontSize:11,color:C.muted,marginTop:3}}>
+                      Mercancía {fmt(merc)} · costo <strong>{fmt(kgs?merc/kgs:0)}</strong> por {uni(form.producto)}
+                      {deu>0&&<><br/>Abono a deuda {fmt(deu)}</>}
+                    </div>
+                  </>);
+                })()}
               </div>
               <div><label style={lbl}>Método de pago</label>
                 <select style={sel} value={form.metodoPago} onChange={e=>sf("metodoPago",e.target.value)}>
