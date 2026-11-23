@@ -231,17 +231,24 @@ const pEmoji = n => ({"Aguacate":"🥑","Cebolla":"🧅","Mango":"🥭","Limón"
 
 // ─── Gastos catálogo ──────────────────────────────────────────────────────────
 const TIPOS_GASTO = {
-  "Alquiler Inmuebles": ["Renta Casa","Cámara frío"],
-  "Otros Gastos": ["Comida","Super Jasso","Super Irving","Super SAJI","Servicio Caddy","Servicio Duty","Servicio Auto Irving","Servicio Auto Jasso","Propina","Mantenimiento Cámara","Ferretería","Refaccionaria","Caja","Otras compras"],
-  "Energías": ["Luz Casa","Luz Trifásica"],
-  "Gastos de Viaje": ["Tag","Caseta","Gasolina Caddy","Gasolina Duty","Gasolina Jasso","Gasolina Irving"],
-  "Gastos de Personal": ["Nómina Daniel","Nómina Héctor","Nómina José","Nómina Irving","Nómina Jasso","Nómina Aldair","Nómina Angel"],
-  "Servicios Contratados": ["Internet","Agua","GPS Caddy","GPS Duty"],
-  "Créditos": ["Santander"],
-  "Crédito Automotriz": ["Caddy","Super Dutty"],
-  "Facturas": ["Cobro por factura"],
-  "Impuestos": ["ISR","IVA"],
+  "Alquiler Inmuebles":    ["Renta Casa","Cámara frío"],
+  "Energías":              ["Luz Casa","Luz Trifásica"],
+  "Servicios Contratados": ["Internet","Agua","Cámaras","GPS Caddy","GPS Duty"],
+  "Gastos de Viaje":       ["Gasolina Caddy","Gasolina Duty","Caseta","Tag"],
+  "Gastos de Personal":    ["Nómina José","Nómina Irving","Nómina Jasso","Nómina Daniel","Nómina Héctor"],
+  "Otros Gastos":          ["Comida","Super","Servicio Caddy","Servicio Duty","Propina","Mantenimiento Cámara","Ferretería","Refaccionaria","Caja","Otras compras"],
+  "Créditos":              ["Santander"],
+  "Crédito Automotriz":    ["Caddy","Super Duty"],
+  "Préstamos":             ["Conan","David","Coco"],
+  "Impuestos":             ["ISR","IVA"],
 };
+// Estas categorías NO son gasto del negocio: son pago de deuda. Se registran
+// aquí porque sale dinero, pero no restan en la utilidad (salvo los intereses).
+const TIPOS_DEUDA = ["Créditos","Crédito Automotriz","Préstamos"];
+const esDeuda = t => TIPOS_DEUDA.includes(t);
+
+const sinAcentos = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+const CATALOGO_GASTOS = Object.entries(TIPOS_GASTO).flatMap(([tipo,xs])=>xs.map(gasto=>({gasto,tipo})));
 const METODOS_PAGO = ["Efectivo","Tarjeta Jasso","Tarjeta Irving","Tarjeta SAJI","Transferencia SAJI","Transferencia Jasso"];
 
 
@@ -410,10 +417,12 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
   const totalLt     = vF.filter(v=> esLitro(v.producto)).reduce((s,v)=>s+num(v.kg),0);
   const nf1         = n => n.toLocaleString("es-MX",{maximumFractionDigits:1});
   const esImp       = g => ["isr","iva"].includes(String(g.gasto||"").toLowerCase().trim());
-  const gastosOp    = gF.filter(g=>!esImp(g)).reduce((s,g)=>s+num(g.monto),0);
+  const pagoDeuda   = g => esDeuda(g.tipoGasto);
+  const totalDeuda  = gF.filter(pagoDeuda).reduce((s,g)=>s+num(g.monto),0);
+  const gastosOp    = gF.filter(g=>!esImp(g) && !pagoDeuda(g)).reduce((s,g)=>s+num(g.monto),0);
   const totalISR    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="isr").reduce((s,g)=>s+num(g.monto),0);
   const totalIVA    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="iva").reduce((s,g)=>s+num(g.monto),0);
-  const totalGastos = gF.reduce((s,g)=>s+num(g.monto),0);
+  const totalGastos = gF.filter(g=>!pagoDeuda(g)).reduce((s,g)=>s+num(g.monto),0);
   // Costo de ventas = lo que costó la mercancía que SALIÓ, no lo que se compró
   const costoVentas = vF.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras,v.producto,v.fecha),0);
   const sinCosteo   = [...new Set(vF.filter(v=>!costoPromedio(compras,v.producto,v.fecha)).map(v=>v.producto))];
@@ -433,6 +442,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
     { concepto:"(–) ISR",                 monto:totalISR,    c:C.muted, bold:false },
     { concepto:"(–) IVA",                 monto:totalIVA,    c:C.muted, bold:false },
     { concepto:"= Utilidad neta",         monto:utilidad,    c:utilidad>=0?C.green:C.red, bold:true },
+    ...(totalDeuda>0 ? [{ concepto:"Pagos de deuda (no es gasto)", monto:totalDeuda, c:C.purple, bold:false }] : []),
   ];
 
   // Por cobrar: siempre acumulado (no depende del período)
@@ -1423,6 +1433,81 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
+
+// ─── Buscador predictivo de gastos ───────────────────────────────────────────
+// Escribes "gaso" y salen Gasolina Caddy y Gasolina Duty, con su categoría.
+// Flechas para moverse, Enter para elegir. Si no existe, lo da de alta tal cual.
+function ComboGasto({ valor, onElegir, historial }) {
+  const [q,     setQ]     = useState(valor||"");
+  const [abrir, setAbrir] = useState(false);
+  const [idx,   setIdx]   = useState(0);
+  useEffect(()=>{ setQ(valor||""); },[valor]);
+
+  // Conceptos que ya usó y no están en el catálogo
+  const extra = [...new Set((historial||[]).map(g=>g.gasto).filter(Boolean))]
+    .filter(g=>!CATALOGO_GASTOS.some(x=>x.gasto===g))
+    .map(g=>({ gasto:g, tipo:(historial.find(x=>x.gasto===g)||{}).tipoGasto || "Otros Gastos" }));
+  const todos = [...CATALOGO_GASTOS, ...extra];
+
+  // Cuántas veces usó cada concepto, para ordenar por lo más frecuente
+  const uso = {};
+  (historial||[]).forEach(g=>{ uso[g.gasto]=(uso[g.gasto]||0)+1; });
+
+  const t = sinAcentos(q);
+  const res = (t ? todos.filter(o=>sinAcentos(o.gasto).includes(t) || sinAcentos(o.tipo).includes(t)) : todos)
+    .sort((a,b)=>{
+      if(t){ // los que empiezan con lo escrito van primero
+        const ea=sinAcentos(a.gasto).startsWith(t), eb=sinAcentos(b.gasto).startsWith(t);
+        if(ea!==eb) return ea?-1:1;
+      }
+      return (uso[b.gasto]||0)-(uso[a.gasto]||0) || a.gasto.localeCompare(b.gasto);
+    }).slice(0,8);
+
+  const nuevo = q.trim() && !todos.some(o=>sinAcentos(o.gasto)===t);
+  const total = res.length + (nuevo?1:0);
+  const elegir = i => {
+    if(nuevo && i===res.length){ onElegir(q.trim(), null); }
+    else if(res[i]){ onElegir(res[i].gasto, res[i].tipo); setQ(res[i].gasto); }
+    setAbrir(false);
+  };
+
+  return (
+    <div style={{position:"relative"}}>
+      <input style={inp} placeholder="Escribe: gaso, nómina, luz…" value={q} autoComplete="off"
+        onChange={e=>{ setQ(e.target.value); setAbrir(true); setIdx(0); }}
+        onFocus={()=>{ setAbrir(true); setIdx(0); }}
+        onBlur={()=>setTimeout(()=>setAbrir(false),150)}
+        onKeyDown={e=>{
+          if(e.key==="ArrowDown"){ e.preventDefault(); setAbrir(true); setIdx(i=>Math.min(i+1,total-1)); }
+          else if(e.key==="ArrowUp"){ e.preventDefault(); setIdx(i=>Math.max(i-1,0)); }
+          else if(e.key==="Enter" && abrir && total){ e.preventDefault(); elegir(idx); }
+          else if(e.key==="Escape"){ setAbrir(false); }
+        }}/>
+      {abrir&&total>0&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,marginTop:4,zIndex:40,background:"#fff",
+          border:`1px solid ${C.border}`,borderRadius:12,boxShadow:C.shadowLg,overflow:"hidden",maxHeight:290,overflowY:"auto"}}>
+          {res.map((o,i)=>(
+            <div key={o.gasto} onMouseDown={e=>{e.preventDefault();elegir(i);}} onMouseEnter={()=>setIdx(i)}
+              style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"9px 13px",
+                cursor:"pointer",background:i===idx?C.indigoL:"transparent",borderBottom:"1px solid #f3f5f1"}}>
+              <span style={{fontWeight:600,fontSize:13.5}}>{o.gasto}</span>
+              <span style={{fontSize:11,color:esDeuda(o.tipo)?C.purple:C.muted,whiteSpace:"nowrap"}}>
+                {o.tipo}{uso[o.gasto]?` · ${uso[o.gasto]}`:""}
+              </span>
+            </div>
+          ))}
+          {nuevo&&(
+            <div onMouseDown={e=>{e.preventDefault();elegir(res.length);}} onMouseEnter={()=>setIdx(res.length)}
+              style={{padding:"9px 13px",cursor:"pointer",fontSize:13,background:idx===res.length?C.indigoL:"transparent",color:C.indigo,fontWeight:600}}>
+              + Usar «{q.trim()}» como concepto nuevo
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Gastos({ gastos, setGastos, logBit }) {
   const [show,      setShow]      = useState(false);
   const [editId,    setEditId]    = useState(null);
@@ -1431,7 +1516,7 @@ function Gastos({ gastos, setGastos, logBit }) {
   const [filtTipo,  setFiltTipo]  = useState("");
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
-    if(k==="tipoGasto") n.gasto="";
+
     if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
     return n;
   });
@@ -1455,7 +1540,13 @@ function Gastos({ gastos, setGastos, logBit }) {
   const lista = (filtTipo ? listaFecha.filter(g=>g.tipoGasto===filtTipo) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const total = lista.reduce((s,g)=>s+g.monto,0);
   const porPagar = lista.filter(g=>g.estatusPago==="porpagar").reduce((s,g)=>s+g.monto,0);
-  const gastoOpts = TIPOS_GASTO[form.tipoGasto]||[];
+  // Los 6 conceptos que más registra, para capturar de un toque
+  const frecuentes = (()=>{
+    const c={};
+    gastos.forEach(g=>{ if(g.gasto) c[g.gasto]=(c[g.gasto]||0)+1; });
+    return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6)
+      .map(([gasto])=>({ gasto, tipo:(gastos.find(x=>x.gasto===gasto)||{}).tipoGasto || "Otros Gastos" }));
+  })();
 
   return (
     <div>
@@ -1545,21 +1636,36 @@ function Gastos({ gastos, setGastos, logBit }) {
               <h3 style={{margin:0,color:C.green}}>{editId?"✏️ Editar":"💸 Nuevo"} Gasto</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShow(false)}>×</button>
             </div>
+            {/* Atajos a lo que más registras */}
+            {frecuentes.length>0&&!editId&&(
+              <div style={{marginBottom:14}}>
+                <label style={lbl}>Rápido</label>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {frecuentes.map(f2=>(
+                    <button key={f2.gasto} style={nb(form.gasto===f2.gasto)}
+                      onClick={()=>setForm(x=>({...x,gasto:f2.gasto,tipoGasto:f2.tipo}))}>{f2.gasto}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{marginBottom:14}}>
+              <label style={lbl}>¿Qué gasto es? *</label>
+              <ComboGasto valor={form.gasto} historial={gastos}
+                onElegir={(g,t)=>setForm(x=>({...x, gasto:g, tipoGasto:t||x.tipoGasto}))}/>
+              {form.gasto&&(
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                  <span style={{fontSize:11,color:C.muted}}>Categoría:</span>
+                  <select style={{...sel,width:"auto",padding:"5px 10px",fontSize:12}} value={form.tipoGasto} onChange={e=>setForm(x=>({...x,tipoGasto:e.target.value}))}>
+                    {Object.keys(TIPOS_GASTO).map(t=><option key={t}>{t}</option>)}
+                  </select>
+                  {esDeuda(form.tipoGasto)&&(
+                    <span style={{fontSize:11,color:C.purple,fontWeight:600}}>Pago de deuda, no resta en la utilidad</span>
+                  )}
+                </div>
+              )}
+            </div>
             <div style={g2}>
               <div><label style={lbl}>Fecha</label><input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/></div>
-              <div><label style={lbl}>Tipo de gasto</label>
-                <select style={sel} value={form.tipoGasto} onChange={e=>sf("tipoGasto",e.target.value)}>
-                  {Object.keys(TIPOS_GASTO).map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Descripción específica *</label>
-                <select style={sel} value={form.gasto} onChange={e=>sf("gasto",e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {gastoOpts.map(g=><option key={g}>{g}</option>)}
-                  <option value="__otro">Otro (escribir)</option>
-                </select>
-                {form.gasto==="__otro"&&<input style={{...inp,marginTop:6}} placeholder="Describir gasto" value={form.gastoCustom||""} onChange={e=>sf("gastoCustom",e.target.value)}/>}
-              </div>
               <div><label style={lbl}>Monto *</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)}/>
               </div>
@@ -1588,7 +1694,7 @@ function Gastos({ gastos, setGastos, logBit }) {
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
               <button style={btnO()} onClick={()=>setShow(false)}>Cancelar</button>
               <button style={btn(C.red)} onClick={()=>{
-                const finalGasto = form.gasto==="__otro"?(form.gastoCustom||""):form.gasto;
+                const finalGasto = (form.gasto||"").trim();
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
                 const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto), estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar") };
                 if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
