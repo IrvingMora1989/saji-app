@@ -408,7 +408,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
   const [f, setF] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
 
   const vF  = applyFilter(ventas, f);
-  const gF  = applyFilter(gastos, f);
+  const gF  = applyFilter(gastos.filter(g=>!esReembolso(g)), f);
   const frF = applyFilter(fruta,  f);
   const pendPedidos = pedidos.filter(p=>p.estatus==="pendiente").length;
 
@@ -1431,7 +1431,24 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
   );
 }
 // ════════════════════════════════════════════════════════════════════════════════
-const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
+// ─── De dónde salió el dinero ────────────────────────────────────────────────
+// Un gasto es gasto lo pague quien lo pague. Pero si lo puso un socio de su
+// bolsa, SAJI queda debiéndole: eso se lleva aparte, no es otro gasto.
+const SOCIOS  = ["Irving","Jasso"];
+const FUENTES = ["Efectivo SAJI","Banco SAJI",...SOCIOS];
+// Las capturas viejas solo traían método de pago: de ahí deducimos la fuente
+const fuenteDe = g => {
+  if(g.pagadoPor) return g.pagadoPor;
+  const m = String(g.metodoPago||"");
+  if(/jasso/i.test(m))  return "Jasso";
+  if(/irving/i.test(m)) return "Irving";
+  if(/efectivo/i.test(m)) return "Efectivo SAJI";
+  return "Banco SAJI";
+};
+const esSocio     = g => SOCIOS.includes(fuenteDe(g));
+const esReembolso = g => g.tipo === "reembolso";
+
+const gastoEmpty = () => ({ fecha:todayStr(), tipoGasto:"Alquiler Inmuebles", gasto:"", pagadoPor:"Efectivo SAJI", metodoPago:"Efectivo", estatusPago:"pagado", monto:"" });
 
 
 // ─── Buscador predictivo de gastos ───────────────────────────────────────────
@@ -1514,15 +1531,16 @@ function Gastos({ gastos, setGastos, logBit }) {
   const [form,      setForm]      = useState(gastoEmpty());
   const [filt,      setFilt]      = useState({tipo:"todo",valor:""});
   const [filtTipo,  setFiltTipo]  = useState("");
+  const [showReemb, setShowReemb] = useState(false);
+  const [reemb,     setReemb]     = useState({ socio:"", fecha:todayStr(), monto:"", origen:"Efectivo SAJI" });
   const sf = (k,v) => setForm(f=>{
     const n={...f,[k]:v};
 
-    if(k==="metodoPago") n.estatusPago = v==="Efectivo" ? "pagado" : "porpagar";
     return n;
   });
 
   const openNew  = () => { setEditId(null); setForm(gastoEmpty()); setShow(true); };
-  const openEdit = g => { setEditId(g.id); setForm({tipoGasto:g.tipoGasto||"Alquiler Inmuebles",gasto:g.gasto,fecha:g.fecha,metodoPago:g.metodoPago||"Efectivo",estatusPago:g.estatusPago||"pagado",monto:String(g.monto)}); setShow(true); };
+  const openEdit = g => { setEditId(g.id); setForm({tipoGasto:g.tipoGasto||"Alquiler Inmuebles",gasto:g.gasto,fecha:g.fecha,pagadoPor:fuenteDe(g),metodoPago:g.metodoPago||"Efectivo",estatusPago:g.estatusPago||"pagado",monto:String(g.monto)}); setShow(true); };
   const guardar  = () => {
     if(!form.gasto||!form.monto) return alert("Completa descripción y monto");
     const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, monto:parseFloat(form.monto) };
@@ -1533,13 +1551,35 @@ function Gastos({ gastos, setGastos, logBit }) {
 
   const cols=[
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
-    {l:"Gasto",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Metodo Pago",k:"metodoPago"},
+    {l:"Gasto",k:"gasto"},{l:"Tipo Gasto",k:"tipoGasto"},{l:"Pagado por",k:"_f"},
     {l:"Estatus",k:"estatusPago"},{l:"Total",k:"monto"}
   ];
-  const listaFecha = applyFilter(gastos, filt);
+  const listaFecha = applyFilter(gastos.filter(g=>!esReembolso(g)), filt);
   const lista = (filtTipo ? listaFecha.filter(g=>g.tipoGasto===filtTipo) : listaFecha).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
-  const total = lista.reduce((s,g)=>s+g.monto,0);
+  const total     = lista.reduce((s,g)=>s+num(g.monto),0);          // todo lo que salió
+  const totalDeuda= lista.filter(g=>esDeuda(g.tipoGasto)).reduce((s,g)=>s+num(g.monto),0);
+  const gastoReal = total - totalDeuda;                              // lo que sí resta en la utilidad
   const porPagar = lista.filter(g=>g.estatusPago==="porpagar").reduce((s,g)=>s+g.monto,0);
+  // Cuenta con cada socio: lo que puso de su bolsa menos lo ya reembolsado.
+  // Es acumulado, no depende del filtro de fechas: es una deuda viva.
+  const cuentaSocio = soc => {
+    const puesto = gastos.filter(g=>!esReembolso(g) && fuenteDe(g)===soc).reduce((s,g)=>s+num(g.monto),0);
+    const devuelto = gastos.filter(g=>esReembolso(g) && g.socio===soc).reduce((s,g)=>s+num(g.monto),0);
+    return { puesto, devuelto, saldo: puesto-devuelto };
+  };
+  const haySocios = SOCIOS.some(s2=>cuentaSocio(s2).puesto>0);
+
+  const guardarReembolso = () => {
+    if(!reemb.socio||!reemb.monto) return alert("Elige el socio y el monto");
+    const reg = { id:Date.now(), tipo:"reembolso", socio:reemb.socio, fecha:reemb.fecha,
+      monto:parseFloat(reemb.monto), pagadoPor:reemb.origen, gasto:`Reembolso a ${reemb.socio}`,
+      tipoGasto:"Reembolso", estatusPago:"pagado",
+      semana:weekOf(reemb.fecha), dia:dayOf(reemb.fecha), mes:monthOf(reemb.fecha) };
+    setGastos(gs=>[reg,...gs]);
+    logBit("Reembolso a socio",`${reemb.socio} · ${fmt(reg.monto)}`);
+    setShowReemb(false);
+  };
+
   // Los 6 conceptos que más registra, para capturar de un toque
   const frecuentes = (()=>{
     const c={};
@@ -1554,16 +1594,49 @@ function Gastos({ gastos, setGastos, logBit }) {
         <div>
           <h2 style={{...h2s,margin:0}}>💸 Gastos</h2>
           <div style={{color:C.muted,fontSize:12,marginTop:2}}>
-            Total: <strong style={{color:C.red}}>{fmt(total)}</strong>
+            Gasto real: <strong style={{color:C.red}}>{fmt(gastoReal)}</strong>
+            {totalDeuda>0&&<span> · Pagos de deuda: <strong style={{color:C.purple}}>{fmt(totalDeuda)}</strong></span>}
             {porPagar>0&&<span> · Por pagar: <strong style={{color:C.amber}}>{fmt(porPagar)}</strong></span>}
           </div>
         </div>
         <div style={{display:"flex",gap:7}}>
-          <button style={btn(C.blue)} onClick={()=>exportCSV(lista,cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={btn(C.blue)} onClick={()=>exportCSV(lista.map(g=>({...g,_f:fuenteDe(g)})),cols,`gastos-${todayStr()}.csv`)}>⬇ CSV</button>
+          <button style={btnO(C.purple)} onClick={()=>{ setReemb({socio:"",fecha:todayStr(),monto:"",origen:"Efectivo SAJI"}); setShowReemb(true); }}>Reembolso a socio</button>
           <button style={btn(C.red)} onClick={openNew}>+ Nuevo Gasto</button>
         </div>
       </div>
       <FilterBar filter={filt} setFilter={setFilt} count={lista.length}/>
+
+      {/* Lo que SAJI les debe a los socios */}
+      {haySocios&&(
+        <div style={{...card,marginBottom:14}}>
+          <h3 style={h3s}>Cuenta con socios</h3>
+          <div style={{fontSize:11,color:C.muted,marginTop:-8,marginBottom:10}}>
+            Gastos que pusieron de su bolsa y todavía no se les reembolsan. No son gasto aparte, ya están contados arriba.
+          </div>
+          {SOCIOS.map(soc=>{
+            const c2 = cuentaSocio(soc);
+            if(!c2.puesto) return null;
+            return (
+              <div key={soc} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"1px solid #f0f2ee"}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{soc}</div>
+                  <div style={{fontSize:11,color:C.muted}}>Puso {fmt(c2.puesto)} · Reembolsado {fmt(c2.devuelto)}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                  <strong style={{color:c2.saldo>0?C.purple:C.green,fontSize:15}}>
+                    {c2.saldo>0?fmt(c2.saldo):"Al día"}
+                  </strong>
+                  {c2.saldo>0&&(
+                    <button style={{...btnO(C.purple),padding:"4px 10px",fontSize:11}}
+                      onClick={()=>{ setReemb({socio:soc,fecha:todayStr(),monto:String(c2.saldo),origen:"Efectivo SAJI"}); setShowReemb(true); }}>Reembolsar</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Resumen por tipo */}
       {(()=>{
@@ -1629,6 +1702,49 @@ function Gastos({ gastos, setGastos, logBit }) {
           </table>
         </div>
       </div>
+      {showReemb&&(
+        <div style={modal} onClick={()=>setShowReemb(false)}>
+          <div style={{...mbox,maxWidth:440}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,fontSize:17,color:C.purple}}>Reembolso a socio</h3>
+              <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowReemb(false)}>×</button>
+            </div>
+            <div style={{background:C.purpleL,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.purple,marginBottom:14}}>
+              Devolverle a un socio lo que puso de su bolsa. No cuenta como gasto, solo baja lo que SAJI le debe.
+            </div>
+            <div style={g2}>
+              <div><label style={lbl}>Socio *</label>
+                <select style={sel} value={reemb.socio} onChange={e=>setReemb(r=>({...r,socio:e.target.value}))}>
+                  <option value="">— Elegir —</option>
+                  {SOCIOS.map(s2=><option key={s2}>{s2}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Fecha</label>
+                <input type="date" style={inp} value={reemb.fecha} onChange={e=>setReemb(r=>({...r,fecha:e.target.value}))}/>
+              </div>
+              <div><label style={lbl}>Monto *</label>
+                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={reemb.monto} onChange={e=>setReemb(r=>({...r,monto:e.target.value}))}/>
+              </div>
+              <div><label style={lbl}>¿De dónde sale?</label>
+                <select style={sel} value={reemb.origen} onChange={e=>setReemb(r=>({...r,origen:e.target.value}))}>
+                  <option>Efectivo SAJI</option><option>Banco SAJI</option>
+                </select>
+              </div>
+            </div>
+            {reemb.socio&&(
+              <div style={{fontSize:12,color:C.muted,marginTop:10}}>
+                Saldo actual de {reemb.socio}: <strong style={{color:C.purple}}>{fmt(cuentaSocio(reemb.socio).saldo)}</strong>
+                {num(reemb.monto)>0&&<> · quedaría en <strong>{fmt(cuentaSocio(reemb.socio).saldo-num(reemb.monto))}</strong></>}
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,marginTop:18,justifyContent:"flex-end"}}>
+              <button style={btnO()} onClick={()=>setShowReemb(false)}>Cancelar</button>
+              <button style={btn(C.purple)} onClick={guardarReembolso}>Registrar reembolso</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {show&&(
         <div style={modal}>
           <div style={{...mbox,maxWidth:500}}>
@@ -1669,25 +1785,19 @@ function Gastos({ gastos, setGastos, logBit }) {
               <div><label style={lbl}>Monto *</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)}/>
               </div>
-              <div><label style={lbl}>Método de pago</label>
-                <select style={sel} value={form.metodoPago} onChange={e=>sf("metodoPago",e.target.value)}>
-                  {METODOS_PAGO.map(m=><option key={m}>{m}</option>)}
+              <div><label style={lbl}>¿Quién lo pagó? *</label>
+                <select style={sel} value={form.pagadoPor||fuenteDe(form)} onChange={e=>sf("pagadoPor",e.target.value)}>
+                  {FUENTES.map(m=><option key={m}>{m}</option>)}
                 </select>
               </div>
-              {form.metodoPago!=="Efectivo"&&(
-                <div style={{gridColumn:"1/-1"}}>
-                  <div style={{background:C.amberL,border:`1px solid ${C.amber}44`,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.amber,fontWeight:600,marginBottom:6}}>
-                    💳 {form.metodoPago} → se registra como ⏳ pendiente de pago
-                  </div>
-                  <label style={lbl}>Estatus del pago</label>
-                  <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
-                    <option value="porpagar">⏳ Por pagar</option><option value="pagado">✅ Pagado</option>
-                  </select>
-                </div>
-              )}
-              {form.metodoPago==="Efectivo"&&(
-                <div style={{gridColumn:"1/-1",background:C.greenL,borderRadius:8,padding:"8px 12px",fontSize:12,color:C.green,fontWeight:600}}>
-                  ✅ Efectivo → automáticamente marcado como pagado
+              <div><label style={lbl}>Estatus con el proveedor</label>
+                <select style={sel} value={form.estatusPago} onChange={e=>sf("estatusPago",e.target.value)}>
+                  <option value="pagado">✅ Pagado</option><option value="porpagar">⏳ Por pagar</option>
+                </select>
+              </div>
+              {SOCIOS.includes(form.pagadoPor||fuenteDe(form))&&(
+                <div style={{gridColumn:"1/-1",background:C.purpleL,border:`1px solid ${C.purple}33`,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.purple,fontWeight:600}}>
+                  Lo puso {form.pagadoPor} de su bolsa. SAJI le queda debiendo {fmt(num(form.monto))} hasta que se le reembolse.
                 </div>
               )}
             </div>
@@ -1696,7 +1806,7 @@ function Gastos({ gastos, setGastos, logBit }) {
               <button style={btn(C.red)} onClick={()=>{
                 const finalGasto = (form.gasto||"").trim();
                 if(!finalGasto||!form.monto) return alert("Completa todos los campos");
-                const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto), estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar") };
+                const reg = { id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha), ...form, gasto:finalGasto, monto:parseFloat(form.monto), pagadoPor: form.pagadoPor||fuenteDe(form), estatusPago: form.estatusPago||"pagado" };
                 if(editId) { setGastos(gs=>gs.map(g=>g.id===editId?reg:g)); logBit("Editó gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 else { setGastos(gs=>[reg,...gs]); logBit("Nuevo gasto",`${finalGasto} · ${fmt(parseFloat(form.monto))}`); }
                 setShow(false);
