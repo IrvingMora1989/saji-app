@@ -171,7 +171,7 @@ body{margin:0;background:#f4f6f3;color:#14201a;font-family:'Inter','Segoe UI',sy
 .saji-main{padding:24px;max-width:1240px;width:100%;animation:sajiUp .22s ease}
 
 /* Piezas */
-.saji-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.saji-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .saji-kpis2{grid-template-columns:repeat(2,1fr);max-width:720px}
 .saji-cols{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start}
 .saji-row{display:grid;grid-template-columns:70px 1.5fr 1.2fr 1.1fr 120px 16px;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid #f0f2ee;cursor:pointer;transition:background .15s ease}
@@ -479,8 +479,7 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
       <FilterBar filter={f} setFilter={setF} count={vF.length}/>
 
       <div className="saji-kpis" style={{marginBottom:16}}>
-        <Kpi hi label="Utilidad neta" value={fmt(utilidad)}/>
-        <Kpi label="Ventas" value={fmt(totalVentas)} sub={totalLt>0?`${nf1(totalKg)} kg · ${nf1(totalLt)} L`:`${nf1(totalKg)} kg`}/>
+        <Kpi hi label="Ventas" value={fmt(totalVentas)} sub={totalLt>0?`${nf1(totalKg)} kg · ${nf1(totalLt)} L`:`${nf1(totalKg)} kg`}/>
         <Kpi label="Por cobrar" value={fmt(porCobrar)} color={porCobrar>0?C.red:C.green}/>
         <Kpi label="Gastos" value={fmt(totalGastos)} sub={`Comprado ${fmt(comprasPer)}`}/>
       </div>
