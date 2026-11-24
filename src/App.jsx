@@ -424,7 +424,11 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
   const totalIVA    = gF.filter(g=>String(g.gasto||"").toLowerCase().trim()==="iva").reduce((s,g)=>s+num(g.monto),0);
   const totalGastos = gF.filter(g=>!pagoDeuda(g)).reduce((s,g)=>s+num(g.monto),0);
   // Costo de ventas = lo que costó la mercancía que SALIÓ, no lo que se compró
-  const costoVentas = vF.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras,v.producto,v.fecha),0);
+  const costoFrutaV = vF.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras,v.producto,v.fecha),0);
+  // Envases, etiquetas y demás empaque: también es costo de ventas. No se puede
+  // repartir por producto todavía, así que entra completo el del período.
+  const costoInsumos= frF.filter(esInsumo).reduce((s,c)=>s+costoMercancia(c),0);
+  const costoVentas = costoFrutaV + costoInsumos;
   const sinCosteo   = [...new Set(vF.filter(v=>!costoPromedio(compras,v.producto,v.fecha)).map(v=>v.producto))];
   const comprasPer  = frF.reduce((s,x)=>s+num(x.total),0);   // desembolso del período
   const costoFruta  = costoVentas;
@@ -435,7 +439,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
   const pct         = v => totalVentas ? `${(v/totalVentas*100).toFixed(1)}%` : "0%";
   const filas = [
     { concepto:"Ventas totales",          monto:totalVentas, c:C.green, bold:true  },
-    { concepto:"(–) Costo de ventas (fruta)", monto:costoVentas, c:C.muted, bold:false },
+    { concepto:"(–) Costo de ventas (fruta)", monto:costoFrutaV, c:C.muted, bold:false },
+    ...(costoInsumos>0 ? [{ concepto:"(–) Insumos y empaque", monto:costoInsumos, c:C.muted, bold:false }] : []),
     { concepto:"= Utilidad bruta",        monto:uBruta,      c:uBruta>=0?C.amber:C.red,  bold:true  },
     { concepto:"(–) Gastos operativos",   monto:gastosOp,    c:C.muted, bold:false },
     { concepto:"= Utilidad operativa",    monto:uOperat,     c:uOperat>=0?C.teal:C.red,  bold:true  },
@@ -1830,8 +1835,13 @@ const UNIDADES_COMPRA = [
   { id:"malla",   label:"Malla",          kg:20 },
   { id:"reja",    label:"Reja",           kg:20 },
   { id:"costal",  label:"Costal",         kg:50 },
+  { id:"pieza",   label:"Pieza",          kg:1  },
 ];
-const esGranel = u => !u || u==="kg" || u==="litro";
+// Una compra es fruta para revender, o insumo (envases, etiquetas, empaque).
+// El insumo también es costo de ventas, pero no se vende por sí mismo: no
+// puede costearse por kilo contra un producto, así que se suma aparte.
+const esInsumo = c => c.clase === "Insumo";
+const esGranel = u => !u || u==="kg" || u==="litro" || u==="pieza";
 // Kilos reales de una compra (las compras viejas no traen unidad: son granel)
 const kgCompra = c => {
   const cant = num(c.cantidad);
@@ -1839,13 +1849,15 @@ const kgCompra = c => {
 };
 // Costo por kilo de una compra
 const costoKgCompra = c => { const k = kgCompra(c); return k ? (num(c.total) - k*num(c.deudaKg))/k : 0; };
+// Unidad que se muestra en una compra: los insumos van por pieza
+const uniCompra = c => c.unidad==="pieza" ? "pz" : (c.unidad==="litro" ? "L" : uni(c.producto));
 
 // Costo promedio móvil por producto: promedio ponderado de todo lo comprado
 // hasta esa fecha. Sin lotes es lo más fiel que se puede calcular.
 const costoPromedio = (compras, producto, hasta) => {
   let kg=0, mx=0, kgTot=0, mxTot=0;
   (compras||[]).forEach(c=>{
-    if(c.tipo || c.producto!==producto) return;
+    if(c.tipo || esInsumo(c) || c.producto!==producto) return;
     kgTot += kgCompra(c); mxTot += costoMercancia(c);
     if(hasta && (c.fecha||"") > hasta) return;
     kg += kgCompra(c); mx += costoMercancia(c);
@@ -1862,7 +1874,7 @@ const costoPromedio = (compras, producto, hasta) => {
 const deudaDeCompra = c => kgCompra(c) * num(c.deudaKg);
 const costoMercancia = c => num(c.total) - deudaDeCompra(c);
 
-const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", deudaKg:"", destino:"Normal", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
+const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", deudaKg:"", destino:"Normal", clase:"Fruta", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
 function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
@@ -1895,6 +1907,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       kgBulto: esGranel(form.unidad) ? 1 : (parseFloat(form.kgBulto)||1),
       deudaKg: parseFloat(form.deudaKg)||0,
       destino: form.destino || "Normal",
+      clase: form.clase || "Fruta",
       // Lo que se le paga al proveedor: mercancía + abono a deuda anterior
       total: parseFloat(form.cantidad)*parseFloat(form.precio)
            + (esGranel(form.unidad)?parseFloat(form.cantidad):parseFloat(form.cantidad)*(parseFloat(form.kgBulto)||1))*(parseFloat(form.deudaKg)||0),
@@ -1910,7 +1923,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
     setEditId(c.id);
     setForm({...c, cantidad:String(c.cantidad), precio:String(c.precio),
       unidad:c.unidad||"kg", kgBulto:String(c.kgBulto||""),
-      deudaKg:String(c.deudaKg||""), destino:c.destino||"Normal"});
+      deudaKg:String(c.deudaKg||""), destino:c.destino||"Normal", clase:c.clase||"Fruta"});
     setShowComp(true);
   };
   const borrarCompra = c => {
@@ -1943,7 +1956,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const cols=[
     {l:"Semana",k:"semana"},{l:"Dia",k:"dia"},{l:"Mes",k:"mes"},{l:"Fecha",k:"fecha"},
     {l:"Proveedor",k:"proveedor"},{l:"Producto",k:"producto"},{l:"Calibre",k:"calibre"},
-    {l:"Cantidad",k:"cantidad"},{l:"Unidad",k:"unidad"},{l:"Kg por bulto",k:"kgBulto"},{l:"Kilos",k:"_kg"},{l:"Precio",k:"precio"},{l:"Costo por kilo",k:"_ck"},{l:"Tipo",k:"destino"},{l:"Deuda $/kg",k:"deudaKg"},{l:"Abono deuda",k:"_de"},{l:"Total",k:"total"},
+    {l:"Cantidad",k:"cantidad"},{l:"Unidad",k:"unidad"},{l:"Kg por bulto",k:"kgBulto"},{l:"Kilos",k:"_kg"},{l:"Precio",k:"precio"},{l:"Costo por kilo",k:"_ck"},{l:"Clase",k:"clase"},{l:"Tipo",k:"destino"},{l:"Deuda $/kg",k:"deudaKg"},{l:"Abono deuda",k:"_de"},{l:"Total",k:"total"},
     {l:"Factura",k:"factura"},{l:"Fecha Factura",k:"fechaFactura"}
   ];
   const getCals = nombre => productos.find(p=>p.nombre===nombre)?.calibres||[];
@@ -1993,7 +2006,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
             ...c, id:c.id||`c${Date.now()}${i}`,
             cantidad:num(c.cantidad), precio:num(c.precio),
             kgBulto:esGranel(c.unidad)?1:(num(c.kgBulto)||1),
-            deudaKg:num(c.deudaKg), destino:c.destino||"Normal",
+            deudaKg:num(c.deudaKg), destino:c.destino||"Normal", clase:c.clase||"Fruta",
             total:num(c.total)||num(c.cantidad)*num(c.precio),
             semana:c.semana||weekOf(c.fecha), dia:c.dia||dayOf(c.fecha), mes:c.mes||monthOf(c.fecha),
           }));
@@ -2095,7 +2108,8 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:700,fontSize:14}}>
                     {c.proveedor} · {c.producto}
-                    {c.destino&&c.destino!=="Normal"&&<span style={{...badge(C.purple,C.purpleL),marginLeft:6}}>{c.destino}</span>}
+                    {esInsumo(c)&&<span style={{...badge(C.teal,C.tealL),marginLeft:6}}>Insumo</span>}
+                    {!esInsumo(c)&&c.destino&&c.destino!=="Normal"&&<span style={{...badge(C.purple,C.purpleL),marginLeft:6}}>{c.destino}</span>}
                   </div>
                   <div style={{fontSize:11,color:C.muted,marginTop:2}}>
                     {fmtDate(c.fecha)} · Sem {c.semana||weekOf(c.fecha)}{c.calibre?` · ${c.calibre}`:""}
@@ -2103,7 +2117,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                 </div>
                 <div style={{textAlign:"right",whiteSpace:"nowrap"}}>
                   <div style={{fontWeight:700,fontSize:14,color:C.teal}}>{fmt(c.total)}</div>
-                  <div style={{fontSize:11,color:C.muted}}>{fmt(costoKgCompra(c))}/{uni(c.producto)}</div>
+                  <div style={{fontSize:11,color:C.muted}}>{fmt(costoKgCompra(c))}/{uniCompra(c)}</div>
                 </div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,gap:8}}>
@@ -2130,9 +2144,9 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
                   <td style={td}>{pEmoji(c.producto)} {c.producto}</td>
                   <td style={td}><span style={badge(C.blue,C.blueL)}>{c.calibre}</span></td>
-                  <td style={td}>{c.destino&&c.destino!=="Normal"?<span style={badge(C.purple,C.purpleL)}>{c.destino}</span>:"—"}</td>
+                  <td style={td}>{esInsumo(c)?<span style={badge(C.teal,C.tealL)}>Insumo</span>:c.destino&&c.destino!=="Normal"?<span style={badge(C.purple,C.purpleL)}>{c.destino}</span>:"—"}</td>
                   <td style={td}>{c.cantidad} {esGranel(c.unidad)?uni(c.producto):`${UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad}${num(c.cantidad)===1?"":"s"}`} {esGranel(c.unidad)?"":<span style={{color:C.muted}}>· {fmt(c.precio)} c/u</span>}</td>
-                  <td style={td}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(c.producto)}</td>
+                  <td style={td}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uniCompra(c)}</td>
                   <td style={td}><strong>{fmt(costoKgCompra(c))}</strong></td>
                   <td style={td}>{num(c.deudaKg)>0?<span style={{color:C.purple}}>{fmt(deudaDeCompra(c))}</span>:"—"}</td>
                   <td style={td}><strong style={{color:C.teal}}>{fmt(c.total)}</strong></td>
@@ -2154,7 +2168,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         <div style={modal}>
           <div style={mbox}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:C.green}}>{editId?"✏️ Editar":"🛒 Nueva"} Compra de Fruta</h3>
+              <h3 style={{margin:0,color:C.green}}>{editId?"✏️ Editar":"🛒 Nueva"} Compra {(form.clase||"Fruta")==="Insumo"?"de Insumos":"de Fruta"}</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowComp(false)}>×</button>
             </div>
             <div style={g3}>
@@ -2184,7 +2198,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   {UNIDADES_COMPRA.map(u=><option key={u.id} value={u.id}>{u.label}</option>)}
                 </select>
               </div>
-              <div><label style={lbl}>{esGranel(form.unidad)?`Cantidad (${uni(form.producto)}) *`:"Cuántos bultos *"}</label>
+              <div><label style={lbl}>{form.unidad==="pieza"?"Cuántas piezas *":esGranel(form.unidad)?`Cantidad (${uni(form.producto)}) *`:"Cuántos bultos *"}</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.cantidad} onChange={e=>sf("cantidad",e.target.value)}/>
               </div>
               {!esGranel(form.unidad)&&(
@@ -2192,8 +2206,14 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <input type="number" inputMode="decimal" style={inp} placeholder="20" value={form.kgBulto} onChange={e=>sf("kgBulto",e.target.value)}/>
                 </div>
               )}
-              <div><label style={lbl}>{esGranel(form.unidad)?`Precio $/${uni(form.producto)} *`:"Precio por bulto *"}</label>
+              <div><label style={lbl}>{form.unidad==="pieza"?"Precio por pieza *":esGranel(form.unidad)?`Precio $/${uni(form.producto)} *`:"Precio por bulto *"}</label>
                 <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/>
+              </div>
+              <div><label style={lbl}>¿Qué estás comprando?</label>
+                <select style={sel} value={form.clase||"Fruta"} onChange={e=>sf("clase",e.target.value)}>
+                  <option value="Fruta">Fruta para vender</option>
+                  <option value="Insumo">Insumo o empaque</option>
+                </select>
               </div>
               <div><label style={lbl}>Tipo de compra</label>
                 <select style={sel} value={form.destino||"Normal"} onChange={e=>sf("destino",e.target.value)}>
@@ -2209,11 +2229,11 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   const kgs = kgCompra(form), merc = num(form.cantidad)*num(form.precio), deu = kgs*num(form.deudaKg);
                   return (<>
                     <div style={{...inp,background:C.indigoL,color:C.indigo,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span>{kgs.toLocaleString("es-MX",{maximumFractionDigits:1})} {uni(form.producto)}</span>
+                      <span>{kgs.toLocaleString("es-MX",{maximumFractionDigits:1})} {form.unidad==="pieza"?"pz":uni(form.producto)}</span>
                       <span>{fmt(merc+deu)}</span>
                     </div>
                     <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-                      Mercancía {fmt(merc)} · costo <strong>{fmt(kgs?merc/kgs:0)}</strong> por {uni(form.producto)}
+                      Mercancía {fmt(merc)} · costo <strong>{fmt(kgs?merc/kgs:0)}</strong> por {form.unidad==="pieza"?"pieza":uni(form.producto)}
                       {deu>0&&<><br/>Abono a deuda {fmt(deu)}</>}
                     </div>
                   </>);
