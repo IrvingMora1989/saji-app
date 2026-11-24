@@ -2116,14 +2116,23 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
 
   const compras = fruta.filter(f=>!f.tipo);
   const pagosF  = fruta.filter(f=>f.tipo==="pago");
+  // "Gutierrez", "Gutiérrez" y "GUTIERREZ " son el mismo proveedor: comparamos
+  // sin acentos, sin mayúsculas y sin espacios de sobra.
+  const mismoProv = (a,b) => sinAcentos(a)===sinAcentos(b);
   const listaFechaFruta = applyFilter(compras, filt);
-  const listaComp = (filtProv ? listaFechaFruta.filter(c=>c.proveedor===filtProv) : listaFechaFruta).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const listaComp = (filtProv ? listaFechaFruta.filter(c=>mismoProv(c.proveedor,filtProv)) : listaFechaFruta).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
 
-  // Proveedores que ya tienen compras registradas (para el saldo)
-  const existingProveedores = [...new Set(compras.map(c=>c.proveedor))];
+  // Proveedores con movimientos: compras o pagos. Se incluyen los que solo
+  // tienen pagos para que ningún movimiento quede invisible.
+  const existingProveedores = (()=>{
+    const vistos = new Map();   // clave normalizada -> nombre tal como se escribió
+    compras.forEach(c=>{ const k=sinAcentos(c.proveedor); if(c.proveedor&&!vistos.has(k)) vistos.set(k,c.proveedor); });
+    pagosF .forEach(p=>{ const k=sinAcentos(p.proveedor); if(p.proveedor&&!vistos.has(k)) vistos.set(k,p.proveedor); });
+    return [...vistos.values()];
+  })();
   const saldoProveedor = prov => {
-    const totalCompras = compras.filter(c=>c.proveedor===prov).reduce((s,c)=>s+c.total,0);
-    const totalPagos   = pagosF.filter(p=>p.proveedor===prov).reduce((s,p)=>s+p.monto,0);
+    const totalCompras = compras.filter(c=>mismoProv(c.proveedor,prov)).reduce((s,c)=>s+num(c.total),0);
+    const totalPagos   = pagosF .filter(p=>mismoProv(p.proveedor,prov)).reduce((s,p)=>s+num(p.monto),0);
     return { totalCompras, totalPagos, pendiente:totalCompras-totalPagos };
   };
 
@@ -2222,7 +2231,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
               <tbody>
                 {existingProveedores.map(prov=>{
                   const s=saldoProveedor(prov);
-                  const pagosProv = pagosF.filter(p=>p.proveedor===prov);
+                  const pagosProv = pagosF.filter(p=>mismoProv(p.proveedor,prov));
                   return (
                     <Fragment key={prov}>
                       <tr style={{background:C.bg}}>
