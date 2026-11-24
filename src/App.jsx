@@ -307,6 +307,8 @@ const diasPend = v => esPend(v) ? daysDiff(v.fecha) : 0;
 
 // ─── Piezas de UI ─────────────────────────────────────────────────────────────
 const h3s = { margin:"0 0 14px", fontSize:15, fontWeight:700, color:C.text };
+const secTit = { fontSize:11, fontWeight:700, color:C.mutedL, textTransform:"uppercase",
+                 letterSpacing:"0.7px", marginBottom:10, paddingBottom:6, borderBottom:`1px solid ${C.border}` };
 
 const PageHead = ({ titulo, sub, extra }) => (
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:12,flexWrap:"wrap",marginBottom:18}}>
@@ -870,36 +872,152 @@ function TicketModal({ datos, onClose }) {
   const [ancho, setAncho] = useState(() => {
     try { return localStorage.getItem("saji_ancho_ticket") || "80"; } catch { return "80"; }
   });
-  if(!datos) return null;
-  const { folio, fecha, cliente, items, total, tipoPago, estatus } = datos;
+  const [img, setImg] = useState("");
   const setW = w => { setAncho(w); try{ localStorage.setItem("saji_ancho_ticket",w); }catch{} };
 
-  const nfM = n => num(n).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
-  const nfC = n => num(n).toLocaleString("es-MX",{maximumFractionDigits:2});
-  const papel = ancho==="58" ? 48 : 72;   // mm imprimibles
+  // Las térmicas imprimen a 8 puntos por milímetro. El área imprimible es de
+  // 72 mm en papel de 80 (576 puntos) y 48 mm en papel de 58 (384 puntos).
+  // Dibujamos el ticket a ese ancho exacto: así sale del tamaño correcto
+  // aunque el navegador quiera imprimir en carta.
+  const ANCHO_PX = ancho === "58" ? 384 : 576;
 
-  const textoWA = () => {
-    const L = [`*SAJI GROUP*`,`Remisión ${folio}`,`${fmtDate(fecha)} · ${cliente}`,``];
-    items.forEach(it=>L.push(`${nfC(it.cantidad)} ${uni(it.producto)} ${it.producto} x $${nfM(it.precio)} = $${nfM(num(it.cantidad)*num(it.precio))}`));
-    L.push(``,`*Total: $${nfM(total)}*`,`Pago: ${tipoPago}`);
-    return L.join("\n");
+  useEffect(() => {
+    if(!datos) return;
+    let cancelado = false;
+    const dibujar = logo => {
+      const W = ANCHO_PX, esc = W/576, M = Math.round(16*esc);
+      // n es el tamaño en puntos a 576 de ancho; esc lo ajusta si el papel es de 58
+      const px = n => Math.max(8, Math.round(n*esc));
+      const F  = n => `${px(n)}px ui-monospace, "Courier New", monospace`;
+      const FB = n => `bold ${px(n)}px ui-monospace, "Courier New", monospace`;
+      const alto = n => Math.round(px(n)*1.35);
+      const cv = document.createElement("canvas");
+      cv.width = W; cv.height = 4000;
+      const x = cv.getContext("2d");
+      x.fillStyle = "#fff"; x.fillRect(0,0,W,4000);
+      x.fillStyle = "#000"; x.textBaseline = "top";
+      let y = M;
+
+      const linea = () => { y += Math.round(6*esc);
+        x.fillStyle="#000"; for(let i=M;i<W-M;i+=Math.round(8*esc)) x.fillRect(i,y,Math.round(4*esc),Math.max(1,Math.round(2*esc)));
+        y += Math.round(14*esc); };
+      const centro = (t,n2,b2,cx) => { x.font=b2?FB(n2):F(n2); x.textAlign="center"; x.fillText(t,cx||W/2,y); y += alto(n2); x.textAlign="left"; };
+      const izq    = (t,n2,b2) => { x.font=b2?FB(n2):F(n2); x.fillText(t,M,y); y += alto(n2); };
+      const dos    = (a,c2,n2,b2) => { x.font=b2?FB(n2):F(n2); x.fillText(a,M,y); x.textAlign="right"; x.fillText(c2,W-M,y); x.textAlign="left"; y += alto(n2); };
+      const cortar = (t,f,max) => { x.font=f; let s=String(t); while(x.measureText(s).width>max && s.length>3) s=s.slice(0,-1); return s===String(t)?s:s+"…"; };
+
+      // Encabezado: logo a la izquierda, nombre centrado en todo el ancho.
+      // El logo va en blanco y negro puro porque las térmicas no imprimen grises.
+      const yIni = y;
+      let altoLogo = 0, finLogo = M;
+      if(logo){
+        // Tamaño fijo en puntos (unos 19 mm): por debajo de ~150 el trazo fino
+        // del logo se rompe al pasarlo a blanco y negro.
+        const lw = Math.min(150, Math.round(W*0.42)), lh = Math.round(lw*logo.height/logo.width);
+        const tmp = document.createElement("canvas"); tmp.width=lw; tmp.height=lh;
+        const tx = tmp.getContext("2d");
+        tx.fillStyle="#fff"; tx.fillRect(0,0,lw,lh);
+        tx.drawImage(logo,0,0,lw,lh);
+        const d = tx.getImageData(0,0,lw,lh);
+        for(let i=0;i<d.data.length;i+=4){
+          const g = 0.299*d.data[i] + 0.587*d.data[i+1] + 0.114*d.data[i+2];
+          const v = g < 150 ? 0 : 255;                      // umbral: puro negro o puro blanco
+          d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255;
+        }
+        tx.putImageData(d,0,0);
+        x.drawImage(tmp, M, yIni);
+        altoLogo = lh; finLogo = M + lw;
+      }
+      // El texto se centra verticalmente contra el logo
+      const altoTexto = alto(30) + alto(17);
+      y = yIni + Math.max(0, Math.round((altoLogo-altoTexto)/2));
+      // El texto se centra en el espacio que queda a la derecha del logo,
+      // así nunca se encima aunque el papel sea angosto.
+      const cx = altoLogo ? (finLogo + Math.round(10*esc) + (W-M)) / 2 : W/2;
+      centro("SAJI GROUP", 30, true, cx);
+      centro("Nota de remisión", 17, false, cx);
+      y = yIni + Math.max(altoLogo, altoTexto);
+      linea();
+
+      izq(`REMISIÓN: ${datos.folio||"—"}`, 20, true);
+      izq(`FECHA: ${fmtDate(datos.fecha)}`, 19);
+      x.font = F(19);
+      izq(`CLIENTE: ${cortar(datos.cliente, F(19), W-2*M-x.measureText("CLIENTE: ").width)}`, 19);
+      linea();
+
+      const nfM = n => num(n).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+      const nfC = n => num(n).toLocaleString("es-MX",{maximumFractionDigits:2});
+      (datos.items||[]).forEach(it=>{
+        izq(cortar(`${it.producto}${it.calibre?` (${it.calibre})`:""}`, FB(20), W-2*M), 20, true);
+        dos(`${nfC(it.cantidad)} ${uni(it.producto)} x $${nfM(it.precio)}`,
+            `$${nfM(num(it.cantidad)*num(it.precio))}`, 19);
+        y += Math.round(5*esc);
+      });
+      linea();
+
+      dos("TOTAL", `$${nfM(datos.total)}`, 26, true);
+      y += Math.round(6*esc);
+      izq(`Pago: ${datos.tipoPago||""}`, 19);
+      if(datos.estatus) izq(`Estatus: ${datos.estatus}`, 19);
+      linea();
+
+      y += Math.round(40*esc);
+      centro("_____________________________", 18);
+      centro("Recibí conforme · Nombre y firma", 15);
+      y += Math.round(16*esc);
+      centro("Este documento no es", 15);
+      centro("un comprobante fiscal", 15);
+      y += Math.round(6*esc);
+      centro("¡Gracias por su compra!", 16);
+      y += M;
+
+      // Recortamos el alto sobrante
+      const fin = document.createElement("canvas");
+      fin.width = W; fin.height = Math.ceil(y);
+      const fx = fin.getContext("2d");
+      fx.fillStyle="#fff"; fx.fillRect(0,0,W,fin.height);
+      fx.drawImage(cv,0,0);
+      if(!cancelado) setImg(fin.toDataURL("image/png"));
+    };
+
+    const logo = new Image();
+    logo.onload  = () => dibujar(logo);
+    logo.onerror = () => dibujar(null);
+    logo.src = "/saji-logo.png";
+    return () => { cancelado = true; };
+  }, [datos, ANCHO_PX]);
+
+  if(!datos) return null;
+
+  const mmAncho = ancho === "58" ? 48 : 72;
+
+  const descargar = () => {
+    const a = document.createElement("a");
+    a.href = img; a.download = `remision-${datos.folio||"ticket"}.png`; a.click();
   };
   const compartir = async () => {
-    const texto = textoWA();
-    if(navigator.share){ try{ await navigator.share({ title:`Remisión ${folio}`, text:texto }); return; }catch{} }
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`,"_blank");
+    try{
+      const blob = await (await fetch(img)).blob();
+      const file = new File([blob], `remision-${datos.folio||"ticket"}.png`, { type:"image/png" });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        await navigator.share({ files:[file], title:`Remisión ${datos.folio}` });
+        return;
+      }
+    }catch{}
+    descargar();
   };
 
   return (
     <div style={modal} onClick={onClose}>
-      <style>{`@page { size: ${ancho}mm auto; margin: 3mm; }
+      <style>{`@page { size: ${ancho}mm auto; margin: 0; }
         @media print {
-          html, body { background: #fff !important; margin: 0 !important; }
+          html, body { background:#fff!important; margin:0!important; padding:0!important; width:${ancho}mm!important; }
           body * { visibility: hidden !important; }
           #saji-ticket, #saji-ticket * { visibility: visible !important; }
-          #saji-ticket { position: absolute !important; left: 0; top: 0; width: ${papel}mm !important;
-                         box-shadow: none !important; border: none !important; padding: 0 !important; }
-          .no-print { display: none !important; }
+          #saji-ticket { position:absolute!important; left:0; top:0; margin:0!important; padding:0!important;
+                         width:${mmAncho}mm!important; box-shadow:none!important; border:none!important; }
+          #saji-ticket img { width:${mmAncho}mm!important; height:auto!important; image-rendering:pixelated; }
+          .no-print { display:none !important; }
         }`}</style>
       <div style={{...mbox,maxWidth:420,padding:20}} onClick={e=>e.stopPropagation()}>
         <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -913,50 +1031,20 @@ function TicketModal({ datos, onClose }) {
           <button style={nb(ancho==="80")} onClick={()=>setW("80")}>80 mm</button>
         </div>
 
-        {/* ── El ticket ─────────────────────────────────────────────── */}
-        <div id="saji-ticket" style={{
-          width:`${papel}mm`, margin:"0 auto", background:"#fff", color:"#000",
-          fontFamily:"ui-monospace,'Courier New',monospace", fontSize: ancho==="58"?10.5:11.5,
-          lineHeight:1.45, padding:"10px 8px", border:`1px dashed ${C.border}`, borderRadius:6,
-        }}>
-          <div style={{textAlign:"center",fontWeight:700,fontSize: ancho==="58"?14:16,letterSpacing:1}}>SAJI GROUP</div>
-          <div style={{textAlign:"center",fontSize:ancho==="58"?9:10,marginBottom:6}}>Nota de remisión</div>
-          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
-          <div><strong>REMISIÓN:</strong> {folio}</div>
-          <div><strong>FECHA:</strong> {fmtDate(fecha)}</div>
-          <div><strong>CLIENTE:</strong> {cliente}</div>
-          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
-          {items.map((it,i)=>(
-            <div key={i} style={{marginBottom:5}}>
-              <div style={{fontWeight:700}}>{it.producto}{it.calibre?` (${it.calibre})`:""}</div>
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span>{nfC(it.cantidad)} {uni(it.producto)} x ${nfM(it.precio)}</span>
-                <span>${nfM(num(it.cantidad)*num(it.precio))}</span>
-              </div>
-            </div>
-          ))}
-          <div style={{borderTop:"1px dashed #000",margin:"6px 0"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,fontSize:ancho==="58"?12:13.5}}>
-            <span>TOTAL</span><span>${nfM(total)}</span>
-          </div>
-          <div style={{marginTop:6}}>Pago: {tipoPago}</div>
-          {estatus&&<div>Estatus: {estatus}</div>}
-          <div style={{borderTop:"1px dashed #000",margin:"8px 0"}}/>
-          <div style={{textAlign:"center",marginTop:14}}>_____________________________</div>
-          <div style={{textAlign:"center",fontSize:ancho==="58"?9:10}}>Recibí conforme · Nombre y firma</div>
-          <div style={{textAlign:"center",fontSize:ancho==="58"?8.5:9.5,marginTop:10}}>
-            Este documento no es un comprobante fiscal
-          </div>
-          <div style={{textAlign:"center",fontSize:ancho==="58"?8.5:9.5,marginTop:2}}>¡Gracias por su compra!</div>
+        <div id="saji-ticket" style={{textAlign:"center"}}>
+          {img
+            ? <img src={img} alt="Ticket" style={{width:ancho==="58"?200:260,maxWidth:"100%",border:`1px dashed ${C.border}`,borderRadius:6}}/>
+            : <div style={{padding:"40px 0",color:C.muted,fontSize:13}}>Generando ticket…</div>}
         </div>
 
         <div className="no-print" style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
-          <button style={{...btn(C.indigo),flex:1}} onClick={()=>window.print()}>Imprimir</button>
-          <button style={{...btnO(C.green),flex:1}} onClick={compartir}>Compartir</button>
-          <button style={btnO(C.muted)} onClick={onClose}>Cerrar</button>
+          <button style={{...btn(C.indigo),flex:1}} disabled={!img} onClick={()=>window.print()}>Imprimir</button>
+          <button style={{...btnO(C.green),flex:1}} disabled={!img} onClick={compartir}>Compartir</button>
+          <button style={btnO(C.muted)} disabled={!img} onClick={descargar}>Guardar</button>
         </div>
-        <div className="no-print" style={{fontSize:11,color:C.muted,marginTop:8,textAlign:"center"}}>
-          Imprimir usa la impresora del teléfono. Compartir manda el ticket por WhatsApp.
+        <div className="no-print" style={{fontSize:11,color:C.muted,marginTop:8,lineHeight:1.5}}>
+          El ticket se genera como imagen de {ANCHO_PX} puntos de ancho, la medida exacta del papel de {ancho} mm.
+          Si al imprimir sale en hoja carta, usa <strong>Compartir</strong> y mándalo a la app de tu impresora.
         </div>
       </div>
     </div>
@@ -1874,7 +1962,11 @@ const costoPromedio = (compras, producto, hasta) => {
 const deudaDeCompra = c => kgCompra(c) * num(c.deudaKg);
 const costoMercancia = c => num(c.total) - deudaDeCompra(c);
 
-const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", producto:"", calibre:"", cantidad:"", unidad:"kg", kgBulto:"", precio:"", deudaKg:"", destino:"Normal", clase:"Fruta", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
+const itemCompra = () => ({ producto:"", calibre:"", unidad:"kg", kgBulto:"", cantidad:"", precio:"", deudaKg:"" });
+// Kilos reales de un renglón del formulario
+const kgItem = it => esGranel(it.unidad) ? num(it.cantidad) : num(it.cantidad)*(num(it.kgBulto)||1);
+
+const frutaEmpty = () => ({ fecha:todayStr(), proveedor:"", items:[itemCompra()], destino:"Normal", clase:"Fruta", factura:"", fechaFactura:"", metodoPago:"Efectivo", estatusPago:"pagado" });
 
 function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   const [showComp, setShowComp] = useState(false);
@@ -1898,32 +1990,66 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   });
   const sfp = (k,v) => setPagoForm(f=>({...f,[k]:v}));
 
+  // Una compra puede traer varios productos. Cada renglón se guarda como su
+  // propio registro (así siguen funcionando costos, saldos y reportes), pero
+  // todos comparten un mismo folio para saber que entraron juntos.
   const guardarCompra = () => {
-    if(!form.proveedor||!form.producto||!form.cantidad||!form.precio) return alert("Completa los campos requeridos");
-    const reg = {
-      id:editId||Date.now(), semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha),
-      ...form, cantidad:parseFloat(form.cantidad), precio:parseFloat(form.precio),
-      unidad: form.unidad || "kg",
-      kgBulto: esGranel(form.unidad) ? 1 : (parseFloat(form.kgBulto)||1),
-      deudaKg: parseFloat(form.deudaKg)||0,
-      destino: form.destino || "Normal",
-      clase: form.clase || "Fruta",
-      // Lo que se le paga al proveedor: mercancía + abono a deuda anterior
-      total: parseFloat(form.cantidad)*parseFloat(form.precio)
-           + (esGranel(form.unidad)?parseFloat(form.cantidad):parseFloat(form.cantidad)*(parseFloat(form.kgBulto)||1))*(parseFloat(form.deudaKg)||0),
-      // Efectivo siempre es pagado de inmediato; otros métodos usan el valor del form
+    if(!form.proveedor) return alert("Elige el proveedor");
+    const items = (form.items||[]).filter(it=>it.producto||it.cantidad||it.precio);
+    if(!items.length) return alert("Agrega al menos un producto");
+    const malo = items.find(it=>!it.producto||!num(it.cantidad)||!num(it.precio)
+      || (!esGranel(it.unidad) && !num(it.kgBulto)));
+    if(malo) return alert("Cada producto necesita producto, cantidad, precio y, si viene en bultos, los kilos por bulto.");
+
+    const comun = {
+      fecha:form.fecha, proveedor:form.proveedor, clase:form.clase||"Fruta", destino:form.destino||"Normal",
+      metodoPago:form.metodoPago, factura:form.factura, fechaFactura:form.fechaFactura,
       estatusPago: form.metodoPago==="Efectivo" ? "pagado" : (form.estatusPago||"porpagar"),
+      semana:weekOf(form.fecha), dia:dayOf(form.fecha), mes:monthOf(form.fecha),
     };
-    if(editId) { setFruta(fs=>fs.map(f=>f.id===editId?reg:f)); setEditId(null); logBit("Editó compra fruta",`${reg.proveedor} · ${reg.producto} · ${fmt(reg.total)}`); }
-    else { setFruta(fs=>[reg,...fs]); logBit("Nueva compra fruta",`${reg.proveedor} · ${reg.producto} · ${reg.cantidad} ${uni(reg.producto)} · ${fmt(reg.total)}`); }
+    const folio = editId ? (form.compraId||null) : `k${Date.now()}`;
+    const regs = items.map((it,i)=>{
+      const kgs = kgItem(it);
+      return {
+        ...comun, id: editId || `${Date.now()}-${i}`, compraId: folio,
+        producto:it.producto, calibre:it.calibre||"",
+        unidad:it.unidad||"kg", kgBulto: esGranel(it.unidad)?1:(num(it.kgBulto)||1),
+        cantidad:num(it.cantidad), precio:num(it.precio), deudaKg:num(it.deudaKg),
+        // Lo que se le paga al proveedor: mercancía + abono a deuda anterior
+        total: num(it.cantidad)*num(it.precio) + kgs*num(it.deudaKg),
+      };
+    });
+    if(editId){
+      setFruta(fs=>fs.map(f=>f.id===editId?regs[0]:f)); setEditId(null);
+      logBit("Editó compra",`${regs[0].proveedor} · ${regs[0].producto} · ${fmt(regs[0].total)}`);
+    } else {
+      setFruta(fs=>[...regs,...fs]);
+      const tot = regs.reduce((s,r)=>s+r.total,0);
+      logBit("Nueva compra",`${comun.proveedor} · ${regs.length} producto${regs.length===1?"":"s"} · ${fmt(tot)}`);
+    }
     setForm(frutaEmpty()); setShowComp(false);
   };
 
+  const setItem = (i,k,v) => setForm(f=>{
+    const items = f.items.map((it,j)=>{
+      if(j!==i) return it;
+      const n = {...it,[k]:v};
+      if(k==="producto" && v!==it.producto){ const p2=productos.find(x=>x.nombre===v); n.calibre=p2?.calibres[0]||""; }
+      if(k==="unidad"){ const u=UNIDADES_COMPRA.find(x=>x.id===v); n.kgBulto = esGranel(v) ? "" : String(n.kgBulto || u?.kg || ""); }
+      return n;
+    });
+    return {...f, items};
+  });
+  const addItem = () => setForm(f=>({...f, items:[...f.items, itemCompra()]}));
+  const delItem = i => setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}));
+  const totalForm = (form.items||[]).reduce((s,it)=>s+num(it.cantidad)*num(it.precio)+kgItem(it)*num(it.deudaKg),0);
+
   const abrirCompra = c => {
     setEditId(c.id);
-    setForm({...c, cantidad:String(c.cantidad), precio:String(c.precio),
-      unidad:c.unidad||"kg", kgBulto:String(c.kgBulto||""),
-      deudaKg:String(c.deudaKg||""), destino:c.destino||"Normal", clase:c.clase||"Fruta"});
+    setForm({...c, destino:c.destino||"Normal", clase:c.clase||"Fruta",
+      items:[{ producto:c.producto, calibre:c.calibre||"", unidad:c.unidad||"kg",
+               kgBulto:String(c.kgBulto||""), cantidad:String(c.cantidad),
+               precio:String(c.precio), deudaKg:String(c.deudaKg||"") }]});
     setShowComp(true);
   };
   const borrarCompra = c => {
@@ -2134,30 +2260,48 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
 
         <div className="saji-tabla-sm" style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Sem","Día","Mes","Fecha","Proveedor","Producto","Calibre","Tipo","Cantidad","Kilos","Costo/kg","Deuda","Total","Factura","F.Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Fecha","Proveedor","Producto","Tipo","Cantidad","Kilos","Costo/kg","Total","Factura",""].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
-              {listaComp.length===0&&<tr><td colSpan={17} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
-              {listaComp.map(c=>(
+              {listaComp.length===0&&<tr><td colSpan={10} style={{...td,textAlign:"center",color:C.muted,padding:28}}>Sin compras en este período 🛒</td></tr>}
+              {listaComp.map((c,i)=>{
+                // Los renglones de una misma compra se agrupan visualmente
+                const mismaCompra = c.compraId && i>0 && listaComp[i-1].compraId===c.compraId;
+                return (
                 <tr key={c.id} onClick={()=>abrirCompra(c)} style={{cursor:"pointer"}}>
-                  <td style={td}>{c.semana}</td><td style={td}>{c.dia}</td><td style={td}>{c.mes}</td>
-                  <td style={td}>{fmtDate(c.fecha)}</td>
-                  <td style={{...td,fontWeight:700}}>{c.proveedor}</td>
-                  <td style={td}>{pEmoji(c.producto)} {c.producto}</td>
-                  <td style={td}><span style={badge(C.blue,C.blueL)}>{c.calibre}</span></td>
+                  <td style={{...td,whiteSpace:"nowrap",borderTop:mismaCompra?"none":undefined}}>
+                    {mismaCompra ? <span style={{color:C.mutedL}}>↳</span> : <>
+                      {fmtDate(c.fecha)}
+                      <div style={{fontSize:10.5,color:C.mutedL}}>{c.dia} · Sem {c.semana||weekOf(c.fecha)}</div>
+                    </>}
+                  </td>
+                  <td style={{...td,fontWeight:700}}>{mismaCompra?"":c.proveedor}</td>
+                  <td style={td}>
+                    {pEmoji(c.producto)} {c.producto}
+                    {c.calibre&&<div style={{fontSize:10.5,color:C.muted}}>{c.calibre}</div>}
+                  </td>
                   <td style={td}>{esInsumo(c)?<span style={badge(C.teal,C.tealL)}>Insumo</span>:c.destino&&c.destino!=="Normal"?<span style={badge(C.purple,C.purpleL)}>{c.destino}</span>:"—"}</td>
-                  <td style={td}>{c.cantidad} {esGranel(c.unidad)?uni(c.producto):`${UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad}${num(c.cantidad)===1?"":"s"}`} {esGranel(c.unidad)?"":<span style={{color:C.muted}}>· {fmt(c.precio)} c/u</span>}</td>
-                  <td style={td}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uniCompra(c)}</td>
+                  <td style={{...td,whiteSpace:"nowrap"}}>
+                    {esGranel(c.unidad)
+                      ? `${c.cantidad} ${uniCompra(c)}`
+                      : <>{c.cantidad} {UNIDADES_COMPRA.find(u=>u.id===c.unidad)?.label||c.unidad}{num(c.cantidad)===1?"":"s"}
+                          <div style={{fontSize:10.5,color:C.muted}}>{fmt(c.precio)} c/u · {c.kgBulto} kg</div></>}
+                  </td>
+                  <td style={{...td,whiteSpace:"nowrap"}}>{kgCompra(c).toLocaleString("es-MX",{maximumFractionDigits:1})} {uniCompra(c)}</td>
                   <td style={td}><strong>{fmt(costoKgCompra(c))}</strong></td>
-                  <td style={td}>{num(c.deudaKg)>0?<span style={{color:C.purple}}>{fmt(deudaDeCompra(c))}</span>:"—"}</td>
-                  <td style={td}><strong style={{color:C.teal}}>{fmt(c.total)}</strong></td>
-                  <td style={td}>{c.factura||"—"}</td>
-                  <td style={td}>{fmtDate(c.fechaFactura)||"—"}</td>
+                  <td style={{...td,whiteSpace:"nowrap"}}>
+                    <strong style={{color:C.teal}}>{fmt(c.total)}</strong>
+                    {num(c.deudaKg)>0&&<div style={{fontSize:10.5,color:C.purple}}>incl. deuda {fmt(deudaDeCompra(c))}</div>}
+                  </td>
+                  <td style={td}>
+                    {c.factura||"—"}
+                    {c.fechaFactura&&<div style={{fontSize:10.5,color:C.muted}}>{fmtDate(c.fechaFactura)}</div>}
+                  </td>
                   <td style={td}>
                     <button style={{...btnO(C.red),padding:"4px 10px",fontSize:11}}
                       onClick={e=>{ e.stopPropagation(); borrarCompra(c); }}>Eliminar</button>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
@@ -2166,48 +2310,21 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
       {/* Modal Compra */}
       {showComp&&(
         <div style={modal}>
-          <div style={mbox}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{margin:0,color:C.green}}>{editId?"✏️ Editar":"🛒 Nueva"} Compra {(form.clase||"Fruta")==="Insumo"?"de Insumos":"de Fruta"}</h3>
+          <div style={{...mbox,maxWidth:860}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+              <h3 style={{margin:0,color:C.green,fontSize:18}}>{editId?"Editar compra":"Nueva compra"}</h3>
               <button style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:26,lineHeight:1}} onClick={()=>setShowComp(false)}>×</button>
             </div>
+
+            {/* 1. Datos de la compra */}
+            <div style={secTit}>Datos de la compra</div>
             <div style={g3}>
               <div><label style={lbl}>Fecha</label><input type="date" style={inp} value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/></div>
               <div><label style={lbl}>Proveedor *</label>
                 <select style={sel} value={form.proveedor} onChange={e=>sf("proveedor",e.target.value)}>
                   <option value="">— Seleccionar proveedor —</option>
-                  {allProveedores.map(p=><option key={p} value={p}>{p}</option>)}
+                  {allProveedores.map(p2=><option key={p2} value={p2}>{p2}</option>)}
                 </select>
-              </div>
-              <div><label style={lbl}>Producto *</label>
-                <select style={sel} value={form.producto} onChange={e=>sf("producto",e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {[...new Set([...productos.map(p=>p.nombre),...compras.map(c=>c.producto),form.producto].filter(Boolean))].sort()
-                    .map(n=><option key={n}>{n}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Calibre</label>
-                <select style={sel} value={form.calibre||""} onChange={e=>sf("calibre",e.target.value)} disabled={!form.producto}>
-                  <option value="">—</option>
-                  {[...new Set([...getCals(form.producto),...compras.filter(c=>c.producto===form.producto).map(c=>c.calibre),form.calibre].filter(Boolean))]
-                    .map(c=><option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Unidad de compra *</label>
-                <select style={sel} value={form.unidad||"kg"} onChange={e=>sf("unidad",e.target.value)}>
-                  {UNIDADES_COMPRA.map(u=><option key={u.id} value={u.id}>{u.label}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>{form.unidad==="pieza"?"Cuántas piezas *":esGranel(form.unidad)?`Cantidad (${uni(form.producto)}) *`:"Cuántos bultos *"}</label>
-                <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.cantidad} onChange={e=>sf("cantidad",e.target.value)}/>
-              </div>
-              {!esGranel(form.unidad)&&(
-                <div><label style={lbl}>Kilos por bulto *</label>
-                  <input type="number" inputMode="decimal" style={inp} placeholder="20" value={form.kgBulto} onChange={e=>sf("kgBulto",e.target.value)}/>
-                </div>
-              )}
-              <div><label style={lbl}>{form.unidad==="pieza"?"Precio por pieza *":esGranel(form.unidad)?`Precio $/${uni(form.producto)} *`:"Precio por bulto *"}</label>
-                <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={form.precio} onChange={e=>sf("precio",e.target.value)}/>
               </div>
               <div><label style={lbl}>¿Qué estás comprando?</label>
                 <select style={sel} value={form.clase||"Fruta"} onChange={e=>sf("clase",e.target.value)}>
@@ -2215,38 +2332,86 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   <option value="Insumo">Insumo o empaque</option>
                 </select>
               </div>
-              <div><label style={lbl}>Tipo de compra</label>
-                <select style={sel} value={form.destino||"Normal"} onChange={e=>sf("destino",e.target.value)}>
-                  <option>Normal</option><option>Fishers</option>
-                </select>
-              </div>
-              <div><label style={lbl}>Abono a deuda $/{uni(form.producto)}</label>
-                <input type="number" inputMode="decimal" style={inp} placeholder="0" value={form.deudaKg||""} onChange={e=>sf("deudaKg",e.target.value)}/>
-                <div style={{fontSize:11,color:C.muted,marginTop:3}}>Sobreprecio que le pagas al proveedor por una deuda anterior. No cuenta como costo del producto.</div>
-              </div>
-              <div><label style={lbl}>Resumen</label>
-                {(()=>{
-                  const kgs = kgCompra(form), merc = num(form.cantidad)*num(form.precio), deu = kgs*num(form.deudaKg);
-                  return (<>
-                    <div style={{...inp,background:C.indigoL,color:C.indigo,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span>{kgs.toLocaleString("es-MX",{maximumFractionDigits:1})} {form.unidad==="pieza"?"pz":uni(form.producto)}</span>
-                      <span>{fmt(merc+deu)}</span>
+            </div>
+
+            {/* 2. Productos */}
+            <div style={{...secTit,marginTop:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>Productos {editId&&<span style={{fontWeight:400,color:C.muted,fontSize:11}}>· al editar se modifica solo este renglón</span>}</span>
+              {!editId&&<button style={{...btnO(C.teal),padding:"5px 12px",fontSize:12}} onClick={addItem}>+ Agregar producto</button>}
+            </div>
+            {(form.items||[]).map((it,i)=>{
+              const kgs = kgItem(it), merc = num(it.cantidad)*num(it.precio), deu = kgs*num(it.deudaKg);
+              const unidadTxt = it.unidad==="pieza" ? "pz" : uni(it.producto);
+              return (
+                <div key={i} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <strong style={{fontSize:12,color:C.muted}}>Producto {i+1}</strong>
+                    {(form.items.length>1)&&<button style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1}} onClick={()=>delItem(i)}>×</button>}
+                  </div>
+                  <div style={g3}>
+                    <div><label style={lbl}>Producto *</label>
+                      <select style={sel} value={it.producto} onChange={e=>setItem(i,"producto",e.target.value)}>
+                        <option value="">— Seleccionar —</option>
+                        {[...new Set([...productos.map(p2=>p2.nombre),...compras.map(c=>c.producto),it.producto].filter(Boolean))].sort()
+                          .map(n=><option key={n}>{n}</option>)}
+                      </select>
                     </div>
-                    <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-                      Mercancía {fmt(merc)} · costo <strong>{fmt(kgs?merc/kgs:0)}</strong> por {form.unidad==="pieza"?"pieza":uni(form.producto)}
-                      {deu>0&&<><br/>Abono a deuda {fmt(deu)}</>}
+                    <div><label style={lbl}>Calibre</label>
+                      <select style={sel} value={it.calibre||""} onChange={e=>setItem(i,"calibre",e.target.value)} disabled={!it.producto}>
+                        <option value="">—</option>
+                        {[...new Set([...getCals(it.producto),...compras.filter(c=>c.producto===it.producto).map(c=>c.calibre),it.calibre].filter(Boolean))]
+                          .map(c=><option key={c}>{c}</option>)}
+                      </select>
                     </div>
-                  </>);
-                })()}
-              </div>
+                    <div><label style={lbl}>Unidad *</label>
+                      <select style={sel} value={it.unidad||"kg"} onChange={e=>setItem(i,"unidad",e.target.value)}>
+                        {UNIDADES_COMPRA.map(u=><option key={u.id} value={u.id}>{u.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{...g3,marginTop:10}}>
+                    <div><label style={lbl}>{it.unidad==="pieza"?"Cuántas piezas *":esGranel(it.unidad)?`Cantidad (${uni(it.producto)}) *`:"Cuántos bultos *"}</label>
+                      <input type="number" inputMode="decimal" style={inp} placeholder="0" value={it.cantidad} onChange={e=>setItem(i,"cantidad",e.target.value)}/>
+                    </div>
+                    {!esGranel(it.unidad)
+                      ? <div><label style={lbl}>Kilos por bulto *</label>
+                          <input type="number" inputMode="decimal" style={inp} placeholder="20" value={it.kgBulto} onChange={e=>setItem(i,"kgBulto",e.target.value)}/>
+                        </div>
+                      : <div><label style={lbl}>Abono a deuda $/{unidadTxt}</label>
+                          <input type="number" inputMode="decimal" style={inp} placeholder="0" value={it.deudaKg||""} onChange={e=>setItem(i,"deudaKg",e.target.value)}/>
+                        </div>}
+                    <div><label style={lbl}>{it.unidad==="pieza"?"Precio por pieza *":esGranel(it.unidad)?`Precio $/${uni(it.producto)} *`:"Precio por bulto *"}</label>
+                      <input type="number" inputMode="decimal" style={inp} placeholder="0.00" value={it.precio} onChange={e=>setItem(i,"precio",e.target.value)}/>
+                    </div>
+                  </div>
+                  {!esGranel(it.unidad)&&(
+                    <div style={{marginTop:10,maxWidth:260}}>
+                      <label style={lbl}>Abono a deuda $/{unidadTxt}</label>
+                      <input type="number" inputMode="decimal" style={inp} placeholder="0" value={it.deudaKg||""} onChange={e=>setItem(i,"deudaKg",e.target.value)}/>
+                    </div>
+                  )}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:10,
+                    background:C.indigoL,borderRadius:10,padding:"8px 12px",fontSize:12.5,color:C.indigo,flexWrap:"wrap"}}>
+                    <span>{kgs.toLocaleString("es-MX",{maximumFractionDigits:1})} {unidadTxt} · costo <strong>{fmt(kgs?merc/kgs:0)}</strong> por {unidadTxt}{deu>0&&<> · deuda {fmt(deu)}</>}</span>
+                    <strong style={{fontSize:14}}>{fmt(merc+deu)}</strong>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 3. Pago y factura */}
+            <div style={{...secTit,marginTop:20}}>Pago y factura</div>
+            <div style={g3}>
               <div><label style={lbl}>Método de pago</label>
                 <select style={sel} value={form.metodoPago} onChange={e=>sf("metodoPago",e.target.value)}>
                   {METODOS_PAGO.map(m=><option key={m}>{m}</option>)}
                 </select>
               </div>
               {form.metodoPago==="Efectivo" ? (
-                <div style={{display:"flex",alignItems:"center",background:C.greenL,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.greenM}`,fontSize:12,color:C.green,fontWeight:600}}>
-                  ✅ Efectivo — se marca como pagado automáticamente
+                <div style={{display:"flex",alignItems:"flex-end"}}>
+                  <div style={{width:"100%",background:C.greenL,borderRadius:10,padding:"10px 12px",border:`1px solid ${C.greenM}`,fontSize:12,color:C.green,fontWeight:600}}>
+                    Efectivo — se marca como pagado
+                  </div>
                 </div>
               ) : (
                 <div><label style={lbl}>Estatus del pago</label>
@@ -2256,6 +2421,11 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                   </select>
                 </div>
               )}
+              <div><label style={lbl}>Tipo de compra</label>
+                <select style={sel} value={form.destino||"Normal"} onChange={e=>sf("destino",e.target.value)}>
+                  <option>Normal</option><option>Fishers</option>
+                </select>
+              </div>
               <div><label style={lbl}>Factura #</label>
                 <input style={inp} placeholder="Número de factura" value={form.factura} onChange={e=>sf("factura",e.target.value)}/>
               </div>
@@ -2263,13 +2433,16 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                 <input type="date" style={inp} value={form.fechaFactura} onChange={e=>sf("fechaFactura",e.target.value)}/>
               </div>
             </div>
+
             <div style={totRow}>
-              <span style={{fontWeight:600,color:C.muted}}>Total compra</span>
-              <span style={{fontSize:20,fontWeight:800,color:C.teal}}>{fmt(parseFloat(form.cantidad||0)*parseFloat(form.precio||0))}</span>
+              <span style={{fontWeight:600,color:C.muted}}>
+                Total compra{(form.items||[]).length>1&&` · ${form.items.length} productos`}
+              </span>
+              <span style={{fontSize:20,fontWeight:800,color:C.teal}}>{fmt(totalForm)}</span>
             </div>
             <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
               <button style={btnO()} onClick={()=>setShowComp(false)}>Cancelar</button>
-              <button style={btn(C.teal)} onClick={guardarCompra}>💾 Guardar Compra</button>
+              <button style={btn(C.teal)} onClick={guardarCompra}>Guardar compra</button>
             </div>
           </div>
         </div>
