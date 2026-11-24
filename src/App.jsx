@@ -406,8 +406,10 @@ function applyFilter(rows, filter, dateKey="fecha") {
 // ════════════════════════════════════════════════════════════════════════════════
 // INICIO
 // ════════════════════════════════════════════════════════════════════════════════
-function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
-  const [f, setF] = useState({tipo:"todo",valor:"",desde:"",hasta:""});
+function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
+  // Arranca en la semana corriente, igual que Ventas
+  const [f, setF] = useState({tipo:"semana",valor:"",desde:"",hasta:""});
+  const [cliSel, setCliSel] = useState("");   // cliente abierto en ¿Quién me debe?
 
   const vF  = applyFilter(ventas, f);
   const gF  = applyFilter(gastos.filter(g=>!esReembolso(g)), f);
@@ -479,8 +481,8 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
       <div className="saji-kpis" style={{marginBottom:16}}>
         <Kpi hi label="Utilidad neta" value={fmt(utilidad)}/>
         <Kpi label="Ventas" value={fmt(totalVentas)} sub={totalLt>0?`${nf1(totalKg)} kg · ${nf1(totalLt)} L`:`${nf1(totalKg)} kg`}/>
-        <Kpi label="Comprado en el período" value={fmt(comprasPer)} sub={`Gastos ${fmt(totalGastos)}`}/>
         <Kpi label="Por cobrar" value={fmt(porCobrar)} color={porCobrar>0?C.red:C.green}/>
+        <Kpi label="Gastos" value={fmt(totalGastos)} sub={`Comprado ${fmt(comprasPer)}`}/>
       </div>
 
       <div className="saji-cols">
@@ -532,12 +534,18 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
               ? <p style={{color:C.green,fontSize:13,textAlign:"center",padding:"18px 0",fontWeight:600,margin:0}}>Todo al corriente</p>
               : <>
                   {listaDeuda.map(d=>(
-                    <div key={d.cli} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #f0f2ee"}}>
+                    <div key={d.cli} onClick={()=>setCliSel(cliSel===d.cli?"":d.cli)}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 8px",
+                        borderBottom:"1px solid #f0f2ee",cursor:"pointer",borderRadius:8,
+                        background:cliSel===d.cli?C.indigoL:"transparent"}}>
                       <div style={{minWidth:0}}>
                         <div style={{fontWeight:600,fontSize:14}}>{d.cli}</div>
                         <div style={{fontSize:11,color:C.muted}}>{d.n} venta{d.n>1?"s":""} · {d.dias} día{d.dias===1?"":"s"}</div>
                       </div>
-                      <strong style={{color:C.red,fontSize:15}}>{fmt(d.monto)}</strong>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <strong style={{color:C.red,fontSize:15}}>{fmt(d.monto)}</strong>
+                        <span style={{color:C.mutedL,fontSize:13}}>{cliSel===d.cli?"▾":"›"}</span>
+                      </div>
                     </div>
                   ))}
                   <div style={{display:"flex",justifyContent:"space-between",marginTop:12,padding:"10px 14px",background:C.redL,borderRadius:12}}>
@@ -546,6 +554,44 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras }) {
                   </div>
                 </>}
           </div>
+          {cliSel&&(()=>{
+            // Ventas sin pagar del cliente elegido, agrupadas por remisión
+            const rem = {};
+            pend.filter(v=>normCliente(v.cliente)===cliSel).forEach(v=>{
+              const k = String(v.pedido||"").trim() || "(sin remisión)";
+              if(!rem[k]) rem[k] = { rem:k, fecha:v.fecha, total:0, items:[], dias:0, primera:v };
+              rem[k].total += num(v.total); rem[k].items.push(v);
+              rem[k].dias = Math.max(rem[k].dias, diasPend(v));
+              if((v.fecha||"") < (rem[k].fecha||"")) rem[k].fecha = v.fecha;
+            });
+            const lista = Object.values(rem).sort((a,b)=>b.dias-a.dias);
+            return (
+              <div style={{...card,marginBottom:14,border:`1.5px solid ${C.indigo}33`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <h3 style={{...h3s,margin:0}}>Lo que debe {cliSel}</h3>
+                  <button onClick={()=>setCliSel("")} style={{background:"none",border:"none",fontSize:20,color:C.muted,cursor:"pointer",lineHeight:1}}>×</button>
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Toca una venta para abrir su detalle</div>
+                {lista.map(r=>(
+                  <div key={r.rem} onClick={()=>onVerVenta&&onVerVenta(r.primera)}
+                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
+                      padding:"10px 8px",borderBottom:"1px solid #f0f2ee",cursor:"pointer",borderRadius:8}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:13.5,color:C.indigo}}>{r.rem}</div>
+                      <div style={{fontSize:11,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {fmtDate(r.fecha)} · {r.items.map(i=>i.producto).join(", ")}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{fmt(r.total)}</div>
+                      <div style={{fontSize:11,color:r.dias>15?C.red:C.amber}}>{r.dias} día{r.dias===1?"":"s"}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           <div style={card}>
             <h3 style={h3s}>Pendientes</h3>
             <Linea l="Pedidos por entregar" v={String(pendPedidos)}/>
@@ -1229,7 +1275,7 @@ const ventaEmpty = () => ({
   tipoPago:"Transferencia", estatus:"Pendiente", factura:"Pedir", fpago:"",
 });
 
-function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
+function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrirVenta, onAbierta }) {
   const [ticket,   setTicket]   = useState(null);
   // Arranca en la semana corriente; con "Todo" se ve el histórico completo
   const [f,       setF]       = useState({tipo:"semana",valor:"",desde:"",hasta:""});
@@ -1271,6 +1317,17 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
   };
 
   const abrir = v => { setNueva(false); setSel(v.id); setForm({...v}); };
+
+  // Cuando se entra desde ¿Quién me debe?, se abre esa venta y se quitan los
+  // filtros para que no quede escondida por el período o el estatus.
+  useEffect(()=>{
+    if(!abrirVenta) return;
+    const actual = ventas.find(v=>v.id===abrirVenta.id) || abrirVenta;
+    setF({tipo:"todo",valor:"",desde:"",hasta:""});
+    setQ(String(actual.pedido||"")); setFCli(""); setFProd(""); setFEst("");
+    abrir(actual);
+    onAbierta && onAbierta();
+  }, [abrirVenta]);
   const abrirNueva = () => { setNueva(true); setSel("nueva"); setForm(ventaEmpty()); };
   const cerrar = () => { setSel(null); setForm(null); setNueva(false); };
 
@@ -3311,6 +3368,7 @@ export default function App() {
     return savedRol==="operativo" ? "inventarios" : savedTab;
   });
   const [showImport, setShowImport] = useState(false);
+  const [ventaAbrir, setVentaAbrir] = useState(null);   // venta a abrir desde Inicio
   const [usuario,    setUsuario]    = useState(() => sessionStorage.getItem("saji_user")||"");
   const [rol,        setRol]        = useState(() => sessionStorage.getItem("saji_rol")||"admin");
   const [canPedidos, setCanPedidos] = useState(() => {
@@ -3459,9 +3517,11 @@ export default function App() {
         </header>
 
         <main className="saji-main saji-view" key={tab}>
-          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} compras={fruta.filter(f=>!f.tipo)}/>}
+          {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} compras={fruta.filter(f=>!f.tipo)}
+              onVerVenta={v=>{ setVentaAbrir(v); setTab("ventas"); }}/>}
           {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
-          {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} compras={fruta.filter(f=>!f.tipo)} logBit={logBit}/>}
+          {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} compras={fruta.filter(f=>!f.tipo)} logBit={logBit}
+              abrirVenta={ventaAbrir} onAbierta={()=>setVentaAbrir(null)}/>}
           {tab==="facturacion" && rol==="admin" && <Facturacion ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
           {tab==="gastos"      && rol==="admin" && <Gastos gastos={gastos} setGastos={setGastos} logBit={logBit}/>}
           {tab==="fruta"       && rol==="admin" && <Fruta fruta={fruta} setFruta={setFruta} productos={productos} proveedores={proveedores} logBit={logBit}/>}
