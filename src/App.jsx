@@ -1059,6 +1059,7 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
   const [sel,   setSel]   = useState({});     // { remision: true }
   const [verPedidas, setVerPedidas] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [aviso,   setAviso]   = useState("");
 
   const porFacturar = v =>
     String(v.tipoPago||"").toLowerCase() !== "efectivo" &&
@@ -1130,11 +1131,13 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
   const marcarPedidas = () => {
     const rems = new Set(elegidas.map(r=>r.rem));
     if(!rems.size) return;
-    if(!window.confirm(`¿Marcar como "Pedida" la factura de ${rems.size} remisión(es)?`)) return;
+    const n = delCliente.filter(v=>rems.has(String(v.pedido||"").trim())).length;
+    if(!window.confirm(`¿Ya pediste esta factura?\n\n${rems.size} remisión(es) · ${n} renglón(es) · ${fmt(totalMsg)}\n\nPasarán de "Pedir" a "Pedida".`)) return;
     setVentas(vs=>vs.map(v=>(rems.has(String(v.pedido||"").trim()) && grupoV(v)===cli && porFacturar(v))
       ? {...v, factura:"Pedida"} : v));
     logBit("Pidió factura",`${cli} · remisiones ${[...rems].join(", ")} · ${fmt(totalMsg)}`);
-    setSel({});
+    setSel({}); setAviso(`Listo: ${rems.size} remisión(es) quedaron como "Pedida".`);
+    setTimeout(()=>setAviso(""),4000);
   };
 
   const togglePick = c => { setCli(c); setSel({}); };
@@ -1205,10 +1208,11 @@ function Facturacion({ ventas, setVentas, clientes, productos, logBit }) {
               </div>
             )}
             <textarea readOnly value={texto||"Selecciona al menos una remisión."} style={{...inp,height:330,fontFamily:"ui-monospace,Menlo,monospace",fontSize:12.5,lineHeight:1.55,resize:"vertical"}}/>
+            {aviso&&<div style={{background:C.greenL,border:`1px solid ${C.greenM}`,borderRadius:10,padding:"9px 12px",fontSize:12,color:C.green,fontWeight:600,marginTop:12}}>{aviso}</div>}
             <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
               <button style={btn(C.indigo)} disabled={!texto} onClick={copiar}>{copiado?"✓ Copiado":"Copiar mensaje"}</button>
               <button style={btnO(C.green)} disabled={!texto} onClick={porWhats}>WhatsApp</button>
-              <button style={btnO(C.amber)} disabled={!elegidas.length} onClick={marcarPedidas}>Marcar como pedidas</button>
+              <button style={btn(C.amber)} disabled={!elegidas.length} onClick={marcarPedidas}>Factura pedida</button>
             </div>
           </div>
         </div>
@@ -1250,6 +1254,22 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
     return n;
   });
 
+  // Cuántos renglones comparten remisión y cliente con el que estás editando
+  const hermanas = (soloFacturables) => {
+    const rem = String(form?.pedido||"").trim();
+    if(!rem || !form) return [];
+    return ventas.filter(v=>String(v.pedido||"").trim()===rem
+      && normCliente(v.cliente)===normCliente(form.cliente)
+      && (!soloFacturables || String(v.tipoPago||"").toLowerCase()!=="efectivo"));
+  };
+  const avisoRemision = (que) => {
+    const n = hermanas(que==="factura").length;
+    if(n<2) return null;
+    return <div style={{fontSize:11,color:C.indigo,marginBottom:6}}>
+      Se aplicará a los {n} productos de la remisión {String(form.pedido||"").trim()}.
+    </div>;
+  };
+
   const abrir = v => { setNueva(false); setSel(v.id); setForm({...v}); };
   const abrirNueva = () => { setNueva(true); setSel("nueva"); setForm(ventaEmpty()); };
   const cerrar = () => { setSel(null); setForm(null); setNueva(false); };
@@ -1267,8 +1287,34 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
       factura: form.tipoPago==="Efectivo" ? "NA" : (form.factura||"Pedir"),
       fpago: form.estatus==="Pagado" ? (form.fpago||todayStr()) : "",
     };
-    if(nueva){ setVentas(vs=>[reg,...vs]); logBit("Nueva venta",`${reg.pedido} · ${reg.cliente} · ${fmt(reg.total)}`); }
-    else     { setVentas(vs=>vs.map(v=>v.id===reg.id?reg:v)); logBit("Editó venta",`${reg.pedido} · ${reg.cliente} · ${fmt(reg.total)}`); }
+    if(nueva){
+      setVentas(vs=>[reg,...vs]);
+      logBit("Nueva venta",`${reg.pedido} · ${reg.cliente} · ${fmt(reg.total)}`);
+    } else {
+      // La factura y el cobro son de la remisión completa, no de un renglón:
+      // lo que cambie aquí se aplica a todos los productos del mismo pedido
+      // y cliente. El tipo de pago no se replica, porque a veces una misma
+      // remisión se cobra parte en efectivo y parte por transferencia.
+      const orig = ventas.find(v=>v.id===reg.id) || {};
+      const cambioFac  = String(orig.factura||"") !== String(reg.factura||"");
+      const cambioPago = String(orig.estatus||"") !== String(reg.estatus||"")
+                      || String(orig.fpago||"")   !== String(reg.fpago||"");
+      const rem = String(reg.pedido||"").trim();
+      const mismaRem = v => rem && String(v.pedido||"").trim()===rem
+                          && normCliente(v.cliente)===normCliente(reg.cliente);
+      setVentas(vs=>vs.map(v=>{
+        if(v.id===reg.id) return reg;
+        if(!mismaRem(v)) return v;
+        let n = v;
+        // La factura no toca los renglones de efectivo: esos van como NA
+        if(cambioFac && String(v.tipoPago||"").toLowerCase()!=="efectivo")
+          n = {...n, factura:reg.factura};
+        if(cambioPago)
+          n = {...n, estatus:reg.estatus, fpago:reg.fpago};
+        return n;
+      }));
+      logBit("Editó venta",`${reg.pedido} · ${reg.cliente} · ${fmt(reg.total)}`);
+    }
     cerrar();
   };
 
@@ -1461,6 +1507,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
 
             <div style={{height:1,background:C.border,margin:"20px 0"}}/>
 
+            {avisoRemision("pago")}
             <div style={g2}>
               <div><label style={lbl}>Tipo de pago</label>
                 <select style={sel} value={form.tipoPago} onChange={e=>sf("tipoPago",e.target.value)}>
@@ -1484,6 +1531,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit }) {
 
             <div style={{marginTop:12}}>
               <label style={lbl}>Factura</label>
+              {avisoRemision("factura")}
               {form.tipoPago==="Efectivo"
                 ? <div style={{...inp,background:"#fafafa",color:C.muted}}>NA — el efectivo no aplica factura</div>
                 : <>
