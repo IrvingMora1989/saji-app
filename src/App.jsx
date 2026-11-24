@@ -2067,13 +2067,30 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
         total: num(it.cantidad)*num(it.precio) + kgs*num(it.deudaKg),
       };
     });
+    // Marcar una compra como pagada registra el pago al proveedor, para que el
+    // saldo cuadre. Si se regresa a "por pagar", ese pago se elimina.
+    const pagoDe = r => ({ id:`pc${r.id}`, tipo:"pago", pagoDeCompra:r.id, proveedor:r.proveedor,
+      fecha:r.fecha, monto:r.total, metodoPago:r.metodoPago||"Efectivo" });
+
     if(editId){
-      setFruta(fs=>fs.map(f=>f.id===editId?regs[0]:f)); setEditId(null);
+      const antes = compras.find(c=>c.id===editId) || {};
+      const eraPagada = antes.estatusPago==="pagado";
+      const esPagada  = regs[0].estatusPago==="pagado";
+      setFruta(fs=>{
+        let out = fs.map(f=>f.id===editId?regs[0]:f);
+        out = out.filter(f=>f.pagoDeCompra!==editId);          // quita el pago anterior
+        if(esPagada) out = [pagoDe(regs[0]),...out];           // y lo vuelve a poner si sigue pagada
+        return out;
+      });
+      setEditId(null);
       logBit("Editó compra",`${regs[0].proveedor} · ${regs[0].producto} · ${fmt(regs[0].total)}`);
+      if(esPagada && !eraPagada) logBit("Pago a proveedor",`${regs[0].proveedor} · ${fmt(regs[0].total)} (compra marcada como pagada)`);
     } else {
-      setFruta(fs=>[...regs,...fs]);
+      const pagos = comun.estatusPago==="pagado" ? regs.map(pagoDe) : [];
+      setFruta(fs=>[...pagos,...regs,...fs]);
       const tot = regs.reduce((s,r)=>s+r.total,0);
       logBit("Nueva compra",`${comun.proveedor} · ${regs.length} producto${regs.length===1?"":"s"} · ${fmt(tot)}`);
+      if(pagos.length) logBit("Pago a proveedor",`${comun.proveedor} · ${fmt(tot)} (compra pagada de contado)`);
     }
     setForm(frutaEmpty()); setShowComp(false);
   };
@@ -2102,7 +2119,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
   };
   const borrarCompra = c => {
     if(!window.confirm(`¿Eliminar esta compra?\n\n${c.proveedor} · ${c.producto} · ${fmtDate(c.fecha)}\n${fmt(c.total)}\n\nEsta acción no se puede deshacer.`)) return;
-    setFruta(fs=>fs.filter(x=>x.id!==c.id));
+    setFruta(fs=>fs.filter(x=>x.id!==c.id && x.pagoDeCompra!==c.id));
     logBit("Eliminó compra fruta",`${c.proveedor} · ${c.producto} · ${fmt(c.total)}`);
   };
 
@@ -2251,7 +2268,10 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
                           : pagosProv.map(pg=>(
                               <tr key={pg.id} style={{background:"#f0fff4"}}>
                                 <td style={{...td,paddingLeft:20,color:C.muted,fontSize:11}} colSpan={1}>└ {fmtDate(pg.fecha)}</td>
-                                <td style={{...td,fontSize:11}} colSpan={2}>{pg.metodoPago}</td>
+                                <td style={{...td,fontSize:11}} colSpan={2}>
+                                  {pg.metodoPago}
+                                  {pg.pagoDeCompra&&<span style={{color:C.mutedL}}> · compra marcada pagada</span>}
+                                </td>
                                 <td style={{...td,color:C.green,fontWeight:600,fontSize:12}}>{fmt(pg.monto)}</td>
                                 <td style={td}><button style={{...btn(C.red),padding:"3px 7px",fontSize:11}} onClick={()=>{
                                   if(!window.confirm(`¿Eliminar este pago?\n\n${pg.proveedor} · ${fmtDate(pg.fecha)} · ${fmt(pg.monto)}`)) return;
@@ -2467,7 +2487,7 @@ function Fruta({ fruta, setFruta, productos, proveedores, logBit }) {
               {form.metodoPago==="Efectivo" ? (
                 <div style={{display:"flex",alignItems:"flex-end"}}>
                   <div style={{width:"100%",background:C.greenL,borderRadius:10,padding:"10px 12px",border:`1px solid ${C.greenM}`,fontSize:12,color:C.green,fontWeight:600}}>
-                    Efectivo — se marca como pagado
+                    Efectivo — se marca como pagado y se registra el pago al proveedor
                   </div>
                 </div>
               ) : (
