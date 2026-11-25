@@ -339,7 +339,7 @@ const Linea = ({ l, v, tot }) => (
 );
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
-function FilterBar({ filter, setFilter, count }) {
+function FilterBar({ filter, setFilter, count, nombre }) {
   return (
     <div style={{background:C.card,borderRadius:10,padding:"10px 14px",marginBottom:12,border:`1px solid ${C.border}`,boxShadow:C.shadow}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
@@ -347,7 +347,7 @@ function FilterBar({ filter, setFilter, count }) {
         {[{k:"todo",l:"Todo"},{k:"hoy",l:"Hoy"},{k:"semana",l:"Semana"},{k:"mes",l:"Mes"},{k:"fecha",l:"📆 Fecha"}].map(f=>(
           <button key={f.k} style={nb(filter.tipo===f.k)} onClick={()=>setFilter({tipo:f.k,valor:""})}>{f.l}</button>
         ))}
-        {count!=null&&<span style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{count} registro{count!==1?"s":""}</span>}
+        {count!=null&&<span style={{color:C.muted,fontSize:12,marginLeft:"auto"}}>{count} {nombre||"registro"}{count!==1?"s":""}</span>}
       </div>
       {filter.tipo==="semana"&&(
         <div style={{marginTop:8}}>
@@ -1285,6 +1285,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
   const [sel_,    setSel]     = useState(null);   // venta abierta en el panel
   const [form,    setForm]    = useState(null);   // borrador del panel
   const [nueva,   setNueva]   = useState(false);
+  const [gsel,    setGsel]    = useState(null);   // remisión abierta
 
   const sf = (k,v) => setForm(x=>{
     const n = {...x,[k]:v};
@@ -1324,7 +1325,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
     const actual = ventas.find(v=>v.id===abrirVenta.id) || abrirVenta;
     setF({tipo:"todo",valor:"",desde:"",hasta:""});
     setQ(String(actual.pedido||"")); setFCli(""); setFProd(""); setFEst("");
-    abrir(actual);
+    setGsel({pedido:String(actual.pedido||"").trim(), cliente:actual.cliente});
     onAbierta && onAbierta();
   }, [abrirVenta]);
   const abrirNueva = () => { setNueva(true); setSel("nueva"); setForm(ventaEmpty()); };
@@ -1418,6 +1419,49 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
   const cliList  = [...new Set(ventas.map(v=>normCliente(v.cliente)).filter(Boolean))].sort();
   const prodList = [...new Set(ventas.map(v=>v.producto).filter(Boolean))].sort();
 
+  // ── Una venta = una remisión ──────────────────────────────────────────────
+  // La lista muestra un solo renglón por venta; los productos se ven al abrirla.
+  const armaGrupo = items => {
+    const v0 = items[0] || {};
+    const pend = items.filter(esPend);
+    return {
+      key: keyPed(v0),
+      pedido: String(v0.pedido||"").trim(),
+      cliente: v0.cliente || "",
+      fecha: items.reduce((d,v)=>(v.fecha||"")>d?(v.fecha||""):d, ""),
+      sem: v0.sem || weekOf(v0.fecha),
+      dia: v0.dia || dayOf(v0.fecha),
+      items,
+      total: items.reduce((s,v)=>s+num(v.total),0),
+      pend: pend.length>0,
+      nPend: pend.length,
+      dias: pend.reduce((d,v)=>Math.max(d,diasPend(v)),0),
+      pagos: [...new Set(items.map(v=>v.tipoPago).filter(Boolean))],
+      facturas: [...new Set(items.map(v=>String(v.factura||"").trim())
+                   .filter(x=>x && x.toLowerCase()!=="na"))],
+    };
+  };
+  const grupos = (()=>{
+    const m = new Map();
+    lista.forEach(v=>{ const k=keyPed(v); if(!m.has(k)) m.set(k,[]); m.get(k).push(v); });
+    return [...m.values()].map(armaGrupo)
+      .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")
+                 || String(b.pedido||"").localeCompare(String(a.pedido||"")));
+  })();
+  // El detalle se arma de todas las ventas, no de la lista filtrada, para que
+  // al abrir una remisión se vean sus productos completos.
+  const gAbierto = (()=>{
+    if(!gsel) return null;
+    const its = ventas.filter(v=>String(v.pedido||"").trim()===gsel.pedido
+                              && normCliente(v.cliente)===normCliente(gsel.cliente))
+                      .slice().sort((a,b)=>String(a.producto||"").localeCompare(String(b.producto||"")));
+    return its.length ? armaGrupo(its) : null;
+  })();
+  const abrirGrupo = g => setGsel({pedido:g.pedido, cliente:g.cliente});
+  const agregarA = g => { setNueva(true); setSel("nueva");
+    setForm({...ventaEmpty(), pedido:g.pedido, cliente:g.cliente, fecha:g.fecha,
+             tipoPago:g.pagos[0]||"Transferencia"}); };
+
   const cols = [
     {l:"Pedido",k:"pedido"},{l:"SEM",k:"sem"},{l:"DÍA",k:"dia"},{l:"MES",k:"mes"},{l:"FECHA",k:"fecha"},
     {l:"CLIENTE",k:"cliente"},{l:"Producto",k:"producto"},{l:"CANTIDAD",k:"kg"},{l:"UNIDAD",k:"_u"},{l:"$/UNIDAD",k:"precio"},{l:"Total",k:"total"},
@@ -1475,38 +1519,43 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
             <option value="fact">Factura pendiente</option>
           </select>
         </div>
-        <FilterBar filter={f} setFilter={setF} count={lista.length}/>
+        <FilterBar filter={f} setFilter={setF} count={grupos.length} nombre="venta"/>
 
-        {lista.length===0
+        {grupos.length===0
           ? <p style={{color:C.muted,textAlign:"center",padding:"28px 0",margin:0}}>No hay ventas con estos filtros.</p>
-          : lista.map(v=>{
-              const pend = esPend(v);
-              const fac  = String(v.factura||"");
-              const facL = fac.toLowerCase();
+          : grupos.map(g=>{
+              const nI    = g.items.length;
+              const prods = g.items.map(v=>v.producto).filter(Boolean);
+              const fac   = g.facturas.length===1 ? g.facturas[0] : "";
+              const facL  = fac.toLowerCase();
               return (
-                <div key={v.id} className="saji-row" onClick={()=>abrir(v)}>
-                  <span style={{fontWeight:700,color:C.indigo,fontSize:13}}>{v.pedido||"—"}</span>
+                <div key={g.key} className="saji-row" onClick={()=>abrirGrupo(g)}>
+                  <span style={{fontWeight:700,color:C.indigo,fontSize:13}}>{g.pedido||"—"}</span>
                   <div style={{minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.cliente}</div>
-                    <div style={{fontSize:11,color:C.muted}}>{fmtDate(v.fecha)} · Sem {v.sem||weekOf(v.fecha)}</div>
+                    <div style={{fontWeight:600,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.cliente}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{fmtDate(g.fecha)} · Sem {g.sem}</div>
                     <div className="saji-only-sm" style={{fontSize:11,color:C.muted,marginTop:2}}>
-                      {v.producto} · {num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)}
-                      <span style={{color:pend?C.amber:C.green,fontWeight:600}}> · {pend?"Pendiente":"Pagado"}</span>
+                      {nI} producto{nI===1?"":"s"}
+                      <span style={{color:g.pend?C.amber:C.green,fontWeight:600}}> · {g.pend?"Pendiente":"Pagado"}</span>
                     </div>
                   </div>
-                  <div className="saji-hide-sm" style={{fontSize:13}}>
-                    <div style={{fontWeight:600}}>{v.producto}</div>
-                    <div style={{fontSize:11,color:C.muted}}>{num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)} · {fmt(v.precio)}/{uni(v.producto)}</div>
+                  <div className="saji-hide-sm" style={{fontSize:13,minWidth:0}}>
+                    <div style={{fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {prods.slice(0,2).join(", ")}{prods.length>2?` +${prods.length-2}`:""}
+                    </div>
+                    <div style={{fontSize:11,color:C.muted}}>{nI} producto{nI===1?"":"s"}</div>
                   </div>
                   <div className="saji-hide-sm">
-                    <span style={badge(pend?C.amber:C.green)}>{pend?"Pendiente":"Pagado"}</span>
+                    <span style={badge(g.pend?C.amber:C.green)}>
+                      {g.pend?(g.nPend<nI?`${g.nPend} de ${nI} pend.`:"Pendiente"):"Pagado"}
+                    </span>
                     <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-                      {v.tipoPago}{(!fac||facL==="na")?"":` · ${facL==="pedir"?"Pedir factura":facL==="pedida"?"Factura pedida":fac}`}
+                      {g.pagos.join(" / ")}{(!fac||facL==="na")?"":` · ${facL==="pedir"?"Pedir factura":facL==="pedida"?"Factura pedida":fac}`}
                     </div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontWeight:700,fontSize:14}}>{fmt(v.total)}</div>
-                    {pend&&diasPend(v)>0&&<div style={{fontSize:11,color:C.red}}>{diasPend(v)} días</div>}
+                    <div style={{fontWeight:700,fontSize:14}}>{fmt(g.total)}</div>
+                    {g.pend&&g.dias>0&&<div style={{fontSize:11,color:C.red}}>{g.dias} días</div>}
                   </div>
                   <span style={{color:C.mutedL}}>›</span>
                 </div>
@@ -1514,14 +1563,95 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
             })}
       </div>
 
+      {/* ── Detalle de la venta (remisión completa) ────────────────── */}
+      {gAbierto&&(
+        <div style={modal} onClick={()=>setGsel(null)}>
+          <div className="saji-drawer" onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:16}}>
+              <div style={{minWidth:0}}>
+                <h3 style={{margin:0,fontSize:18}}>Pedido {gAbierto.pedido||"—"}</h3>
+                <div style={{fontSize:14,fontWeight:600,marginTop:4}}>{gAbierto.cliente}</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:2}}>{gAbierto.dia} {fmtDate(gAbierto.fecha)} · Semana {gAbierto.sem}</div>
+              </div>
+              <button onClick={()=>setGsel(null)} style={{background:"none",border:"none",fontSize:26,color:C.muted,cursor:"pointer",lineHeight:1}}>×</button>
+            </div>
+
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+              <span style={badge(gAbierto.pend?C.amber:C.green)}>
+                {gAbierto.pend
+                  ? (gAbierto.nPend<gAbierto.items.length?`${gAbierto.nPend} de ${gAbierto.items.length} por cobrar`:"Por cobrar")
+                  : "Pagado"}
+              </span>
+              {gAbierto.pend&&gAbierto.dias>0&&<span style={badge(gAbierto.dias>15?C.red:C.amber)}>{gAbierto.dias} días</span>}
+              {gAbierto.pagos.map(p=><span key={p} style={badge(C.indigo)}>{p}</span>)}
+              {gAbierto.facturas.map(x=>(
+                <span key={x} style={badge(C.muted)}>
+                  {x.toLowerCase()==="pedir"?"Pedir factura":x.toLowerCase()==="pedida"?"Factura pedida":`Factura ${x}`}
+                </span>
+              ))}
+            </div>
+
+            <div style={secTit}>Productos de esta venta</div>
+            {gAbierto.items.map(v=>{
+              const pend = esPend(v);
+              return (
+                <div key={v.id} onClick={()=>abrir(v)} style={{display:"grid",gridTemplateColumns:"1fr auto 14px",
+                  gap:10,alignItems:"center",padding:"11px 4px",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:14}}>{v.producto}{v.calibre?` · ${v.calibre}`:""}</div>
+                    <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                      {num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)} × {fmt(v.precio)}
+                      <span style={{color:pend?C.amber:C.green,fontWeight:600}}> · {pend?"Pendiente":"Pagado"}</span>
+                    </div>
+                  </div>
+                  <div style={{fontWeight:700,fontSize:14}}>{fmt(v.total)}</div>
+                  <span style={{color:C.mutedL}}>›</span>
+                </div>
+              );
+            })}
+
+            <div style={totRow}>
+              <span style={{fontSize:13,color:C.muted}}>Total de la venta</span>
+              <strong style={{fontSize:18}}>{fmt(gAbierto.total)}</strong>
+            </div>
+
+            {(()=>{
+              const ct = gAbierto.items.reduce((s,v)=>s+num(v.kg)*costoPromedio(compras||[],v.producto,v.fecha),0);
+              if(!ct) return null;
+              const mg = gAbierto.total - ct, pct = gAbierto.total ? mg/gAbierto.total*100 : 0;
+              return (
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:10,
+                  padding:"10px 14px",background:mg>=0?C.greenL:C.redL,borderRadius:12,fontSize:13}}>
+                  <span style={{color:C.muted}}>Costo {fmt(ct)}</span>
+                  <strong style={{color:mg>=0?C.green:C.red}}>Margen {fmt(mg)} ({pct.toFixed(1)}%)</strong>
+                </div>
+              );
+            })()}
+
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:22,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button style={btnO(C.indigo)} onClick={()=>{
+                  const its=gAbierto.items.map(v=>({producto:v.producto,cantidad:v.kg,precio:v.precio,calibre:v.calibre}));
+                  setTicket({ folio:gAbierto.pedido||"—", fecha:gAbierto.fecha, cliente:gAbierto.cliente, items:its,
+                    total:gAbierto.total, tipoPago:gAbierto.pagos.join(" / "),
+                    estatus:gAbierto.pend?"Pendiente":"Pagado" });
+                }}>Ticket</button>
+                <button style={btnO(C.muted)} onClick={()=>agregarA(gAbierto)}>+ Producto</button>
+              </div>
+              <button style={btn(C.indigo)} onClick={()=>setGsel(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Panel de detalle ─────────────────────────────────────────────── */}
       {form&&(
-        <div style={modal} onClick={cerrar}>
+        <div style={{...modal,zIndex:210,background:gAbierto?"rgba(20,32,26,.18)":modal.background}} onClick={cerrar}>
           <div className="saji-drawer" onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
               <div>
-                <h3 style={{margin:0,fontSize:18}}>{nueva?"Nueva venta":`Pedido ${form.pedido||"—"}`}</h3>
-                {!nueva&&<div style={{fontSize:12,color:C.muted,marginTop:3}}>{form.dia} {fmtDate(form.fecha)} · Semana {form.sem}</div>}
+                <h3 style={{margin:0,fontSize:18}}>{nueva?(form.pedido?"Agregar producto":"Nueva venta"):(form.producto||"Producto")}</h3>
+                {!nueva&&<div style={{fontSize:12,color:C.muted,marginTop:3}}>Pedido {form.pedido||"—"} · {form.cliente} · {fmtDate(form.fecha)}</div>}
               </div>
               <button onClick={cerrar} style={{background:"none",border:"none",fontSize:26,color:C.muted,cursor:"pointer",lineHeight:1}}>×</button>
             </div>
@@ -1606,14 +1736,6 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
             <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:24,flexWrap:"wrap"}}>
               <div style={{display:"flex",gap:8}}>
                 {!nueva&&<button style={btnO(C.red)} onClick={eliminar}>Eliminar</button>}
-                {!nueva&&<button style={btnO(C.indigo)} onClick={()=>{
-                  const rem=String(form.pedido||"").trim();
-                  const hs=ventas.filter(v=>String(v.pedido||"").trim()===rem && normCliente(v.cliente)===normCliente(form.cliente));
-                  const its=(hs.length?hs:[form]).map(v=>({producto:v.producto,cantidad:v.kg,precio:v.precio,calibre:v.calibre}));
-                  setTicket({ folio:rem||"—", fecha:form.fecha, cliente:form.cliente, items:its,
-                    total:its.reduce((a,v)=>a+num(v.cantidad)*num(v.precio),0),
-                    tipoPago:form.tipoPago, estatus:form.estatus });
-                }}>Ticket</button>}
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button style={btnO(C.muted)} onClick={cerrar}>Cancelar</button>
