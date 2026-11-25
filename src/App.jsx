@@ -1286,6 +1286,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
   const [form,    setForm]    = useState(null);   // borrador del panel
   const [nueva,   setNueva]   = useState(false);
   const [gsel,    setGsel]    = useState(null);   // remisión abierta
+  const [gf,      setGf]      = useState(null);   // cobro y factura de la remisión
 
   const sf = (k,v) => setForm(x=>{
     const n = {...x,[k]:v};
@@ -1458,6 +1459,57 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
     return its.length ? armaGrupo(its) : null;
   })();
   const abrirGrupo = g => setGsel({pedido:g.pedido, cliente:g.cliente});
+
+  // El cobro y la factura son de la remisión completa: se editan en el detalle
+  // de la venta y se aplican a todos sus productos.
+  const resumenGrupo = g => {
+    const pagos = [...new Set(g.items.map(v=>String(v.tipoPago||"").trim()).filter(Boolean))];
+    const facturables = g.items.filter(v=>String(v.tipoPago||"").toLowerCase()!=="efectivo");
+    const facs = [...new Set(facturables.map(v=>String(v.factura||"").trim()))];
+    return {
+      tipoPago: pagos.length===1 ? pagos[0] : (pagos.length ? "Mixto" : "Transferencia"),
+      estatus : g.items.every(v=>!esPend(v)) ? "Pagado" : "Pendiente",
+      fpago   : (g.items.find(v=>v.fpago)||{}).fpago || "",
+      factura : facturables.length ? (facs.length===1 ? facs[0] : "") : null,
+    };
+  };
+  // Se recarga cuando cambia la remisión abierta o cuando se edita un producto
+  const gSig = gAbierto
+    ? gAbierto.items.map(v=>`${v.id}|${v.tipoPago}|${v.estatus}|${v.fpago}|${v.factura}`).join(";")
+    : "";
+  useEffect(()=>{ setGf(gAbierto ? resumenGrupo(gAbierto) : null); }, [gSig]);
+  const sgf = (k,v) => setGf(x=>{
+    const n = {...x,[k]:v};
+    if(k==="tipoPago"){
+      if(v==="Efectivo") n.factura = null;
+      else if(n.factura==null || n.factura==="NA") n.factura = "Pedir";
+    }
+    if(k==="estatus"){
+      if(v==="Pagado" && !n.fpago) n.fpago = todayStr();
+      if(v==="Pendiente") n.fpago = "";
+    }
+    return n;
+  });
+  const gCambios = gAbierto && gf
+    && JSON.stringify(gf) !== JSON.stringify(resumenGrupo(gAbierto));
+  const guardarGrupo = () => {
+    const modo = gf.factura==null ? "na"
+               : ["pedir","pedida"].includes(String(gf.factura).toLowerCase()) ? "txt" : "num";
+    if(modo==="num" && !String(gf.factura).trim())
+      return alert("Escribe el número de factura o elige Pedir / Pedida.");
+    const ids = new Set(gAbierto.items.map(v=>v.id));
+    const est = gf.estatus;
+    const fp  = est==="Pagado" ? (gf.fpago||todayStr()) : "";
+    setVentas(vs=>vs.map(v=>{
+      if(!ids.has(v.id)) return v;
+      const n = {...v, estatus:est, fpago:fp};
+      if(gf.tipoPago && gf.tipoPago!=="Mixto") n.tipoPago = gf.tipoPago;
+      n.factura = String(n.tipoPago||"").toLowerCase()==="efectivo"
+        ? "NA" : (gf.factura==null ? n.factura : gf.factura);
+      return n;
+    }));
+    logBit("Cobro y factura",`${gAbierto.pedido} · ${gAbierto.cliente} · ${gAbierto.items.length} productos`);
+  };
   const agregarA = g => { setNueva(true); setSel("nueva");
     setForm({...ventaEmpty(), pedido:g.pedido, cliente:g.cliente, fecha:g.fecha,
              tipoPago:g.pagos[0]||"Transferencia"}); };
@@ -1628,6 +1680,66 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
               );
             })()}
 
+            {gf&&(()=>{
+              const nI = gAbierto.items.length;
+              const modo = gf.factura==null ? "na"
+                         : ["pedir","pedida"].includes(String(gf.factura).toLowerCase())
+                           ? String(gf.factura).toLowerCase() : "num";
+              return (
+                <>
+                  <div style={{height:1,background:C.border,margin:"20px 0"}}/>
+                  <div style={secTit}>Cobro y factura</div>
+                  {nI>1&&<div style={{fontSize:11,color:C.indigo,margin:"0 0 10px"}}>
+                    Se aplica a los {nI} productos de la remisión {gAbierto.pedido}.
+                  </div>}
+
+                  <div style={g2}>
+                    <div><label style={lbl}>Tipo de pago</label>
+                      <select style={sel} value={gf.tipoPago} onChange={e=>sgf("tipoPago",e.target.value)}>
+                        {gf.tipoPago==="Mixto"&&<option value="Mixto">Mixto (no se cambia)</option>}
+                        <option>Transferencia</option><option>Efectivo</option>
+                      </select>
+                    </div>
+                    <div><label style={lbl}>Estatus de pago</label>
+                      <select style={sel} value={gf.estatus} onChange={e=>sgf("estatus",e.target.value)}>
+                        <option>Pendiente</option><option>Pagado</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{...g2,marginTop:12}}>
+                    <div><label style={lbl}>Fecha de pago</label>
+                      <input type="date" style={{...inp,opacity:gf.estatus==="Pagado"?1:.5}}
+                        disabled={gf.estatus!=="Pagado"} value={gf.fpago||""}
+                        onChange={e=>sgf("fpago",e.target.value)}/>
+                    </div>
+                    <div><label style={lbl}>Días pendientes</label>
+                      <div style={{...inp,background:"#fafafa",color:gAbierto.dias>0?C.red:C.muted,fontWeight:600}}>
+                        {gf.estatus==="Pagado"?0:gAbierto.dias}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{marginTop:12}}>
+                    <label style={lbl}>Factura</label>
+                    {modo==="na"
+                      ? <div style={{...inp,background:"#fafafa",color:C.muted}}>NA — el efectivo no aplica factura</div>
+                      : <>
+                          <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                            {["Pedir","Pedida"].map(o=>(
+                              <button key={o} style={nb(modo===o.toLowerCase())} onClick={()=>sgf("factura",o)}>{o}</button>
+                            ))}
+                            <button style={nb(modo==="num")} onClick={()=>sgf("factura","")}>Con número</button>
+                          </div>
+                          {modo==="num"&&(
+                            <input style={inp} placeholder="Ej. F25" value={gf.factura||""}
+                              onChange={e=>sgf("factura",e.target.value)}/>
+                          )}
+                        </>}
+                  </div>
+                </>
+              );
+            })()}
+
             <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:22,flexWrap:"wrap"}}>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 <button style={btnO(C.indigo)} onClick={()=>{
@@ -1638,7 +1750,11 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
                 }}>Ticket</button>
                 <button style={btnO(C.muted)} onClick={()=>agregarA(gAbierto)}>+ Producto</button>
               </div>
-              <button style={btn(C.indigo)} onClick={()=>setGsel(null)}>Cerrar</button>
+              <div style={{display:"flex",gap:8}}>
+                <button style={btnO(C.muted)} onClick={()=>setGsel(null)}>Cerrar</button>
+                <button style={{...btn(C.indigo),opacity:gCambios?1:.45,cursor:gCambios?"pointer":"default"}}
+                  disabled={!gCambios} onClick={guardarGrupo}>Guardar</button>
+              </div>
             </div>
           </div>
         </div>
