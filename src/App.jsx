@@ -24,6 +24,12 @@ const fmtDate   = d => { if(!d) return ""; const [y,mo,dy]=d.split("-"); return 
 const daysDiff  = d => { if(!d) return 0; const diff=new Date()-new Date(d+"T12:00:00"); return Math.max(0,Math.floor(diff/86400000)); };
 
 // Normaliza nombres de clientes para agrupar variantes
+// En ¿Quién me debe? las sucursales Carnalito van juntas: es el mismo cliente,
+// solo pide remisiones separadas para su control interno.
+const grupoCliente = c => {
+  const s = normCliente(c) || "—";
+  return /^carnalito\b/i.test(s) ? "Carnalito" : s;
+};
 const normCliente = c => {
   if(!c) return c;
   const s = c.trim();
@@ -525,9 +531,10 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
   const porCobrar = pend.reduce((s,v)=>s+num(v.total),0);
   const deuda = {};
   pend.forEach(v=>{
-    const c = normCliente(v.cliente)||"—";
-    if(!deuda[c]) deuda[c]={cli:c,monto:0,n:0,dias:0,peds:new Set()};
+    const c = grupoCliente(v.cliente);
+    if(!deuda[c]) deuda[c]={cli:c,monto:0,n:0,dias:0,peds:new Set(),sucs:new Set()};
     deuda[c].monto += num(v.total); deuda[c].peds.add(String(v.pedido||"").trim());
+    deuda[c].sucs.add(normCliente(v.cliente)||"—");
     deuda[c].n = deuda[c].peds.size;
     deuda[c].dias = Math.max(deuda[c].dias, diasPend(v));
   });
@@ -605,7 +612,10 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
                         background:cliSel===d.cli?C.indigoL:"transparent"}}>
                       <div style={{minWidth:0}}>
                         <div style={{fontWeight:600,fontSize:14}}>{d.cli}</div>
-                        <div style={{fontSize:11,color:C.muted}}>{d.n} venta{d.n>1?"s":""} · {d.dias} día{d.dias===1?"":"s"}</div>
+                        <div style={{fontSize:11,color:C.muted}}>
+                          {d.n} venta{d.n>1?"s":""} · {d.dias} día{d.dias===1?"":"s"}
+                          {d.sucs.size>1?` · ${d.sucs.size} sucursales`:""}
+                        </div>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <strong style={{color:C.red,fontSize:15}}>{fmt(d.monto)}</strong>
@@ -622,9 +632,10 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
           {cliSel&&(()=>{
             // Ventas sin pagar del cliente elegido, agrupadas por remisión
             const rem = {};
-            pend.filter(v=>normCliente(v.cliente)===cliSel).forEach(v=>{
+            pend.filter(v=>grupoCliente(v.cliente)===cliSel).forEach(v=>{
               const k = String(v.pedido||"").trim() || "(sin remisión)";
-              if(!rem[k]) rem[k] = { rem:k, fecha:v.fecha, total:0, items:[], dias:0, primera:v };
+              if(!rem[k]) rem[k] = { rem:k, fecha:v.fecha, total:0, items:[], dias:0, primera:v,
+                                     suc:normCliente(v.cliente)||"" };
               rem[k].total += num(v.total); rem[k].items.push(v);
               rem[k].dias = Math.max(rem[k].dias, diasPend(v));
               if((v.fecha||"") < (rem[k].fecha||"")) rem[k].fecha = v.fecha;
@@ -642,7 +653,10 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
                     style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
                       padding:"10px 8px",borderBottom:"1px solid #f0f2ee",cursor:"pointer",borderRadius:8}}>
                     <div style={{minWidth:0}}>
-                      <div style={{fontWeight:700,fontSize:13.5,color:C.indigo}}>{r.rem}</div>
+                      <div style={{fontWeight:700,fontSize:13.5,color:C.indigo}}>
+                        {r.rem}
+                        {r.suc&&r.suc!==cliSel&&<span style={{color:C.muted,fontWeight:500}}> · {r.suc}</span>}
+                      </div>
                       <div style={{fontSize:11,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {fmtDate(r.fecha)} · {r.items.map(i=>i.producto).join(", ")}
                       </div>
@@ -791,7 +805,8 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
                 total:totalReal, tipoPago:esEfectivo?"Efectivo":"Transferencia", estatus:"Pendiente" });
   };
 
-  const lista = pedidos.filter(p=>filter==="todo" ? true : (p.estatus||"pendiente")===filter)
+  const lista = pedidos.filter(p=> esOperativo ? (p.estatus||"pendiente")==="pendiente"
+                                 : (filter==="todo" ? true : (p.estatus||"pendiente")===filter))
     .slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
   const cuenta = e => pedidos.filter(p=>(p.estatus||"pendiente")===e).length;
 
@@ -806,9 +821,9 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
   const desdeAviso = (()=>{ const d=new Date(); d.setDate(d.getDate()-15); return d.toISOString().slice(0,10); })();
   const pendAviso = pedidos.filter(p=>p.estatus==="completado"
     && fechaPed(p) >= desdeAviso && !tieneVenta(p));
-  const sinVenta = pendAviso.filter(p=>!p.ventaOk)
+  const sinVenta = (esOperativo ? [] : pendAviso).filter(p=>!p.ventaOk)
     .sort((a,b)=>fechaPed(b).localeCompare(fechaPed(a)));
-  const ocultos  = pendAviso.filter(p=>p.ventaOk);
+  const ocultos  = (esOperativo ? [] : pendAviso).filter(p=>p.ventaOk);
   // Quitar del aviso sin borrar el pedido: su venta ya existía o no hubo entrega
   const omitir = p => {
     if(!window.confirm(`Quitar del aviso el pedido #${p.id} de ${p.cliente}?\n\nEl pedido no se borra, solo deja de aparecer aquí. Házlo si esa venta ya existe o si no hubo entrega.`)) return;
@@ -840,17 +855,17 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
-        <h2 style={{...h2s,margin:0}}>📦 Pedidos</h2>
+        <h2 style={{...h2s,margin:0}}>📦 {esOperativo ? "Pedidos Pendientes" : "Pedidos"}</h2>
         <button style={btn()} onClick={abrirNuevo}>+ Nuevo Pedido</button>
       </div>
 
-      <div className="saji-chips" style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+      {!esOperativo&&<div className="saji-chips" style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
         {[["pendiente","Pendientes"],["completado","Completados"],["cancelado","Cancelados"],["todo","Todos"]].map(([k,t])=>(
           <button key={k} style={nb(filter===k)} onClick={()=>setFilter(k)}>
             {t} {k==="todo" ? pedidos.length : cuenta(k)}
           </button>
         ))}
-      </div>
+      </div>}
 
       {(sinVenta.length>0||ocultos.length>0)&&(
         <div style={{background:C.amberL,border:`1px solid ${C.amber}66`,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
@@ -1476,6 +1491,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
   const [nueva,   setNueva]   = useState(false);
   const [gsel,    setGsel]    = useState(null);   // remisión abierta
   const [gf,      setGf]      = useState(null);   // cobro y factura de la remisión
+  const [soloDup, setSoloDup] = useState(false);  // ver solo posibles duplicados
 
   const sf = (k,v) => setForm(x=>{
     const n = {...x,[k]:v};
@@ -1566,7 +1582,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
   };
 
   const eliminar = () => {
-    if(!window.confirm(`¿Eliminar la venta ${form.pedido||""} de ${form.cliente}?`)) return;
+    if(!window.confirm(`¿Eliminar este producto de la venta?\n\n${form.producto} · ${fmt(num(form.total))}\nPedido ${form.pedido||""} · ${form.cliente}\n\nEl resto de la venta se queda.`)) return;
     setVentas(vs=>vs.filter(v=>v.id!==form.id));
     logBit("Eliminó venta",`${form.pedido} · ${form.cliente} · ${fmt(num(form.total))}`);
     cerrar();
@@ -1631,13 +1647,24 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
                    .filter(x=>x && x.toLowerCase()!=="na"))],
     };
   };
-  const grupos = (()=>{
+  const repetidos = g => {
+    const vistos = new Set(), rep = new Set();
+    g.items.forEach(v=>{
+      const k = `${String(v.producto||"").toLowerCase()}|${num(v.kg)}|${num(v.precio)}`;
+      if(vistos.has(k)) rep.add(String(v.producto||"").toLowerCase()); else vistos.add(k);
+    });
+    return rep;
+  };
+  const todosGrupos = (()=>{
     const m = new Map();
     lista.forEach(v=>{ const k=keyPed(v); if(!m.has(k)) m.set(k,[]); m.get(k).push(v); });
     return [...m.values()].map(armaGrupo)
+      .map(g=>({...g, dup:repetidos(g)}))
       .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")
                  || String(b.pedido||"").localeCompare(String(a.pedido||"")));
   })();
+  const nDup = todosGrupos.filter(g=>g.dup.size>0).length;
+  const grupos = soloDup ? todosGrupos.filter(g=>g.dup.size>0) : todosGrupos;
   // El detalle se arma de todas las ventas, no de la lista filtrada, para que
   // al abrir una remisión se vean sus productos completos.
   const gAbierto = (()=>{
@@ -1645,9 +1672,20 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
     const its = ventas.filter(v=>String(v.pedido||"").trim()===gsel.pedido
                               && normCliente(v.cliente)===normCliente(gsel.cliente))
                       .slice().sort((a,b)=>String(a.producto||"").localeCompare(String(b.producto||"")));
-    return its.length ? armaGrupo(its) : null;
+    if(!its.length) return null;
+    const g = armaGrupo(its);
+    return {...g, dup:repetidos(g)};
   })();
   const abrirGrupo = g => setGsel({pedido:g.pedido, cliente:g.cliente});
+  // Borrar la remisión entera, para duplicados o capturas equivocadas
+  const eliminarGrupo = g => {
+    const n = g.items.length;
+    if(!window.confirm(`¿Eliminar la venta completa?\n\nPedido ${g.pedido} · ${g.cliente}\n${n} producto${n===1?"":"s"} · ${fmt(g.total)}\n\nEsta acción no se puede deshacer.`)) return;
+    const ids = new Set(g.items.map(v=>v.id));
+    setVentas(vs=>vs.filter(v=>!ids.has(v.id)));
+    logBit("Eliminó venta",`${g.pedido} · ${g.cliente} · ${n} producto${n===1?"":"s"} · ${fmt(g.total)}`);
+    setGsel(null);
+  };
 
   // El cobro y la factura son de la remisión completa: se editan en el detalle
   // de la venta y se aplican a todos sus productos.
@@ -1761,6 +1799,12 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
           </select>
         </div>
         <FilterBar filter={f} setFilter={setF} count={grupos.length} nombre="venta"/>
+        {nDup>0&&(
+          <button onClick={()=>setSoloDup(d=>!d)}
+            style={{...(soloDup?btn(C.red):btnO(C.red)),width:"100%",marginTop:8,fontSize:12.5,padding:"9px 12px"}}>
+            {soloDup ? "Ver todas las ventas" : `Revisar ${nDup} venta${nDup===1?"":"s"} con producto repetido`}
+          </button>
+        )}
 
         {grupos.length===0
           ? <p style={{color:C.muted,textAlign:"center",padding:"28px 0",margin:0}}>No hay ventas con estos filtros.</p>
@@ -1796,7 +1840,9 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontWeight:700,fontSize:14}}>{fmt(g.total)}</div>
-                    {g.pend&&g.dias>0&&<div style={{fontSize:11,color:C.red}}>{g.dias} días</div>}
+                    {g.dup.size>0
+                      ? <div style={{fontSize:11,color:C.red,fontWeight:600}}>repetido</div>
+                      : g.pend&&g.dias>0&&<div style={{fontSize:11,color:C.red}}>{g.dias} días</div>}
                   </div>
                   <span style={{color:C.mutedL}}>›</span>
                 </div>
@@ -1839,7 +1885,11 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
                 <div key={v.id} onClick={()=>abrir(v)} style={{display:"grid",gridTemplateColumns:"1fr auto 14px",
                   gap:10,alignItems:"center",padding:"11px 4px",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
                   <div style={{minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:14}}>{v.producto}{v.calibre?` · ${v.calibre}`:""}</div>
+                    <div style={{fontWeight:600,fontSize:14}}>
+                      {v.producto}{v.calibre?` · ${v.calibre}`:""}
+                      {gAbierto.dup.has(String(v.producto||"").toLowerCase())&&
+                        <span style={{...badge(C.red),marginLeft:6,fontSize:10}}>repetido</span>}
+                    </div>
                     <div style={{fontSize:11,color:C.muted,marginTop:2}}>
                       {num(v.kg).toLocaleString("es-MX",{maximumFractionDigits:2})} {uni(v.producto)} × {fmt(v.precio)}
                       <span style={{color:pend?C.amber:C.green,fontWeight:600}}> · {pend?"Pendiente":"Pagado"}</span>
@@ -1938,6 +1988,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
                     estatus:gAbierto.pend?"Pendiente":"Pagado" });
                 }}>Ticket</button>
                 <button style={btnO(C.muted)} onClick={()=>agregarA(gAbierto)}>+ Producto</button>
+                <button style={btnO(C.red)} onClick={()=>eliminarGrupo(gAbierto)}>Eliminar venta</button>
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button style={btnO(C.muted)} onClick={()=>setGsel(null)}>Cerrar</button>
@@ -2040,7 +2091,7 @@ function Ventas({ ventas, setVentas, clientes, productos, compras, logBit, abrir
 
             <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:24,flexWrap:"wrap"}}>
               <div style={{display:"flex",gap:8}}>
-                {!nueva&&<button style={btnO(C.red)} onClick={eliminar}>Eliminar</button>}
+                {!nueva&&<button style={btnO(C.red)} onClick={eliminar}>Eliminar producto</button>}
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button style={btnO(C.muted)} onClick={cerrar}>Cancelar</button>
@@ -3723,8 +3774,6 @@ function Inventarios({ inventario, setInventario, logBit }) {
 const USUARIOS = [
   { user:"Irving", pass:"1111$",  rol:"admin" },
   { user:"Jasso",  pass:"1956$",  rol:"admin" },
-  { user:"Daniel", pass:"op01$",  rol:"operativo" },
-  { user:"Hector", pass:"op02$",  rol:"operativo", pedidos:true },
   { user:"Jose",   pass:"op03$",  rol:"operativo", pedidos:true },
 ];
 
@@ -3930,7 +3979,7 @@ export default function App() {
       <div className="saji-body">
         {/* ── BARRA SUPERIOR ──────────────────────────────────────────── */}
         <header className="saji-top">
-          <div className="saji-brand-sm">
+          <div className="saji-brand-sm" onClick={()=>window.location.reload()} style={{cursor:"pointer"}}>
             <SAJILogo s={36}/>
             <strong style={{fontSize:14}}>SAJI Group</strong>
           </div>
