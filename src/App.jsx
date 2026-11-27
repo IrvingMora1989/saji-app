@@ -804,9 +804,18 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
        String(v.pedidoId||"")===String(p.id)
     || (normCliente(v.cliente)===normCliente(p.cliente) && (v.fecha||"")===fechaPed(p)));
   const desdeAviso = (()=>{ const d=new Date(); d.setDate(d.getDate()-15); return d.toISOString().slice(0,10); })();
-  const sinVenta = pedidos.filter(p=>p.estatus==="completado"
-    && fechaPed(p) >= desdeAviso && !tieneVenta(p))
+  const pendAviso = pedidos.filter(p=>p.estatus==="completado"
+    && fechaPed(p) >= desdeAviso && !tieneVenta(p));
+  const sinVenta = pendAviso.filter(p=>!p.ventaOk)
     .sort((a,b)=>fechaPed(b).localeCompare(fechaPed(a)));
+  const ocultos  = pendAviso.filter(p=>p.ventaOk);
+  // Quitar del aviso sin borrar el pedido: su venta ya existía o no hubo entrega
+  const omitir = p => {
+    if(!window.confirm(`Quitar del aviso el pedido #${p.id} de ${p.cliente}?\n\nEl pedido no se borra, solo deja de aparecer aquí. Házlo si esa venta ya existe o si no hubo entrega.`)) return;
+    setPedidos(ps=>ps.map(x=>x.id===p.id?{...x,ventaOk:true}:x));
+    logBit("Quitó aviso de venta",`#${p.id} · ${p.cliente}`);
+  };
+  const restaurarAvisos = () => setPedidos(ps=>ps.map(x=>x.ventaOk?{...x,ventaOk:false}:x));
   const regenerar = p => {
     const rem = window.prompt(
       `Número de remisión del pedido #${p.id} — ${p.cliente}:`, p.remision||"");
@@ -843,14 +852,19 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
         ))}
       </div>
 
-      {sinVenta.length>0&&(
+      {(sinVenta.length>0||ocultos.length>0)&&(
         <div style={{background:C.amberL,border:`1px solid ${C.amber}66`,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:13.5,color:C.amber}}>
-            {sinVenta.length} pedido{sinVenta.length===1?"":"s"} de los últimos 15 días sin venta registrada
-          </div>
-          <div style={{fontSize:11.5,color:C.muted,margin:"3px 0 8px"}}>
-            Se guardó el pedido pero la venta no. Revísala antes de generarla, para no duplicar.
-          </div>
+          {sinVenta.length>0 ? (<>
+            <div style={{fontWeight:700,fontSize:13.5,color:C.amber}}>
+              {sinVenta.length} pedido{sinVenta.length===1?"":"s"} de los últimos 15 días sin venta registrada
+            </div>
+            <div style={{fontSize:11.5,color:C.muted,margin:"3px 0 8px"}}>
+              Se guardó el pedido pero la venta no. Revísala antes de generarla, para no duplicar.
+              La × lo quita del aviso sin borrar el pedido.
+            </div>
+          </>) : (
+            <div style={{fontSize:12,color:C.muted}}>Todos los pedidos de los últimos 15 días tienen su venta.</div>
+          )}
           {sinVenta.slice(0, verTodos?999:5).map(p=>(
             <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
               padding:"7px 0",borderTop:`1px solid ${C.amber}2b`}}>
@@ -860,14 +874,25 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
                   {fmtDate(fechaPed(p))} · {(p.items||[]).length} prod · {fmt(p.totalReal||p.total)} · #{p.id}
                 </div>
               </div>
-              <button style={{...btn(C.amber),padding:"7px 12px",fontSize:12,whiteSpace:"nowrap"}}
-                onClick={()=>regenerar(p)}>Generar</button>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <button style={{...btn(C.amber),padding:"7px 12px",fontSize:12,whiteSpace:"nowrap"}}
+                  onClick={()=>regenerar(p)}>Generar</button>
+                <button title="Quitar del aviso" onClick={()=>omitir(p)}
+                  style={{background:"none",border:"none",color:C.muted,fontSize:20,lineHeight:1,
+                    padding:"2px 6px",cursor:"pointer"}}>×</button>
+              </div>
             </div>
           ))}
           {sinVenta.length>5&&(
             <button style={{...btnO(C.amber),marginTop:8,width:"100%",fontSize:12,padding:"7px 10px"}}
               onClick={()=>setVerTodos(v=>!v)}>
               {verTodos ? "Ver menos" : `Ver los ${sinVenta.length}`}
+            </button>
+          )}
+          {ocultos.length>0&&(
+            <button onClick={restaurarAvisos} style={{background:"none",border:"none",color:C.muted,
+              fontSize:11,padding:"8px 0 0",cursor:"pointer",textDecoration:"underline"}}>
+              Mostrar {ocultos.length} que quitaste
             </button>
           )}
         </div>
