@@ -702,6 +702,7 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
   const esOperativo = rol==="operativo";
   const [show,         setShow]        = useState(false);
   const [filter,       setFilter]      = useState("pendiente");
+  const [verTodos,     setVerTodos]    = useState(false);
   const [form,         setForm]        = useState({ cliente:"", fechaEntrega:"", tipoPago:"efectivo", factura:"no", items:[emptyItem()] });
   const [editId,       setEditId]      = useState(null); // pedido que se está editando
   const [ticket,       setTicket]      = useState(null); // ticket listo para imprimir
@@ -796,8 +797,16 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
 
   // Un pedido completado SIEMPRE debe tener su venta. Si la conexión falla a
   // medias se guarda el pedido pero no la venta, y el pedido queda invisible.
+  // Las ventas viejas se importaron de Excel y no traen pedidoId, así que
+  // también se busca por cliente y fecha, y solo se revisan los últimos 15 días.
+  const fechaPed = p => p.fechaEntrega || p.fecha || "";
+  const tieneVenta = p => (ventas||[]).some(v=>
+       String(v.pedidoId||"")===String(p.id)
+    || (normCliente(v.cliente)===normCliente(p.cliente) && (v.fecha||"")===fechaPed(p)));
+  const desdeAviso = (()=>{ const d=new Date(); d.setDate(d.getDate()-15); return d.toISOString().slice(0,10); })();
   const sinVenta = pedidos.filter(p=>p.estatus==="completado"
-    && !(ventas||[]).some(v=>String(v.pedidoId||"")===String(p.id)));
+    && fechaPed(p) >= desdeAviso && !tieneVenta(p))
+    .sort((a,b)=>fechaPed(b).localeCompare(fechaPed(a)));
   const regenerar = p => {
     const rem = window.prompt(
       `Número de remisión del pedido #${p.id} — ${p.cliente}:`, p.remision||"");
@@ -835,23 +844,32 @@ function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clie
       </div>
 
       {sinVenta.length>0&&(
-        <div style={{background:C.amberL,border:`1px solid ${C.amber}`,borderRadius:14,padding:"14px 16px",marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:14,color:C.amber}}>
-            {sinVenta.length} pedido{sinVenta.length===1?"":"s"} completado{sinVenta.length===1?"":"s"} sin venta registrada
+        <div style={{background:C.amberL,border:`1px solid ${C.amber}66`,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
+          <div style={{fontWeight:700,fontSize:13.5,color:C.amber}}>
+            {sinVenta.length} pedido{sinVenta.length===1?"":"s"} de los últimos 15 días sin venta registrada
           </div>
-          <div style={{fontSize:12,color:C.muted,margin:"4px 0 10px"}}>
-            Se guardó el pedido pero la venta no alcanzó a guardarse. Genera la venta aquí; no se captura nada de nuevo.
+          <div style={{fontSize:11.5,color:C.muted,margin:"3px 0 8px"}}>
+            Se guardó el pedido pero la venta no. Revísala antes de generarla, para no duplicar.
           </div>
-          {sinVenta.map(p=>(
+          {sinVenta.slice(0, verTodos?999:5).map(p=>(
             <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
-              flexWrap:"wrap",padding:"8px 0",borderTop:`1px solid ${C.amber}33`}}>
-              <div style={{fontSize:13}}>
-                <strong>#{p.id} · {p.cliente}</strong>
-                <span style={{color:C.muted}}> · {fmtDate(p.fechaEntrega||p.fecha)} · {(p.items||[]).length} producto{(p.items||[]).length===1?"":"s"} · {fmt(p.totalReal||p.total)}</span>
+              padding:"7px 0",borderTop:`1px solid ${C.amber}2b`}}>
+              <div style={{fontSize:12.5,minWidth:0,lineHeight:1.35}}>
+                <strong>{p.cliente}</strong>
+                <div style={{color:C.muted,fontSize:11}}>
+                  {fmtDate(fechaPed(p))} · {(p.items||[]).length} prod · {fmt(p.totalReal||p.total)} · #{p.id}
+                </div>
               </div>
-              <button style={btn(C.amber)} onClick={()=>regenerar(p)}>Generar venta</button>
+              <button style={{...btn(C.amber),padding:"7px 12px",fontSize:12,whiteSpace:"nowrap"}}
+                onClick={()=>regenerar(p)}>Generar</button>
             </div>
           ))}
+          {sinVenta.length>5&&(
+            <button style={{...btnO(C.amber),marginTop:8,width:"100%",fontSize:12,padding:"7px 10px"}}
+              onClick={()=>setVerTodos(v=>!v)}>
+              {verTodos ? "Ver menos" : `Ver los ${sinVenta.length}`}
+            </button>
+          )}
         </div>
       )}
 
