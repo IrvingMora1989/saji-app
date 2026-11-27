@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, Fragment } from "react";
-import { loadTable, saveTable, subscribeTable } from "./supabase.js";
+import { loadTable, saveTable, subscribeTable, marcarBase } from "./supabase.js";
 
 // ─── iOS zoom fix ─────────────────────────────────────────────────────────────
 if (typeof document !== "undefined") {
@@ -45,6 +45,7 @@ const normCliente = c => {
 const RESP = t => `saji_pend_${t}`;
 const edo = new Map();      // tabla -> {ultimo, seq, okSeq, enVuelo, error}
 const oyentes = new Set();
+const aplicadores = new Map();  // tabla -> setVal, para adoptar lo fusionado
 const estadoGuardado = () => {
   let pend = 0, error = "";
   edo.forEach(st => { if (st.okSeq < st.seq) { pend++; if (st.error) error = st.error; } });
@@ -57,15 +58,22 @@ const bombear = async tabla => {
   if (!st || st.enVuelo || st.okSeq >= st.seq) return;
   st.enVuelo = true;
   const seq = st.seq, data = st.ultimo;
-  let ok = false, err = "";
+  let ok = false, err = "", res = null;
   try {
-    const r = await saveTable(tabla, data);
-    ok = !(r && r.ok === false);
-    if (!ok) err = r.error || "No se pudo guardar";
+    res = await saveTable(tabla, data);
+    ok = !(res && res.ok === false);
+    if (!ok) err = res.error || "No se pudo guardar";
   } catch (e) { err = String(e?.message || e); }
   st.enVuelo = false;
   if (ok) {
     st.okSeq = Math.max(st.okSeq, seq); st.error = "";
+    // Otro equipo agregó o cambió cosas mientras tanto: adoptarlas en pantalla.
+    // Solo si ya no hay nada mío más nuevo esperando.
+    if (res && res.fusionado && st.okSeq >= st.seq && aplicadores.has(tabla)) {
+      st.ultimo = res.data;
+      marcarBase(tabla, res.data);
+      aplicadores.get(tabla)(res.data);
+    }
     if (st.okSeq >= st.seq) { try { localStorage.removeItem(RESP(tabla)); } catch {} }
   } else {
     st.error = err;
@@ -104,13 +112,31 @@ const useSupabase = (tabla, init) => {
   const [val, setVal] = useState(init);
   const [loaded, setLoaded] = useState(false);
 
+  useEffect(() => { aplicadores.set(tabla, setVal); return () => { aplicadores.delete(tabla); }; }, [tabla]);
+
+  // Al volver a la app puede haber cambios de otro equipo que no llegaron
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState !== "visible") return;
+      const st = edo.get(tabla);
+      if (st && st.okSeq < st.seq) return;        // primero sube lo mío
+      loadTable(tabla).then(data => { if (data) { marcarBase(tabla, data); setVal(data); } });
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+    return () => {
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
+    };
+  }, [tabla]);
+
   // Cargar datos iniciales
   useEffect(() => {
     loadTable(tabla).then(data => {
       // Lo que el servidor manda no debe pisar cambios locales sin confirmar
       const st = edo.get(tabla);
       if (st && st.okSeq < st.seq) { setLoaded(true); return bombear(tabla); }
-      if (data) setVal(data);
+      if (data) { marcarBase(tabla, data); setVal(data); }
       setLoaded(true);
     });
   }, [tabla]);
@@ -120,6 +146,7 @@ const useSupabase = (tabla, init) => {
     const sub = subscribeTable(tabla, (newData) => {
       const st = edo.get(tabla);
       if (st && st.okSeq < st.seq) return;   // tengo cambios míos sin guardar
+      marcarBase(tabla, newData);
       setVal(newData);
     });
     return () => sub.unsubscribe();
