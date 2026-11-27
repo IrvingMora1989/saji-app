@@ -10,20 +10,37 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 // Esto es simple y funciona perfecto para este volumen de datos.
 
 export async function loadTable(tabla) {
-  const { data, error } = await supabase
-    .from(tabla)
-    .select('data')
-    .eq('id', 'main')
-    .single()
-  if (error || !data) return null
-  return data.data
+  try {
+    const { data, error } = await supabase
+      .from(tabla)
+      .select('data')
+      .eq('id', 'main')
+      .single()
+    if (error || !data) return null
+    return data.data
+  } catch (e) {
+    console.error(`Error cargando ${tabla}:`, e)
+    return null
+  }
 }
 
+// Devuelve { ok:true } o { ok:false, error } para que la app pueda reintentar
+// y avisar en pantalla. Antes se tragaba el error y el cambio se perdía
+// en silencio cuando fallaba la señal.
 export async function saveTable(tabla, array) {
-  const { error } = await supabase
-    .from(tabla)
-    .upsert({ id: 'main', data: array, updated_at: new Date().toISOString() })
-  if (error) console.error(`Error guardando ${tabla}:`, error)
+  try {
+    const { error } = await supabase
+      .from(tabla)
+      .upsert({ id: 'main', data: array, updated_at: new Date().toISOString() })
+    if (error) {
+      console.error(`Error guardando ${tabla}:`, error)
+      return { ok: false, error: error.message || 'Error al guardar' }
+    }
+    return { ok: true }
+  } catch (e) {
+    console.error(`Error guardando ${tabla}:`, e)
+    return { ok: false, error: String(e?.message || e) }
+  }
 }
 
 // Escucha cambios en tiempo real de una tabla

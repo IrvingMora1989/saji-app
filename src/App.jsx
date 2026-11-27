@@ -32,6 +32,67 @@ const normCliente = c => {
   return s;
 };
 
+// ─── Guardado confiable ─────────────────────────────────────────
+// Sin esto, si falla la señal el cambio se pierde en silencio: la pantalla lo
+// muestra guardado y al recargar ya no está. Aquí cada guardado se reintenta,
+// se respalda en el teléfono y se avisa arriba cuántos van sin confirmar.
+const RESP = t => `saji_pend_${t}`;
+const edo = new Map();      // tabla -> {ultimo, seq, okSeq, enVuelo, error}
+const oyentes = new Set();
+const estadoGuardado = () => {
+  let pend = 0, error = "";
+  edo.forEach(st => { if (st.okSeq < st.seq) { pend++; if (st.error) error = st.error; } });
+  return { pend, error };
+};
+const avisar = () => { const e = estadoGuardado(); oyentes.forEach(f => f(e)); };
+
+const bombear = async tabla => {
+  const st = edo.get(tabla);
+  if (!st || st.enVuelo || st.okSeq >= st.seq) return;
+  st.enVuelo = true;
+  const seq = st.seq, data = st.ultimo;
+  let ok = false, err = "";
+  try {
+    const r = await saveTable(tabla, data);
+    ok = !(r && r.ok === false);
+    if (!ok) err = r.error || "No se pudo guardar";
+  } catch (e) { err = String(e?.message || e); }
+  st.enVuelo = false;
+  if (ok) {
+    st.okSeq = Math.max(st.okSeq, seq); st.error = "";
+    if (st.okSeq >= st.seq) { try { localStorage.removeItem(RESP(tabla)); } catch {} }
+  } else {
+    st.error = err;
+  }
+  avisar();
+  if (ok && st.okSeq < st.seq) bombear(tabla);   // llegó algo nuevo mientras guardaba
+};
+
+const encolar = (tabla, data) => {
+  const st = edo.get(tabla) || { seq: 0, okSeq: 0, enVuelo: false, error: "" };
+  st.seq++; st.ultimo = data; edo.set(tabla, st);
+  try { localStorage.setItem(RESP(tabla), JSON.stringify({ data, ts: Date.now() })); } catch {}
+  avisar();
+  bombear(tabla);
+};
+
+// Reintento automático: al recuperar señal y cada 8 segundos
+if (typeof window !== "undefined" && !window.__sajiReintento) {
+  window.__sajiReintento = true;
+  const reintentar = () => edo.forEach((st, t) => { if (st.okSeq < st.seq) bombear(t); });
+  window.addEventListener("online", reintentar);
+  setInterval(reintentar, 8000);
+  window.addEventListener("beforeunload", e => {
+    if (estadoGuardado().pend > 0) { e.preventDefault(); e.returnValue = ""; }
+  });
+}
+
+const useEstadoGuardado = () => {
+  const [e, setE] = useState({ pend: 0, error: "" });
+  useEffect(() => { oyentes.add(setE); setE(estadoGuardado()); return () => { oyentes.delete(setE); }; }, []);
+  return e;
+};
+
 // ─── useSupabase — reemplaza usePersist con sync en tiempo real ───────────────
 const useSupabase = (tabla, init) => {
   const [val, setVal] = useState(init);
@@ -40,6 +101,9 @@ const useSupabase = (tabla, init) => {
   // Cargar datos iniciales
   useEffect(() => {
     loadTable(tabla).then(data => {
+      // Lo que el servidor manda no debe pisar cambios locales sin confirmar
+      const st = edo.get(tabla);
+      if (st && st.okSeq < st.seq) { setLoaded(true); return bombear(tabla); }
       if (data) setVal(data);
       setLoaded(true);
     });
@@ -48,6 +112,8 @@ const useSupabase = (tabla, init) => {
   // Escuchar cambios en tiempo real (cuando tu socio modifica algo)
   useEffect(() => {
     const sub = subscribeTable(tabla, (newData) => {
+      const st = edo.get(tabla);
+      if (st && st.okSeq < st.seq) return;   // tengo cambios míos sin guardar
       setVal(newData);
     });
     return () => sub.unsubscribe();
@@ -57,7 +123,7 @@ const useSupabase = (tabla, init) => {
   const set = useCallback(v => {
     setVal(prev => {
       const next = typeof v === "function" ? v(prev) : v;
-      saveTable(tabla, next);
+      encolar(tabla, next);
       return next;
     });
   }, [tabla]);
@@ -606,7 +672,33 @@ function Dashboard({ pedidos, ventas, gastos, fruta, compras, onVerVenta }) {
 // ════════════════════════════════════════════════════════════════════════════════
 const emptyItem = () => ({ producto:"", calibre:"", cantidad:"", precio:"" });
 
-function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, productos, logBit, rol }) {
+// Si un guardado no llega al servidor hay que verlo, no enterarse al recargar
+function AvisoGuardado() {
+  const { pend, error } = useEstadoGuardado();
+  const [red, setRed] = useState(typeof navigator==="undefined" ? true : navigator.onLine);
+  useEffect(()=>{
+    const on=()=>setRed(true), off=()=>setRed(false);
+    window.addEventListener("online",on); window.addEventListener("offline",off);
+    return ()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",off); };
+  },[]);
+  if(pend===0 && red) return null;
+  const sinRed = !red;
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",
+      padding:"10px 18px",background:sinRed?"#fff7ed":C.amberL,
+      borderBottom:`1px solid ${C.amber}55`,fontSize:13,color:"#92400e"}}>
+      <strong>{sinRed ? "Sin conexión" : "Guardando…"}</strong>
+      <span>
+        {pend>0
+          ? `${pend} cambio${pend===1?"":"s"} sin confirmar en el servidor. No cierres la app; se reintenta solo.`
+          : "No hay internet. Lo que captures se guarda en el teléfono y sube al volver la señal."}
+      </span>
+      {error&&<span style={{color:C.muted,fontSize:11}}>({error})</span>}
+    </div>
+  );
+}
+
+function Pedidos({ pedidos, setPedidos, ventas, setVentas, setPagos, pagos, clientes, productos, logBit, rol }) {
   const esOperativo = rol==="operativo";
   const [show,         setShow]        = useState(false);
   const [filter,       setFilter]      = useState("pendiente");
@@ -698,16 +790,70 @@ function Pedidos({ pedidos, setPedidos, setVentas, setPagos, pagos, clientes, pr
                 total:totalReal, tipoPago:esEfectivo?"Efectivo":"Transferencia", estatus:"Pendiente" });
   };
 
-  // Always show only pending pedidos
-  const lista = pedidos.filter(p=>p.estatus==="pendiente")
+  const lista = pedidos.filter(p=>filter==="todo" ? true : (p.estatus||"pendiente")===filter)
     .slice().sort((a,b)=>(b.fecha||b.fechaEntrega||'').localeCompare(a.fecha||a.fechaEntrega||''));
+  const cuenta = e => pedidos.filter(p=>(p.estatus||"pendiente")===e).length;
+
+  // Un pedido completado SIEMPRE debe tener su venta. Si la conexión falla a
+  // medias se guarda el pedido pero no la venta, y el pedido queda invisible.
+  const sinVenta = pedidos.filter(p=>p.estatus==="completado"
+    && !(ventas||[]).some(v=>String(v.pedidoId||"")===String(p.id)));
+  const regenerar = p => {
+    const rem = window.prompt(
+      `Número de remisión del pedido #${p.id} — ${p.cliente}:`, p.remision||"");
+    if(rem===null) return;
+    if(!String(rem).trim()) return alert("Necesitas el número de remisión.");
+    const fechaVenta = p.fechaEntrega || p.fecha || todayStr();
+    const items = p.items||[];
+    const esEfectivo = String(p.tipoPago||"").toLowerCase()==="efectivo";
+    const nv = items.map((it,i)=>({
+      id:`${Date.now()}-${i}`, pedido:String(rem).trim(),
+      sem:weekOf(fechaVenta), dia:dayOf(fechaVenta), mes:monthOf(fechaVenta),
+      fecha:fechaVenta, cliente:p.cliente, producto:it.producto,
+      kg:parseFloat(it.cantidad)||0, precio:parseFloat(it.precio)||0,
+      total:Math.round((parseFloat(it.cantidad)||0)*(parseFloat(it.precio)||0)*100)/100,
+      tipoPago: esEfectivo?"Efectivo":"Transferencia", estatus:"Pendiente",
+      factura: esEfectivo?"NA":"Pedir", fpago:"", pedidoId:p.id,
+    }));
+    setVentas(vs=>[...nv,...vs]);
+    logBit("Regeneró venta",`#${p.id} · ${p.cliente} · remisión ${String(rem).trim()}`);
+  };
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
-        <h2 style={{...h2s,margin:0}}>📦 Pedidos Pendientes</h2>
+        <h2 style={{...h2s,margin:0}}>📦 Pedidos</h2>
         <button style={btn()} onClick={abrirNuevo}>+ Nuevo Pedido</button>
       </div>
+
+      <div className="saji-chips" style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+        {[["pendiente","Pendientes"],["completado","Completados"],["cancelado","Cancelados"],["todo","Todos"]].map(([k,t])=>(
+          <button key={k} style={nb(filter===k)} onClick={()=>setFilter(k)}>
+            {t} {k==="todo" ? pedidos.length : cuenta(k)}
+          </button>
+        ))}
+      </div>
+
+      {sinVenta.length>0&&(
+        <div style={{background:C.amberL,border:`1px solid ${C.amber}`,borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+          <div style={{fontWeight:700,fontSize:14,color:C.amber}}>
+            {sinVenta.length} pedido{sinVenta.length===1?"":"s"} completado{sinVenta.length===1?"":"s"} sin venta registrada
+          </div>
+          <div style={{fontSize:12,color:C.muted,margin:"4px 0 10px"}}>
+            Se guardó el pedido pero la venta no alcanzó a guardarse. Genera la venta aquí; no se captura nada de nuevo.
+          </div>
+          {sinVenta.map(p=>(
+            <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
+              flexWrap:"wrap",padding:"8px 0",borderTop:`1px solid ${C.amber}33`}}>
+              <div style={{fontSize:13}}>
+                <strong>#{p.id} · {p.cliente}</strong>
+                <span style={{color:C.muted}}> · {fmtDate(p.fechaEntrega||p.fecha)} · {(p.items||[]).length} producto{(p.items||[]).length===1?"":"s"} · {fmt(p.totalReal||p.total)}</span>
+              </div>
+              <button style={btn(C.amber)} onClick={()=>regenerar(p)}>Generar venta</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={card}>
         <div style={{overflowX:"auto"}}>
@@ -3753,10 +3899,12 @@ export default function App() {
           </div>
         </header>
 
+        <AvisoGuardado/>
+
         <main className="saji-main saji-view" key={tab}>
           {tab==="dashboard"   && rol==="admin" && <Dashboard pedidos={pedidos} ventas={ventas} gastos={gastos} fruta={fruta.filter(f=>!f.tipo)} compras={fruta.filter(f=>!f.tipo)}
               onVerVenta={v=>{ setVentaAbrir(v); setTab("ventas"); }}/>}
-          {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
+          {tab==="pedidos"     && <Pedidos pedidos={pedidos} setPedidos={setPedidos} ventas={ventas} setVentas={setVentas} setPagos={setPagos} pagos={pagos} clientes={clientes} productos={productos} logBit={logBit} rol={rol}/>}
           {tab==="ventas"      && rol==="admin" && <Ventas ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} compras={fruta.filter(f=>!f.tipo)} logBit={logBit}
               abrirVenta={ventaAbrir} onAbierta={()=>setVentaAbrir(null)}/>}
           {tab==="facturacion" && rol==="admin" && <Facturacion ventas={ventas} setVentas={setVentas} clientes={clientes} productos={productos} logBit={logBit}/>}
